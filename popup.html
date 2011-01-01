@@ -2,23 +2,19 @@
 <body>
 	<script>
 		var bg = chrome.extension.getViews()[0];
-		if(bg.history.ready == false) {
-			document.write("Not done yet, sorry! <br>");
-		} else { 
-			document.write("Done! <br>");
-			document.write("Processed: " + bg.history.tfs.length + " history entries. <br><br><br>");
 		
-			chrome.tabs.getSelected(null, function(tab) {
-				var url = tab.url;
-				var scores = bg.computeTfIdfScores(url);
+		chrome.tabs.getSelected(null, function(tab) {
+			var url = tab.url;
+			var scores = bg.computeTfIdfScores(url);
 
-				document.write("Suggestions for url: " + url + "<br>");
-				for(i = 0; i<5; i++) {
-					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
-						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
-				}
-			});		
-		}	
+			document.write("Processed: " + bg.history.tfs.length + " history entries. <br><br><br>");
+			
+//			document.write("Suggestions for url: " + url + "<br>");
+//			for(i = 0; i<5; i++) {
+//				document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
+//					scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+//			}
+		});		
 	</script>
 </body>
 </html>
