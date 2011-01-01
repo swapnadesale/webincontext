@@ -3,20 +3,27 @@
 	<script>
 		var bg = chrome.extension.getViews()[0];
 		
-		chrome.tabs.getSelected(null, function(tab) {
-			var url = tab.url;
-			var scores = bg.computeTfIdfScores(url);
-
+		if (bg.history.ready == false) {
+			document.write("Sorry, not done yet! <br>");
 			document.write("Processed: " + bg.history.tfs.length + " history entries. <br>");
 			document.write("Remaining: " + bg.history.unprocessed.length + ". <br><br>");
-			// document.write(bg.log + "<br><br><br>");
-			
-//			document.write("Suggestions for url: " + url + "<br>");
-//			for(i = 0; i<5; i++) {
-//				document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
-//					scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
-//			}
-		});		
+		} else {
+			chrome.tabs.getSelected(null, function(tab){
+				var url = tab.url;
+				
+				var scores = bg.history.tfidf.scores[url];
+				if(scores == null) {
+					document.write("TfIdf scores not yet computed.");
+					return;
+				}
+				
+				document.write("Suggestions for url: " + url + "<br>");
+				for(i = 0; i<5; i++) {
+					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+				}
+			});
+		}		
 	</script>
 </body>
 </html>
