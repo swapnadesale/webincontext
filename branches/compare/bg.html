@@ -19,7 +19,6 @@
 // History
 // ========================================================================================
 		var history;
-		history.ready = false;
 		function loadAllHistory() {
 			history.dfs = new Array();
 			history.tfs = new Array();
@@ -64,33 +63,38 @@
 			chrome.history.search({
 				text: "",
 				startTime:history.lastProcessedHistoryEntry,
-				maxResults: 200
+				maxResults: 500
 			}, function(results){
 				log += "Retrieving " + results.length + " results from history. <br>"
-				for(var i = results.length - 1; i>=0; i--) {
-					// Retrieve the html.
-					req = new XMLHttpRequest();
-					url = results[i].url;
-					
-					// TODO: Filter out undesired urls.
-					if (url.indexOf("www.google.") != -1) continue;
-					
-					lastVisitTime = results[i].lastVisitTime;
-					req.open("GET", url, false);
-					try {
-						req.send();
-						// Parse the html, eliminating <script> and <style> content.
-						div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-						// Compute TFs and DFs (and update disk storage).
-						computeTfsDfs(url, div.innerText, lastVisitTime);
-					} 
-					catch (err) {
-						log += err + "<br>";
-					}
-				}
-				
-				history.ready = true;
+				history.unprocessed = results;
+				timer = setInterval("processHistoryEntry();", 500);
 			});
+		}
+
+		function processHistoryEntry() {
+			if(history.unprocessed.length == 0) {
+				clearInterval(timer);
+				return;
+			}
+			
+			req = new XMLHttpRequest();
+			entry = history.unprocessed.pop();
+			url = entry.url;					
+			// TODO: Filter out undesired urls.
+			if (url.indexOf("www.google.") != -1) return;
+					
+			lastVisitTime = entry.lastVisitTime;
+			req.open("GET", url, false);
+			try {
+				req.send();
+				// Parse the html, eliminating <script> and <style> content.
+				div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+				// Compute TFs and DFs (and update disk storage).
+				computeTfsDfs(url, div.innerText, lastVisitTime);
+			} 
+			catch (err) {
+				log += err + "<br>";
+			}
 		}
 
 		function computeTfsDfs(url, s, lastVisitTime){
