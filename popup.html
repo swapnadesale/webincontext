@@ -6,24 +6,18 @@
 			document.write("Not done yet, sorry! <br>");
 		} else { 
 			document.write("Done! <br>");
-			document.write("Processed: " + bg.history.tfs.length + 
-				" unnormalized and " + bg.history.normalized.length + " normalized history entries. <br><br><br>");
+			document.write("Processed: " + bg.history.tfs.length + " history entries. <br><br><br>");
 		
 			chrome.tabs.getSelected(null, function(tab) {
 				var url = tab.url;
-				var scores = bg.history.bayes.scores[url];
-				if(scores == null) {
-					document.write("Suggestions not computed yet!");
-				} else {
-					document.write("Suggestions for url: " + url + "<br>");
-					var i = 0;
-					while(scores[++i].score > 0) {
-						document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
-							scores[i].url + "</a>: " + scores[i].score + "<br>");
-					}
+				var scores = bg.computeTfIdfScores(url);
+
+				document.write("Suggestions for url: " + url + "<br>");
+				for(i = 0; i<5; i++) {
+					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
 				}
 			});		
-			document.write("<br><br>" + bg.log);
 		}	
 	</script>
 </body>

@@ -8,14 +8,13 @@
 		}
 		
 		var log = "";
+		
 
 // Storage keys
 // ============
-
 		keyLastProcessedHistoryEntry = "lastProcessedHistoryEntry";	// Timestamp
 		keyDfs = "dfs"
 		keyTfsEntry = "tfs";	// Format: "tfs url"
-		keyNormalizedEntry = "normalized";	// Format: "normalized url"
 
 // History
 // ========================================================================================
@@ -24,7 +23,6 @@
 		function loadAllHistory() {
 			history.dfs = new Array();
 			history.tfs = new Array();
-			history.normalized = new Array();
 						
 //			localStorage.clear();
 //			return; 
@@ -33,11 +31,7 @@
 			// ======================================
 			chrome.extension.onRequest.addListener(
 				function(request, sender, sendResponse) {
-					// Compute TFs and DFs.
 					computeTfsDfs(request.url, request.text, (new Date).getTime());
-					normalizeTfsVector(request.url);					
-					computeBayesScores(request.url);
-					updateNormalizedSum(request.url);
   			});
 
 			// 1. Load already processed URLs from disk
@@ -50,24 +44,16 @@
 				history.lastProcessedHistoryEntry = parseInt(localStorage.getItem(keyLastProcessedHistoryEntry));				
 				history.dfs = parseIntArray(localStorage.getItem(keyDfs));
 				
-				// Loading the TFs and Normalized vectors
+				// Loading the TFs vectors
 				for(var i = 0; i<localStorage.length; i++) {
 					key = localStorage.key(i);
 					keyComponents = key.split(" ");
 					entryType = keyComponents[0];
-					
-					if((entryType == keyTfsEntry) || (entryType == keyNormalizedEntry)){
+					if(entryType == keyTfsEntry){
 						url = keyComponents[1];
-						v = parseIntArray(localStorage.getItem(key));
-						if (entryType == keyTfsEntry) {
-							history.tfs[url] = v;
-							history.tfs.length++;
-							log += "Loading TFs entry for " + url + "<br>";
-						} else {
-							history.normalized[url] = v;
-							history.normalized.length++;
-							log += "Loading normalized entry for " + url + "<br>";
-						}
+						history.tfs[url] = parseIntArray(localStorage.getItem(key));
+						history.tfs.length++;
+						log += "Loading TFs entry for " + url + "<br>";
 					}
 				}
 			}
@@ -78,7 +64,7 @@
 			chrome.history.search({
 				text: "",
 				startTime:history.lastProcessedHistoryEntry,
-				maxResults: 1000
+				maxResults: 200
 			}, function(results){
 				log += "Retrieving " + results.length + " results from history. <br>"
 				for(var i = results.length - 1; i>=0; i--) {
@@ -88,7 +74,6 @@
 					
 					// TODO: Filter out undesired urls.
 					if (url.indexOf("www.google.") != -1) continue;
-					
 					
 					lastVisitTime = results[i].lastVisitTime;
 					req.open("GET", url, false);
@@ -103,16 +88,6 @@
 						log += err + "<br>";
 					}
 				}
-				
-				// 3. Compute normalized vectors for all TFs vectors.
-				// ====================================================
-				for(url in history.tfs) {
-					normalizeTfsVector(url);
-				}
-				
-				// 4. Compute Bayes Sets parameters
-				// ================================
-				initializeBayesParameters();
 				
 				history.ready = true;
 			});
@@ -146,104 +121,135 @@
 			localStorage.setItem(keyDfs, serializeIntArray(history.dfs));
 			localStorage.setItem(keyLastProcessedHistoryEntry, lastVisitTime);
 		}
-		function normalizeTfsVector(url) {
-			var tfIdf = new Array();
-			var nrWords = 0;
-			var avgTfIdf = 0;
-			history.totalEntries = history.tfs.length + history.normalized.length;
+		
+
+// Tf-Idf Vector Space
+// ========================================================================================
+
+		function computeTfIdfScores(newUrl) {
+			tfidfNewUrl = computeTfIdf(newUrl);
 			
-			// Compute Tf-Idf vector
-			for (word in history.tfs[url]) {
-				tfIdf[word] = history.tfs[url][word] * Math.log(history.totalEntries / history.dfs[word]) / Math.LN2;
-				nrWords++;
-				avgTfIdf += tfIdf[word];
-			}			
-			avgTfIdf /= nrWords; 	// Assumes non-empty vector.
-
-			// Delete Tfs vector
-			delete history.tfs[url];
-			history.tfs.length--;
-			localStorage.removeItem(keyTfsEntry + " " + url);
-
-			// Normalize
-			if(history.normalized[url] == undefined) { history.normalized.length++; }
-			history.normalized[url] = new Array();
-			for(word in tfIdf) {
-				if(tfIdf[word] > 2 * avgTfIdf) {
-					history.normalized[url][word] = 1;
-					history.normalized[url].length++;
+			// Compute tfidf, as well as the score, for each of the existing urls.
+			var score = new Array(); var i = 0;
+			for(url in history.tfs) {
+				if (url != newUrl) {
+					tfidf = computeTfIdf(url);
+					
+					// Compute the score
+					var s = 0;
+					for(word in tfidfNewUrl.tfidf) {
+						if (typeof(tfidf.tfidf[word]) == 'number') {
+							s += tfidfNewUrl.tfidf[word] * tfidf.tfidf[word];
+						}
+					}
+					score[i++] = { score: s / (tfidfNewUrl.l * tfidf.l), url: url};				
 				}
 			}
-			if(history.normalized[url].length == 0) return;
-
-			// Update disk storage
-			localStorage.setItem(keyNormalizedEntry + " " + url, serializeIntArray(history.normalized[url]));
-			log += "Storing normalized entry for " + url + "<br>";
+			
+			// Return the sorted array.
+			return score.sort(function(a,b) {return b.score - a.score});
+		}
+		
+		function computeTfIdf(url) {
+			var tfidf = new Array();
+			var l = 0;
+			for(word in history.tfs[url]) {
+				tfidf[word] = history.tfs[url][word] * Math.log(history.tfs.length / history.dfs[word]) / Math.LN2;
+				l += tfidf[word]*tfidf[word];
+			}
+			l = Math.sqrt(l);
+			return {tfidf:tfidf, l:l};
 		}
 
 // Bayesian Sets
 // ========================================================================================
-		function initializeBayesParameters() {
-			history.bayes = {};
-			history.bayes.scores = new Array();
-			computeNormalizedSum();
-		}
-
-		function computeNormalizedSum() {
-			history.bayes.normalizedSum = new Array();
-			for(url in history.normalized) {
-				for(word in history.normalized[url]) {
-					if (typeof(history.bayes.normalizedSum[word]) != 'number') 
-						history.bayes.normalizedSum[word] = 1;
-					else 
-						history.bayes.normalizedSum[word]++;
-				}
-			}
-		}
-		function updateNormalizedSum(url) {
-			for(word in history.normalized[url]) {
-				if (typeof(history.bayes.normalizedSum[word]) != 'number') 
-					history.bayes.normalizedSum[word] = 1;
-				else
-					history.bayes.normalizedSum[word]++;
-			}
-		}
-		
-		function computeBayesScores(newUrl) {
-			// Compute the query q for the url.
-			var q = new Array();
-			var n = history.normalized.length;
-			for(word in history.bayes.normalizedSum) {
-				alpha = 2 * history.bayes.normalizedSum[word] / n;
-				if (history.normalized[newUrl][word] == 1) {
-					q[word] = Math.log((alpha + 1)/alpha) / Math.LN2;
-				} else {
-					betta = 2 - alpha;
-					q[word] = - Math.log((betta + 1)/betta) / Math.LN2;
-				}
-			}
-			
-			// Compute the actual scores
-			var bayesScores = new Array();
-			var i = 0;
-			for(url in history.normalized) {
-				score = 0;
-				for(word in history.normalized[url]) {
-					score += q[word];
-				}
-				bayesScores[i++] = {score:score, url:url};
-			}
-			
-			history.bayes.scores[newUrl] = bayesScores.sort(function(a,b) {return b.score - a.score});
-			
-			// Debug
-//			var firstSuggestion = history.bayes.scores[newUrl][1];
-//			var text = "";
-//			for (word in history.normalized[firstSuggestion.url]) {
-//				text += word + ":" + q[word] + ", ";
+//		function normalizeTfsVector(url) {
+//			var tfIdf = new Array();
+//			var nrWords = 0;
+//			var avgTfIdf = 0;
+//			history.totalEntries = history.tfs.length + history.normalized.length;
+//			
+//			// Compute Tf-Idf vector
+//			for (word in history.tfs[url]) {
+//				tfIdf[word] = history.tfs[url][word] * Math.log(history.totalEntries / history.dfs[word]) / Math.LN2;
+//				nrWords++;
+//				avgTfIdf += tfIdf[word];
+//			}			
+//			avgTfIdf /= nrWords; 	// Assumes non-empty vector.
+//
+//			// Normalize
+//			if(history.normalized[url] == undefined) { history.normalized.length++; }
+//			history.normalized[url] = new Array();
+//			for(word in tfIdf) {
+//				if(tfIdf[word] > 2 * avgTfIdf) {
+//					history.normalized[url][word] = 1;
+//					history.normalized[url].length++;
+//				}
 //			}
-//			alert(firstSuggestion.url + " " + text);
-		}
+//			if(history.normalized[url].length == 0) return;
+//		}
+//
+//		function initializeBayesParameters() {
+//			history.bayes = {};
+//			history.bayes.scores = new Array();
+//			computeNormalizedSum();
+//		}
+//
+//		function computeNormalizedSum() {
+//			history.bayes.normalizedSum = new Array();
+//			for(url in history.normalized) {
+//				for(word in history.normalized[url]) {
+//					if (typeof(history.bayes.normalizedSum[word]) != 'number') 
+//						history.bayes.normalizedSum[word] = 1;
+//					else 
+//						history.bayes.normalizedSum[word]++;
+//				}
+//			}
+//		}
+//		function updateNormalizedSum(url) {
+//			for(word in history.normalized[url]) {
+//				if (typeof(history.bayes.normalizedSum[word]) != 'number') 
+//					history.bayes.normalizedSum[word] = 1;
+//				else
+//					history.bayes.normalizedSum[word]++;
+//			}
+//		}
+//		
+//		function computeBayesScores(newUrl) {
+//			// Compute the query q for the url.
+//			var q = new Array();
+//			var n = history.normalized.length;
+//			for(word in history.bayes.normalizedSum) {
+//				alpha = 2 * history.bayes.normalizedSum[word] / n;
+//				if (history.normalized[newUrl][word] == 1) {
+//					q[word] = Math.log((alpha + 1)/alpha) / Math.LN2;
+//				} else {
+//					betta = 2 - alpha;
+//					q[word] = - Math.log((betta + 1)/betta) / Math.LN2;
+//				}
+//			}
+//			
+//			// Compute the actual scores
+//			var bayesScores = new Array();
+//			var i = 0;
+//			for(url in history.normalized) {
+//				score = 0;
+//				for(word in history.normalized[url]) {
+//					score += q[word];
+//				}
+//				bayesScores[i++] = {score:score, url:url};
+//			}
+//			
+//			history.bayes.scores[newUrl] = bayesScores.sort(function(a,b) {return b.score - a.score});
+//			
+//			// Debug
+////			var firstSuggestion = history.bayes.scores[newUrl][1];
+////			var text = "";
+////			for (word in history.normalized[firstSuggestion.url]) {
+////				text += word + ":" + q[word] + ", ";
+////			}
+////			alert(firstSuggestion.url + " " + text);
+//		}
 
 // Convenience functions
 // ========================================================================================
@@ -279,7 +285,6 @@
 		function serializeFloatArray(a) {
 			return serializeIntArray(a);
 		}
-
 	</script>
 </head>
 <body onload="loadAllHistory();">
