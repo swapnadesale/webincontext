@@ -1,0 +1,22 @@
+<html>
+	<head>
+		<title>Suggestions details</title>
+		<script>
+			var bg = chrome.extension.getViews()[0];
+			function showDetails(url) {
+				var scores = bg.history.tfidf.scores[url];
+				document.write("<a href=" + url + " target=\"_blank\">" + url + "</a><br><br>");
+				document.write("Tf-Idf suggestions: <br>");
+				for(i = 0; i<5 && scores[i].score > 0.1; i++) {
+					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+				}
+				
+				document.write("<br><br><br>");
+			}
+		</script>
+
+	</head>
+	<body>
+	</body>
+</html>

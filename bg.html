@@ -8,10 +8,10 @@
 			stopwords[wordlist[i]] = 1;
 		}
 
-		var stopwebsites = ["*.google.*", "*.facebook.*", "*.youtube.*"];		
+		var stopwebsites = [".google.", ".facebook.", ".youtube."];		
 
 		var log = "";
-
+		var detailsPage;
 
 // Storage keys
 // ============
@@ -45,7 +45,11 @@
 					if (history.ready) {
 						computeTfIdf(request.url);
 						computeTfIdfScores(request.url);
+						
+						// Debug
+						detailsPage.showDetails(request.url);
 					}
+					
   			});
 
 			// 1. Load already processed URLs from disk
@@ -143,8 +147,6 @@
 		}
 		
 		function historyLoaded() {
-			alert("here");
-			
 			// TfIdf
 			history.tfidf.vector = new Array();
 			history.tfidf.length = new Array();
@@ -152,8 +154,13 @@
 			for(url in history.tfs) {
 				computeTfIdf(url);
 			}
-			alert("here too");
-		
+
+			// Debug
+			chrome.windows.create({url:"SuggestionsDetails.html"}, function(tab) { 
+				detailsPage = chrome.extension.getViews()[1];
+			});
+			
+
 			history.ready = true;
 		}
 
