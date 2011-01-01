@@ -7,7 +7,9 @@
 			var url = tab.url;
 			var scores = bg.computeTfIdfScores(url);
 
-			document.write("Processed: " + bg.history.tfs.length + " history entries. <br><br><br>");
+			document.write("Processed: " + bg.history.tfs.length + " history entries. <br>");
+			document.write("Remaining: " + bg.history.unprocessed.length + ". <br><br>");
+			// document.write(bg.log + "<br><br><br>");
 			
 //			document.write("Suggestions for url: " + url + "<br>");
 //			for(i = 0; i<5; i++) {
