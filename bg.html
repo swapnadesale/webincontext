@@ -7,11 +7,11 @@
 		for(var i=0; i<wordlist.length; i++) {
 			stopwords[wordlist[i]] = 1;
 		}
-		
-		var stopwebsites = ["www.google.*", "mail.google.*", "www.facebook.*", "www.youtube.*"];		
-		
+
+		var stopwebsites = ["*.google.*", "*.facebook.*", "*.youtube.*"];		
+
 		var log = "";
-		
+
 
 // Storage keys
 // ============
@@ -22,6 +22,9 @@
 // History
 // ========================================================================================
 		var history;
+		history.tfidf = {};
+		history.ready = false;
+		
 		function loadAllHistory() {
 			history.dfs = new Array();
 			history.tfs = new Array();
@@ -33,7 +36,16 @@
 			// ======================================
 			chrome.extension.onRequest.addListener(
 				function(request, sender, sendResponse) {
+					for(var i = 0; i<stopwebsites.length; i++) {
+						if(request.url.match(stopwebsites[i])) return;
+					}
+
 					computeTfsDfs(request.url, request.text, (new Date).getTime());
+					
+					if (history.ready) {
+						computeTfIdf(request.url);
+						computeTfIdfScores(request.url);
+					}
   			});
 
 			// 1. Load already processed URLs from disk
@@ -58,7 +70,7 @@
 					}
 				}
 			}
-						
+									
 			// 2. Load yet unprocessed URLs from history and compute TFs.
 			// ==========================================================
 			div = document.createElement('div');	// Used to parse the retrieved HTML for each page.
@@ -76,6 +88,7 @@
 		function processHistoryEntry() {
 			if(history.unprocessed.length == 0) {
 				clearInterval(timer);
+				historyLoaded();
 				return;
 			}
 			
@@ -129,43 +142,55 @@
 			localStorage.setItem(keyLastProcessedHistoryEntry, lastVisitTime);
 		}
 		
+		function historyLoaded() {
+			alert("here");
+			
+			// TfIdf
+			history.tfidf.vector = new Array();
+			history.tfidf.length = new Array();
+			history.tfidf.scores = new Array();
+			for(url in history.tfs) {
+				computeTfIdf(url);
+			}
+			alert("here too");
+		
+			history.ready = true;
+		}
 
 // Tf-Idf Vector Space
 // ========================================================================================
-
+		
+		function computeTfIdf(url) {
+			var tfidf = new Array();
+			var length = 0;
+			for(word in history.tfs[url]) {
+				tfidf[word] = history.tfs[url][word] * Math.log(history.tfs.length / history.dfs[word]) / Math.LN2;
+				length += tfidf[word]*tfidf[word];
+			}
+			history.tfidf.vector[url] = tfidf;
+			history.tfidf.length[url] = Math.sqrt(length);
+		}
+		
 		function computeTfIdfScores(newUrl) {
-			tfidfNewUrl = computeTfIdf(newUrl);
-			
-			// Compute tfidf, as well as the score, for each of the existing urls.
 			var score = new Array(); var i = 0;
-			for(url in history.tfs) {
+			for(url in history.tfidf.vector) {
 				if (url != newUrl) {
-					tfidf = computeTfIdf(url);
-					
 					// Compute the score
 					var s = 0;
-					for(word in tfidfNewUrl.tfidf) {
-						if (typeof(tfidf.tfidf[word]) == 'number') {
-							s += tfidfNewUrl.tfidf[word] * tfidf.tfidf[word];
+					for(word in history.tfidf.vector[newUrl]) {
+						if (typeof(history.tfidf.vector[url][word]) == 'number') {
+							s += history.tfidf.vector[newUrl][word] * history.tfidf.vector[url][word];
 						}
 					}
-					score[i++] = { score: s / (tfidfNewUrl.l * tfidf.l), url: url};				
+					score[i++] = { 
+						score: s / (history.tfidf.length[newUrl] * history.tfidf.length[url]), 
+						url: url
+					};				
 				}
 			}
 			
 			// Return the sorted array.
-			return score.sort(function(a,b) {return b.score - a.score});
-		}
-		
-		function computeTfIdf(url) {
-			var tfidf = new Array();
-			var l = 0;
-			for(word in history.tfs[url]) {
-				tfidf[word] = history.tfs[url][word] * Math.log(history.tfs.length / history.dfs[word]) / Math.LN2;
-				l += tfidf[word]*tfidf[word];
-			}
-			l = Math.sqrt(l);
-			return {tfidf:tfidf, l:l};
+			history.tfidf.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
 		}
 
 // Bayesian Sets
