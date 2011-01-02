@@ -4,12 +4,32 @@
 		<script>
 			var bg = chrome.extension.getViews()[0];
 			function showDetails(url) {
-				var scores = bg.history.tfidf.scores[url];
 				document.write("<a href=" + url + " target=\"_blank\">" + url + "</a><br><br>");
+				
 				document.write("Tf-Idf suggestions: <br>");
-				for(i = 0; i<5 && scores[i].score > 0.1; i++) {
+				var scores = bg.history.tfidf.scores[url];
+				for(i = 0; i<5; i++) {
 					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
 						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+				}
+				document.write("<br>");
+				
+				document.write("Bayes suggestions: <br>");
+				document.write(bg.serializeFloatArray(bg.history.bayes.normalized[url]) + "<br>");
+				
+				var scores = bg.history.bayes.scores[url];
+				for(i = 0; i<scores.length; i++) {
+					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+						
+					var intersect = new Array();
+					for	(word in bg.history.bayes.normalized[url]) {
+						if(bg.history.bayes.normalized[scores[i].url][word] == 1) {
+							intersect[word] = 1;
+						}
+					}
+					document.write(bg.serializeIntArray(intersect) + "<br>");
+					document.write(bg.serializeFloatArray(bg.history.bayes.trace[scores[i].url]) + "<br>");
 				}
 				
 				document.write("<br><br><br>");

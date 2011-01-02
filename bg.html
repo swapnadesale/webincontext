@@ -22,9 +22,7 @@
 // History
 // ========================================================================================
 		var history;
-		history.tfidf = {};
 		history.ready = false;
-		
 		function loadAllHistory() {
 			history.dfs = new Array();
 			history.tfs = new Array();
@@ -45,6 +43,10 @@
 					if (history.ready) {
 						computeTfIdf(request.url);
 						computeTfIdfScores(request.url);
+						
+						computeNormalized(request.url);
+						computeBayesScores(request.url);
+						updateNormalizedSum(request.url);
 						
 						// Debug
 						detailsPage.showDetails(request.url);
@@ -148,6 +150,7 @@
 		
 		function historyLoaded() {
 			// TfIdf
+			history.tfidf = {};
 			history.tfidf.vector = new Array();
 			history.tfidf.length = new Array();
 			history.tfidf.scores = new Array();
@@ -155,11 +158,20 @@
 				computeTfIdf(url);
 			}
 
+			// Bayes
+			history.bayes = {};
+			history.bayes.normalized = new Array();
+			history.bayes.scores = new Array();
+			history.bayes.trace = new Array();
+			for(url in history.tfs) {
+				computeNormalized(url);
+			}
+			computeNormalizedSum();
+
 			// Debug
 			chrome.windows.create({url:"SuggestionsDetails.html"}, function(tab) { 
 				detailsPage = chrome.extension.getViews()[1];
 			});
-			
 
 			history.ready = true;
 		}
@@ -182,7 +194,6 @@
 			var score = new Array(); var i = 0;
 			for(url in history.tfidf.vector) {
 				if (url != newUrl) {
-					// Compute the score
 					var s = 0;
 					for(word in history.tfidf.vector[newUrl]) {
 						if (typeof(history.tfidf.vector[url][word]) == 'number') {
@@ -194,101 +205,87 @@
 						url: url
 					};				
 				}
-			}
-			
-			// Return the sorted array.
+			}			
 			history.tfidf.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
 		}
 
 // Bayesian Sets
 // ========================================================================================
-//		function normalizeTfsVector(url) {
-//			var tfIdf = new Array();
-//			var nrWords = 0;
-//			var avgTfIdf = 0;
-//			history.totalEntries = history.tfs.length + history.normalized.length;
-//			
-//			// Compute Tf-Idf vector
-//			for (word in history.tfs[url]) {
-//				tfIdf[word] = history.tfs[url][word] * Math.log(history.totalEntries / history.dfs[word]) / Math.LN2;
-//				nrWords++;
-//				avgTfIdf += tfIdf[word];
-//			}			
-//			avgTfIdf /= nrWords; 	// Assumes non-empty vector.
-//
-//			// Normalize
-//			if(history.normalized[url] == undefined) { history.normalized.length++; }
-//			history.normalized[url] = new Array();
-//			for(word in tfIdf) {
-//				if(tfIdf[word] > 2 * avgTfIdf) {
-//					history.normalized[url][word] = 1;
-//					history.normalized[url].length++;
-//				}
-//			}
-//			if(history.normalized[url].length == 0) return;
-//		}
-//
-//		function initializeBayesParameters() {
-//			history.bayes = {};
-//			history.bayes.scores = new Array();
-//			computeNormalizedSum();
-//		}
-//
-//		function computeNormalizedSum() {
-//			history.bayes.normalizedSum = new Array();
-//			for(url in history.normalized) {
-//				for(word in history.normalized[url]) {
-//					if (typeof(history.bayes.normalizedSum[word]) != 'number') 
-//						history.bayes.normalizedSum[word] = 1;
-//					else 
-//						history.bayes.normalizedSum[word]++;
-//				}
-//			}
-//		}
-//		function updateNormalizedSum(url) {
-//			for(word in history.normalized[url]) {
-//				if (typeof(history.bayes.normalizedSum[word]) != 'number') 
-//					history.bayes.normalizedSum[word] = 1;
-//				else
-//					history.bayes.normalizedSum[word]++;
-//			}
-//		}
-//		
-//		function computeBayesScores(newUrl) {
-//			// Compute the query q for the url.
-//			var q = new Array();
-//			var n = history.normalized.length;
-//			for(word in history.bayes.normalizedSum) {
-//				alpha = 2 * history.bayes.normalizedSum[word] / n;
-//				if (history.normalized[newUrl][word] == 1) {
-//					q[word] = Math.log((alpha + 1)/alpha) / Math.LN2;
-//				} else {
-//					betta = 2 - alpha;
-//					q[word] = - Math.log((betta + 1)/betta) / Math.LN2;
-//				}
-//			}
-//			
-//			// Compute the actual scores
-//			var bayesScores = new Array();
-//			var i = 0;
-//			for(url in history.normalized) {
-//				score = 0;
-//				for(word in history.normalized[url]) {
-//					score += q[word];
-//				}
-//				bayesScores[i++] = {score:score, url:url};
-//			}
-//			
-//			history.bayes.scores[newUrl] = bayesScores.sort(function(a,b) {return b.score - a.score});
-//			
-//			// Debug
-////			var firstSuggestion = history.bayes.scores[newUrl][1];
-////			var text = "";
-////			for (word in history.normalized[firstSuggestion.url]) {
-////				text += word + ":" + q[word] + ", ";
-////			}
-////			alert(firstSuggestion.url + " " + text);
-//		}
+		function computeNormalized(url) {
+			var nrWords = 0;
+			var avgTfIdf = 0;
+			for(word in history.tfidf.vector[url]) {
+				avgTfIdf += history.tfidf.vector[url][word];
+				nrWords++;
+			}
+			avgTfIdf /= nrWords;
+
+			nrWords = 0;
+			var normalized = new Array();			
+			for(word in history.tfidf.vector[url]) {
+				if(history.tfidf.vector[url][word] > avgTfIdf) {
+					normalized[word] = 1;
+					nrWords++;
+				}
+			}
+			
+			if(nrWords > 0) { 
+				history.bayes.normalized[url] = normalized;
+				history.bayes.normalized.length++; 
+			}
+		}
+
+		function computeNormalizedSum() {
+			history.bayes.normalizedSum = new Array();
+			for(url in history.bayes.normalized) {
+				for(word in history.bayes.normalized[url]) {
+					if (typeof(history.bayes.normalizedSum[word]) != 'number') 
+						history.bayes.normalizedSum[word] = 1;
+					else 
+						history.bayes.normalizedSum[word]++;
+				}
+			}
+		}
+		function updateNormalizedSum(url) {
+			for(word in history.bayes.normalized[url]) {
+				if (typeof(history.bayes.normalizedSum[word]) != 'number') 
+					history.bayes.normalizedSum[word] = 1;
+				else
+					history.bayes.normalizedSum[word]++;
+			}
+		}
+		
+		function computeBayesScores(newUrl) {
+			// Compute the query q for the url.
+			var q = new Array();
+			var n = history.bayes.normalized.length;
+			for(word in history.bayes.normalizedSum) {
+				alpha = 2 * history.bayes.normalizedSum[word] / n;
+				if (history.bayes.normalized[newUrl][word] == 1) {
+					q[word] = Math.log((alpha + 1)/alpha) / Math.LN2;
+				} else {
+					betta = 2 - alpha;
+					q[word] = - Math.log((betta + 1)/betta) / Math.LN2;
+				}
+			}
+						
+			// Compute the actual scores
+			var score = new Array();
+			var i = 0;
+			for(url in history.bayes.normalized) {
+				if (url != newUrl) {
+					s = 0;
+					history.bayes.trace[url] = new Array();
+					for (word in history.bayes.normalized[url]) {
+						s += q[word];
+						history.bayes.trace[url][word] = q[word];
+					}
+					score[i++] = {score:s, url:url};
+				}
+			}
+			
+			history.bayes.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
+		}
 
 // Convenience functions
 // ========================================================================================
