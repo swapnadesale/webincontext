@@ -1,5 +1,8 @@
 <html>
 <head>
+	<script LANGUAGE="JavaScript" SRC="lawnchair/Lawnchair.js"></script>
+	<script LANGUAGE="JavaScript" SRC="lawnchair/LawnchairAdaptorHelpers.js"></script>
+	<script LANGUAGE="JavaScript" SRC="lawnchair/WebkitSQLiteAdaptor.js"></script>
 	<script>
 		// Initialize the word and website stoplists.
 		var wordlist = ["a", "a's", "able", "about", "above", "according", "accordingly", "across", "actually", "after", "afterwards", "again", "against", "ain't", "all", "allow", "allows", "almost", "alone", "along", "already", "also", "although", "always", "am", "among", "amongst", "an", "and", "another", "any", "anybody", "anyhow", "anyone", "anything", "anyway", "anyways", "anywhere", "apart", "appear", "appreciate", "appropriate", "are", "aren't", "around", "as", "aside", "ask", "asking", "associated", "at", "available", "away", "awfully", "be", "became", "because", "become", "becomes", "becoming", "been", "before", "beforehand", "behind", "being", "believe", "below", "beside", "besides", "best", "better", "between", "beyond", "both", "brief", "but", "by", "c'mon", "c's", "came", "can", "can't", "cannot", "cant", "causes", "certain", "certainly", "changes", "clearly", "com", "come", "comes", "concerning", "consequently", "consider", "considering", "contain", "containing", "contains", "corresponding", "could", "couldn't", "course", "currently", "dear", "definitely", "described", "despite", "did", "didn't", "different", "do", "does", "doesn't", "doing", "don't", "done", "down", "downwards", "during", "each", "edu", "eg", "eight", "either", "else", "elsewhere", "enough", "entirely", "especially", "etc", "even", "ever", "every", "everybody", "everyone", "everything", "everywhere", "ex", "exactly", "example", "except", "far", "few", "fifth", "first", "five", "followed", "following", "follows", "for", "former", "formerly", "forth", "four", "from", "further", "furthermore", "get", "gets", "getting", "given", "gives", "goes", "going", "gone", "got", "gotten", "greetings", "had", "hadn't", "happens", "hardly", "has", "hasn't", "have", "haven't", "having", "he", "he's", "hello", "help", "hence", "her", "here's", "hereafter", "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his", "hither", "hopefully", "how", "howbeit", "however", "i", "i'd", "i'll", "i'm", "i've", "ie", "if", "ignored", "immediate", "in", "inasmuch", "indeed", "indicate", "indicated", "indicates", "inner", "insofar", "instead", "into", "inward", "is", "isn't", "it", "it'd", "it'll", "it's", "its", "itself", "just", "keep", "keeps", "kept", "know", "known", "knows", "last", "lately", "later", "latter", "latterly", "least", "less", "lest", "let", "let's", "like", "liked", "likely", "little", "look", "looking", "looks", "ltd", "mainly", "many", "may", "maybe", "me", "mean", "meanwhile", "merely", "might", "more", "moreover", "most", "mostly", "much", "must", "my", "myself", "name", "namely", "near", "nearly", "necessary", "need", "needs", "neither", "never", "nevertheless", "new", "next", "nine", "no", "nobody", "non", "none", "noone", "nor", "normally", "not", "nothing", "novel", "now", "nowhere", "obviously", "of", "off", "often", "oh", "ok", "okay", "old", "on", "once", "one", "ones", "only", "onto", "or", "other", "others", "otherwise", "ought", "our", "ours", "ourselves", "outside", "over", "overall", "own", "p", "particular", "particularly", "per", "perhaps", "placed", "please", "plus", "possible", "presumably", "probably", "provides", "q", "que", "quite", "qv", "rather", "rd", "really", "reasonably", "regarding", "regardless", "regards", "relatively", "respectively", "right", "said", "same", "saw", "say", "saying", "says", "second", "secondly", "see", "seeing", "seem", "seemed", "seeming", "seems", "seen", "self", "selves", "sensible", "sent", "serious", "seriously", "seven", "several", "shall", "she", "should", "shouldn't", "since", "six", "so", "some", "somebody", "somehow", "someone", "something", "sometime", "sometimes", "somewhat", "somewhere", "soon", "sorry", "specified", "specify", "specifying", "still", "sub", "such", "sup", "sure", "t's", "take", "taken", "tell", "tends", "than", "thank", "thanks", "thanx", "that", "that's", "thats", "the", "their", "theirs", "them", "themselves", "then", "thence", "there", "there's", "thereafter", "thereby", "therefore", "therein", "theres", "thereupon", "these", "they", "they'd", "they'll", "they're", "they've", "think", "third", "this", "thorough", "thoroughly", "those", "though", "three", "through", "throughout", "thru", "thus", "tis", "to", "together", "too", "took", "toward", "towards", "tried", "tries", "truly", "try", "trying", "twas", "twice", "two", "un", "under", "unfortunately", "unless", "unlikely", "until", "unto", "up", "upon", "us", "used", "useful", "uses", "using", "usually", "uucp", "value", "various", "via", "viz", "vs", "wants", "was", "wasn't", "way", "we", "we'd", "we'll", "we're", "we've", "welcome", "well", "went", "were", "weren't", "what", "what's", "whatever", "when", "whence", "whenever", "where", "where's", "whereafter", "whereas", "whereby", "wherein", "whereupon", "wherever", "whether", "which", "while", "whither", "who", "who's", "whoever", "whole", "whom", "whose", "why", "will", "willing", "wish", "with", "within", "without", "won't", "wonder", "would", "wouldn't", "x", "yes", "yet", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves", "z", "zero"];
@@ -15,21 +18,21 @@
 
 // Storage keys
 // ============
-		keyLastProcessedHistoryEntry = "lastProcessedHistoryEntry";	// Timestamp
+		keyLastProcessedHistoryEntry = "lastProcessedHistoryEntry";
 		keyDfs = "dfs"
-		keyTfsEntry = "tfs";	// Format: "tfs url"
+		keyTfsEntry = "tfs";
 
 // History
 // ========================================================================================
+		var store = new Lawnchair({adaptor: "webkit", name: "store"});
 		var history;
 		history.ready = false;
 		function loadAllHistory() {
 			history.dfs = new Array();
 			history.tfs = new Array();
-						
-//			localStorage.clear();
-//			return; 
-
+			
+//			store.nuke();
+				
 			// 0. Register for new page loaded events.
 			// ======================================
 			chrome.extension.onRequest.addListener(
@@ -43,47 +46,47 @@
 					if (history.ready) {
 						computeTfIdf(request.url);
 						computeTfIdfScores(request.url);
-						
 						// Debug
-						detailsPage.showDetails(request.url);
+						// detailsPage.showDetails(request.url);
 					}
-					
   			});
 
 			// 1. Load already processed URLs from disk
 			// ===========================================
-			if(localStorage.length == 0) {
-				// Executing the extension for the first time.
-				history.lastProcessedHistoryEntry = 0;
-			} else {	
-				// Loading already processed history from disk
-				history.lastProcessedHistoryEntry = parseInt(localStorage.getItem(keyLastProcessedHistoryEntry));				
-				history.dfs = parseIntArray(localStorage.getItem(keyDfs));
-				
-				// Loading the TFs vectors
-				for(var i = 0; i<localStorage.length; i++) {
-					key = localStorage.key(i);
-					keyComponents = key.split(" ");
-					entryType = keyComponents[0];
-					if(entryType == keyTfsEntry){
-						url = keyComponents[1];
-						history.tfs[url] = parseIntArray(localStorage.getItem(key));
-						history.tfs.length++;
+			store.all(function(entries){
+				if (entries.length == 0) {
+					// Executing the extension for the first time.
+					history.lastProcessedHistoryEntry = 0;
+				} else {
+					for(var i = 0; i<entries.length; i++) {
+						key = entries[i].key;
+						keyComponents = key.split(" ");
+                        entryType = keyComponents[0];
+						value = entries[i].value;
+						
+						if(entryType == keyLastProcessedHistoryEntry) {
+							history.lastProcessedHistoryEntry = value; 
+						} else if(entryType == keyDfs) {
+							history.dfs = parseIntArray(value);
+						} else if (entryType == keyTfsEntry) {
+							history.tfs[keyComponents[1]] = parseIntArray(value);
+							history.tfs.length++;
+						}
 					}
 				}
-			}
-									
-			// 2. Load yet unprocessed URLs from history and compute TFs.
-			// ==========================================================
-			div = document.createElement('div');	// Used to parse the retrieved HTML for each page.
-			chrome.history.search({
-				text: "",
-				startTime:history.lastProcessedHistoryEntry,
-				maxResults: 400
-			}, function(results){
-				log += "Retrieving " + results.length + " results from history. <br>"
-				history.unprocessed = results;
-				timer = setInterval("processHistoryEntry();", 50);
+				
+				// 2. Load yet unprocessed URLs from history and compute TFs.
+				// ==========================================================
+				div = document.createElement('div');	// Used to parse the retrieved HTML for each page.
+				chrome.history.search({
+					text: "",
+					startTime:history.lastProcessedHistoryEntry,
+					maxResults: 100
+				}, function(results){
+					log += "Retrieving " + results.length + " results from history. <br>"
+					history.unprocessed = results;
+					timer = setInterval("processHistoryEntry();", 50);
+				});
 			});
 		}
 
@@ -103,8 +106,8 @@
 			}
 					
 			lastVisitTime = entry.lastVisitTime;
-			req.open("GET", url, false);
 			try {
+				req.open("GET", url, false);
 				req.send();
 				// Parse the html, eliminating <script> and <style> content.
 				div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
@@ -139,9 +142,9 @@
 			}
 			
 			// Update disk storage
-			localStorage.setItem(keyTfsEntry+" "+url, serializeIntArray(history.tfs[url]));
-			localStorage.setItem(keyDfs, serializeIntArray(history.dfs));
-			localStorage.setItem(keyLastProcessedHistoryEntry, lastVisitTime);
+			store.save({key:keyTfsEntry+" "+url, value:serializeIntArray(history.tfs[url])});
+			store.save({key:keyDfs, value:serializeIntArray(history.dfs)});
+			store.save({key:keyLastProcessedHistoryEntry, value:lastVisitTime});
 		}
 		
 		function historyLoaded() {
@@ -155,9 +158,9 @@
 			}
 
 			// Debug
-			chrome.windows.create({url:"SuggestionsDetails.html"}, function(tab) { 
-				detailsPage = chrome.extension.getViews()[1];
-			});
+//			chrome.windows.create({url:"SuggestionsDetails.html"}, function(tab) { 
+//				detailsPage = chrome.extension.getViews()[1];
+//			});
 
 			history.ready = true;
 		}
