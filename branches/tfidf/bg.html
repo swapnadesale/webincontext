@@ -85,7 +85,7 @@
 			chrome.history.search({
 				text: "",
 				startTime:history.lastProcessedHistoryEntry,
-				maxResults: 100
+				maxResults: 30
 			}, function(results){
 				log += "Retrieving " + results.length + " results from history. <br>"
 				history.unprocessed = results;
@@ -105,9 +105,12 @@
 			url = entry.url;					
 			
 			for(var i = 0; i<stopwebsites.length; i++) {
-				if(url.match(stopwebsites[i])) return;
+				if (url.match(stopwebsites[i])) {
+					timer = setInterval("processHistoryEntry();", 100);
+					return;
+				}
 			}
-					
+
 			lastVisitTime = entry.lastVisitTime;
 			try {
 				req.open("GET", url, false);
@@ -121,12 +124,16 @@
 			} 
 			catch (err) {
 				log += err + "<br>";
+				timer = setInterval("processHistoryEntry();", 100);
 			}
 		}
 
 		function computeTfsDfs(url, s, lastVisitTime, callback){
 			words = s.toLowerCase().match(/[a-zA-Z]+/g);
-			if (words == null) return;
+			if (words == null) {
+				callback(null);
+				return;
+			}
 
 			history.nrEntries++;
 			tfs = new Array();			
@@ -159,15 +166,7 @@
 		
 		function historyLoaded() {
 			// Compute tf-idf scores.
-			store.all(function(entries){
-				for(var i=0; i<entries.length; i++){
-					keyComponents = entries[i].key.split(" ");
-					if (keyComponents[0] == keyTfsEntry) {
-						url = keyComponents[1];
-						tfs = parseIntArray(entries[i].value);
-						computeTfIdf(url, tfs);
-					}
-				}
+			computeTfIdfPaged(1, function() {
 				history.ready = true;
 			});
 		}
@@ -185,17 +184,18 @@
 							tfs = parseIntArray(entries[i].value);
 							computeTfIdf(url, tfs, function(tfidf){
 								// Loop through the elements of one page.
-								iteration(i+1, innerCallback);
+								iteration(i + 1, innerCallback);
 							});
-						}
-					} else innerCallback();
+						} else iteration(i + 1, innerCallback);
+					}
+					else innerCallback();
 				}
 				
 				// The actual inner loop.
 				iteration(0, function() {
 					// The outer (page) loop.
 					if (entries.length == 0) callback();
-					else computeTfIdfScoresPaged(page + 1, callback);
+					else computeTfIdfPaged(page + 1, callback);
 				});
 			});
 		}
@@ -220,7 +220,7 @@
 		function computeTfIdfScores(newUrl, newTfidf) {
 			if(history.scores[newUrl] == null) history.scores.length++;
 			history.scores[newUrl] = new Array();
-			computeTfIdfScoresPaged(0, function() {
+			computeTfIdfScoresPaged(1, function() {
 				history.scores[newUrl] = history.scores[newUrl].sort(function(a,b) {return b.score - a.score});
 			});
 		}
