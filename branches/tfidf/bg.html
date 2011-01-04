@@ -11,7 +11,6 @@
 		for(var i=0; i<wordlist.length; i++) {
 			stopwords[wordlist[i]] = 1;
 		}
-
 		var stopwebsites = [".google.", ".facebook.", ".youtube."];		
 
 		var log = "";
@@ -20,82 +19,83 @@
 // Storage keys
 // ============
 		keyLastProcessedHistoryEntry = "lastProcessedHistoryEntry";
+		keyNrEntries = "nrEntries";
 		keyDfs = "dfs"
 		keyTfsEntry = "tfs";
+		keyTfIdfEntry = "tfidf";
 
 // History
 // ========================================================================================
 		var store = new Lawnchair({adaptor: "webkit", name: "store"});
+		
 		var history;
+		history.scores = new Array();
 		history.ready = false;
 		function loadAllHistory() {
-			history.dfs = new Array();
-			history.tfs = new Array();	
-			
 //			store.nuke();
 //			return;
-				
-			// 0. Register for new page loaded events.
-			// ======================================
+			
+			// 1. Register for Page Loaded Events.
+			registerForPageLoadedEvents();
+
+			// 2. Load lastProcessed and dfs from disk			
+			store.get(keyLastProcessedHistoryEntry, function(lastProcessed){
+				if(lastProcessed == null) {
+					// Executing the extension for the first time.
+					history.lastProcessedHistoryEntry = 0;
+					history.nrEntries = 0;
+					history.dfs = new Array();
+					processHistory();
+				} else {
+					history.lastProcessedHistoryEntry = lastProcessed.value;
+					store.get(keyDfs, function(dfs){
+						history.dfs = parseIntArray(dfs.value);
+						store.get(keyNrEntries, function(nrEntries) {
+							history.nrEntries = nrEntries.value;
+							
+							// 3. Load yet unprocessed URLs from history.
+							processHistory();		
+						});
+					});
+				}
+			});
+		}
+
+		function registerForPageLoadedEvents() {
 			chrome.extension.onRequest.addListener(
 				function(request, sender, sendResponse) {
 					for(var i = 0; i<stopwebsites.length; i++) {
 						if(request.url.match(stopwebsites[i])) return;
 					}
 
-					computeTfsDfs(request.url, request.text, (new Date).getTime());
+					var tfs = computeTfsDfs(request.url, request.text, (new Date).getTime());
 					
 					if (history.ready) {
-						computeTfIdf(request.url);
-						computeTfIdfScores(request.url);
-						// Debug
-//						detailsPage.showDetails(request.url);
+						var tfidf = computeTfIdf(request.url, tfs);
+						computeTfIdfScores(request.url, tfidf);
 					}
   			});
-
-			// 1. Load already processed URLs from disk
-			// ===========================================
-			store.all(function(entries){
-				if (entries.length == 0) {
-					// Executing the extension for the first time.
-					history.lastProcessedHistoryEntry = 0;
-				} else {
-					for(var i = 0; i<entries.length; i++) {
-						key = entries[i].key;
-						keyComponents = key.split(" ");
-                        entryType = keyComponents[0];
-						value = entries[i].value;
-						
-						if(entryType == keyLastProcessedHistoryEntry) {
-							history.lastProcessedHistoryEntry = value; 
-						} else if(entryType == keyDfs) {
-							history.dfs = parseIntArray(value);
-						} else if (entryType == keyTfsEntry) {
-							history.tfs[keyComponents[1]] = parseIntArray(value);
-							history.tfs.length++;
-						}
-					}
-				}
-				
-				// 2. Load yet unprocessed URLs from history and compute TFs.
-				// ==========================================================
-				div = document.createElement('div');	// Used to parse the retrieved HTML for each page.
-				chrome.history.search({
-					text: "",
-					startTime:history.lastProcessedHistoryEntry,
-					maxResults: 500
-				}, function(results){
-					log += "Retrieving " + results.length + " results from history. <br>"
-					history.unprocessed = results;
-					timer = setInterval("processHistoryEntry();", 50);
-				});
+		}
+		
+		function processHistory() {
+			div = document.createElement('div');	// Used to parse the retrieved HTML for each page.
+			chrome.history.search({
+				text: "",
+				startTime:history.lastProcessedHistoryEntry,
+				maxResults: 100
+			}, function(results){
+				log += "Retrieving " + results.length + " results from history. <br>"
+				history.unprocessed = results;
+				timer = setInterval("processHistoryEntry();", 100);
 			});
 		}
 
 		function processHistoryEntry() {
 			if(history.unprocessed.length == 0) {
 				clearInterval(timer);
-				historyLoaded();
+				timer = setInterval("historyLoaded();", 60000);	
+					// Wait for 1min to ensure that database has stabilised.
+					// TODO: stress test this, figure out something better to do. 	
 				return;
 			}
 			
@@ -122,84 +122,92 @@
 		}
 
 		function computeTfsDfs(url, s, lastVisitTime){
-			if(history.tfs[url] == undefined) { history.tfs.length++; }
-			history.tfs[url] = new Array();
-			
 			words = s.toLowerCase().match(/[a-zA-Z]+/g);
 			if (words == null) return;
-			
+
+			history.nrEntries++;
+			tfs = new Array();			
 			for (var i = 0; i < words.length; i++) {
 				word = stemmer(words[i]);
 				if (stopwords[word] != 1) {
-					if (typeof(history.tfs[url][word]) != 'number') {
-						history.tfs[url][word] = 1;
+					if (typeof(tfs[word]) != 'number') {
+						tfs[word] = 1;
 						if (typeof(history.dfs[word]) != 'number') {
 							history.dfs[word] = 1;
 							history.dfs.length++;
 						}
-						else 
-							history.dfs[word]++;
+						else history.dfs[word]++;
 					}
-					else 
-						history.tfs[url][word]++;
+					else tfs[word]++;
 				}
 			}
-			
+
 			// Update disk storage
-			store.save({key:keyTfsEntry+" "+url, value:serializeIntArray(history.tfs[url])});
+			store.save({key:keyTfsEntry+" "+url, value:serializeIntArray(tfs)});
 			store.save({key:keyDfs, value:serializeIntArray(history.dfs)});
 			store.save({key:keyLastProcessedHistoryEntry, value:lastVisitTime});
+			store.save({key:keyNrEntries, value:history.nrEntries});
+			
+			return tfs;
 		}
 		
 		function historyLoaded() {
-			// TfIdf
-			history.tfidf = {};
-			history.tfidf.vector = new Array();
-			history.tfidf.length = new Array();
-			history.tfidf.scores = new Array();
-			for(url in history.tfs) {
-				computeTfIdf(url);
-			}
-
-			// Debug
-//			chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) { 
-//				detailsPage = chrome.extension.getViews()[1];
-//			});
-
-			history.ready = true;
+			clearInterval(timer);
+			// Compute tf-idf scores.
+			store.all(function(entries){
+				for(var i=0; i<entries.length; i++){
+					keyComponents = entries[i].key.split(" ");
+					if (keyComponents[0] == keyTfsEntry) {
+						url = keyComponents[1];
+						tfs = parseIntArray(entries[i].value);
+						computeTfIdf(url, tfs);
+					}
+				}
+				history.ready = true;
+			});
 		}
 
 // Tf-Idf Vector Space
 // ========================================================================================
 		
-		function computeTfIdf(url) {
+		function computeTfIdf(url, tfs) {
 			var tfidf = new Array();
 			var length = 0;
-			for(word in history.tfs[url]) {
-				tfidf[word] = history.tfs[url][word] * Math.log(history.tfs.length / history.dfs[word]) / Math.LN2;
+			for(word in tfs) {
+				tfidf[word] = tfs[word] * Math.log(history.nrEntries / history.dfs[word]) / Math.LN2;
 				length += tfidf[word]*tfidf[word];
 			}
-			history.tfidf.vector[url] = tfidf;
-			history.tfidf.length[url] = Math.sqrt(length);
+			length = Math.sqrt(length);
+			
+			// Update disk storage
+			store.save({key:keyTfIdfEntry+" "+url, value:{tfidf:serializeFloatArray(tfidf,5), length:length}});
+			store.remove(keyTfsEntry+" "+url);
+
+			return {tfidf:tfidf, length:length};
 		}
 		
-		function computeTfIdfScores(newUrl) {
-			var score = new Array(); var i = 0;
-			for(url in history.tfidf.vector) {
-				if (url != newUrl) {
-					var s = 0;
-					for(word in history.tfidf.vector[newUrl]) {
-						if (typeof(history.tfidf.vector[url][word]) == 'number') {
-							s += history.tfidf.vector[newUrl][word] * history.tfidf.vector[url][word];
+		function computeTfIdfScores(newUrl, newTfidf) {
+			store.all(function(entries){
+				var score = new Array(); var j = 0;
+				for(var i=0; i<entries.length; i++){
+					keyComponents = entries[i].key.split(" ");
+					if(keyComponents[0] != keyTfIdfEntry) continue;
+					
+					url = keyComponents[1];
+					if(url != newUrl){
+						tfidf = {tfidf:parseFloatArray(entries[i].value.tfidf), length:entries[i].value.length};
+						
+						var s = 0;
+						for(word in newTfidf.tfidf) {
+							if (typeof(tfidf.tfidf[word] == 'number')) {
+								s += newTfidf.tfidf[word] * tfidf.tfidf[word];
+							}
 						}
+						score[j++] = {score:s /newTfidf.length*tfidf.length, url:url};
 					}
-					score[i++] = { 
-						score: s / (history.tfidf.length[newUrl] * history.tfidf.length[url]), 
-						url: url
-					};				
 				}
-			}			
-			history.tfidf.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
+				history.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
+			});
 		}
 
 // Convenience functions
@@ -233,10 +241,10 @@
 			return a;
 		}
 		
-		function serializeFloatArray(a) {
+		function serializeFloatArray(a, dec) {
 			var s = "";
 			for(entry in a) {
-				s += entry + ":" + a[entry].toFixed(2) + ", ";
+				s += entry + ":" + a[entry].toFixed(dec) + ", ";
 			}
 			return s;
 		}

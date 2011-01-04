@@ -7,7 +7,7 @@
 				document.write("<a href=" + url + " target=\"_blank\">" + url + "</a><br><br>");
 				
 				document.write("Tf-Idf suggestions: <br>");
-				var scores = bg.history.tfidf.scores[url];
+				var scores = bg.history.scores[url];
 				for(i = 0; i<5; i++) {
 					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
 						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
