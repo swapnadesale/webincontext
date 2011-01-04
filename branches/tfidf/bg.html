@@ -83,7 +83,7 @@
 			chrome.history.search({
 				text: "",
 				startTime:history.lastProcessedHistoryEntry,
-				maxResults: 60
+				maxResults: 4000
 			}, function(results){
 				log += "Retrieving " + results.length + " results from history. <br>"
 				history.unprocessed = results;
@@ -150,7 +150,7 @@
 			}
 
 			// Update disk storage
-			var key = keyTfsEntry+" "+url;
+			var key = keyTfidfEntry+" "+url;
 			store.get(key, function(value) {
 				// Check to see if we should update the nrEntries.
 				if(value == null) history.nrEntries++;
