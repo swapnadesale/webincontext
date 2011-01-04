@@ -22,7 +22,7 @@
 		keyNrEntries = "nrEntries";
 		keyDfs = "dfs"
 		keyTfsEntry = "tfs";
-		keyTfIdfEntry = "tfidf";
+		keyTfidfEntry = "tfidf";
 
 // History
 // ========================================================================================
@@ -69,11 +69,9 @@
 					}
 
 					computeTfsDfs(request.url, request.text, (new Date).getTime(), function(tfs){
-						// Callback function, needed because of async database access inside computeTfsDfs.
 						if (history.ready) {
-							computeTfIdf(request.url, tfs, function(tfidf){
-								// Callback function, needed because of async database access inside computeTfIdf.
-								computeTfIdfScores(request.url, tfidf);
+							computeTfidf(request.url, tfs, function(tfidf){
+								computeTfidfScores(request.url, tfidf);
 							});
 						}						
 					});
@@ -85,7 +83,7 @@
 			chrome.history.search({
 				text: "",
 				startTime:history.lastProcessedHistoryEntry,
-				maxResults: 30
+				maxResults: 60
 			}, function(results){
 				log += "Retrieving " + results.length + " results from history. <br>"
 				history.unprocessed = results;
@@ -135,7 +133,6 @@
 				return;
 			}
 
-			history.nrEntries++;
 			tfs = new Array();			
 			for (var i = 0; i < words.length; i++) {
 				word = stemmer(words[i]);
@@ -153,27 +150,33 @@
 			}
 
 			// Update disk storage
-			store.save({key:keyTfsEntry+" "+url, value:serializeIntArray(tfs)}, function(obj){
-				store.save({key:keyDfs, value:serializeIntArray(history.dfs)}, function(obj){
-					store.save({key:keyLastProcessedHistoryEntry, value:lastVisitTime}, function(obj){
-						store.save({key:keyNrEntries, value:history.nrEntries}, function(obj){
-							callback(tfs);	// "return";	 
-						});		
-					});	
+			var key = keyTfsEntry+" "+url;
+			store.get(key, function(value) {
+				// Check to see if we should update the nrEntries.
+				if(value == null) history.nrEntries++;
+				
+				store.save({key:keyTfsEntry+" "+url, value:serializeIntArray(tfs)}, function(obj){
+					store.save({key:keyDfs, value:serializeIntArray(history.dfs)}, function(obj){
+						store.save({key:keyLastProcessedHistoryEntry, value:lastVisitTime}, function(obj){
+							store.save({key:keyNrEntries, value:history.nrEntries}, function(obj){
+								callback(tfs);	// "return";	 
+							});		
+						});	
+					});
 				});
 			});
 		}
 		
 		function historyLoaded() {
 			// Compute tf-idf scores.
-			computeTfIdfPaged(1, function() {
+			computeTfidfPaged(1, function() {
 				history.ready = true;
 			});
 		}
 
 // Tf-Idf Vector Space
 // ========================================================================================
-		function computeTfIdfPaged(page, callback) {
+		function computeTfidfPaged(page, callback) {
 			store.paged(page, function(entries){
 				// Iteration function for the elements of one page.
 				var iteration = function(i, innerCallback) {
@@ -182,7 +185,7 @@
 						if (keyComponents[0] == keyTfsEntry) {
 							url = keyComponents[1];
 							tfs = parseIntArray(entries[i].value);
-							computeTfIdf(url, tfs, function(tfidf){
+							computeTfidf(url, tfs, function(tfidf){
 								// Loop through the elements of one page.
 								iteration(i + 1, innerCallback);
 							});
@@ -195,12 +198,12 @@
 				iteration(0, function() {
 					// The outer (page) loop.
 					if (entries.length == 0) callback();
-					else computeTfIdfPaged(page + 1, callback);
+					else computeTfidfPaged(page + 1, callback);
 				});
 			});
 		}
 		
-		function computeTfIdf(url, tfs, callback) {
+		function computeTfidf(url, tfs, callback) {
 			var tfidf = new Array();
 			var length = 0;
 			for(word in tfs) {
@@ -210,46 +213,45 @@
 			length = Math.sqrt(length);
 			
 			// Update disk storage
-			store.save({key:keyTfIdfEntry+" "+url, value:{tfidf:serializeFloatArray(tfidf,5), length:length}}, function(obj){
+			store.save({key:keyTfidfEntry+" "+url, value:{tfidf:serializeFloatArray(tfidf,5), length:length}}, function(obj){
 				store.remove(keyTfsEntry+" "+url, function(obj) {
 					callback({tfidf:tfidf, length:length});		// "return";
 				});
 			});
 		}
 		
-		function computeTfIdfScores(newUrl, newTfidf) {
-			if(history.scores[newUrl] == null) history.scores.length++;
-			history.scores[newUrl] = new Array();
-			computeTfIdfScoresPaged(1, function() {
-				history.scores[newUrl] = history.scores[newUrl].sort(function(a,b) {return b.score - a.score});
+		function computeTfidfScores(newUrl, newTfidf) {
+			var score = new Array();
+			computeTfidfScoresPaged(newUrl, newTfidf, score, 1, function() {
+				history.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
 			});
 		}
 		
-		function computeTfIdfScoresPaged(newUrl, newTfIdf, page, callback) {
+		function computeTfidfScoresPaged(newUrl, newTfidf, score, page, callback) {
 			store.paged(page, function(entries) {
 				// Compute tfidf scores for the current page
 				for (var i = 0; i < entries.length; i++) {
 					keyComponents = entries[i].key.split(" ");
-					if (keyComponents[0] != keyTfIdfEntry) 
+					if (keyComponents[0] != keyTfidfEntry) 
 						continue;
-						
+					
 					url = keyComponents[1];
 					if (url != newUrl) {
 						tfidf = {tfidf:parseFloatArray(entries[i].value.tfidf), length:entries[i].value.length};							
-							
+
 						var s = 0;
 						for (word in newTfidf.tfidf) {
-							if (typeof(tfidf.tfidf[word] == 'number')) {
+							if (typeof(tfidf.tfidf[word]) == 'number') {
 								s += newTfidf.tfidf[word] * tfidf.tfidf[word];
 							}
 						}
-						history.scores[history.scores.length] = {score:s/newTfidf.length*tfidf.length, url:url};
+						score[score.length] = {score:s/(newTfidf.length*tfidf.length), url:url};
 					}
 				}
-					
+				
 				// Loop
 				if (entries.length == 0) callback();
-				else computeTfIdfScoresPaged(page + 1, callback);
+				else computeTfidfScoresPaged(newUrl, newTfidf, score, page + 1, callback);
 			});
 		}
 

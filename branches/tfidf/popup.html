@@ -19,6 +19,8 @@
 				
 				document.write("Suggestions for url: " + url + "<br>");
 				for(i = 0; i<5; i++) {
+//					alert(scores[0]);
+//					alert(scores[0].score);
 					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
 						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
 				}
