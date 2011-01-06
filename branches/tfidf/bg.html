@@ -12,7 +12,9 @@
 			// 1. Load existing state from disk.
 			hist.loadParametersFromDisk(function() {
 				// 2. Load (+process&save) yet unprocessed URLs from history.
-				hist.loadUnprocessedURLs("hist");
+				hist.loadUnprocessedURLs(function() {
+					hist.historyLoaded();
+				});
 			});
 		}
 

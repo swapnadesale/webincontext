@@ -11,37 +11,37 @@ var History = function(opts) {
 };
 
 History.prototype = {
-	// Initializes all fields, and (if existent) loads parameters from disk.
+	// Initializes all history fields.
 	init: function(opts) {
 		this.ready = false;
 		this.lastProcessedHistoryEntry = 0;
-		this.nrEntries = 0;
+		this.nrProcessed = 0;
 		this.dfs = new Array();
 		this.tfs = new Array();
 		this.tfidf = new Array();
-		
 		this.unprocessed = null;
-		this.timer = null;
-		
+
 		// Default properties
 		this.maxHistoryEntries = merge(100, opts.maxHistoryEntries);
 		this.delay = merge(50, opts.delay);
 		this.batchSize = merge(10, opts.batchSize);
-		
+
 		if(opts.store == undefined || opts.store == null) {
 			this.store = new StoreWrapper({});
 		} else this.store = opts.store;
 	},
-	
+
+	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from dis.
 	loadParametersFromDisk: function(callback) {
 		this.store.loadParams(this, function() {
 			callback();
 		});		
 	},
-	
-	loadUnprocessedURLs: function(varName) {
+
+	// Loads, processes and saves yet unprocessed URLs from history
+	loadUnprocessedURLs: function(callback) {
 		var that = this;
-		
+
 		this.div = document.createElement('div'); // Used to parse the retrieved HTML for each page. 
 		chrome.history.search({
 			text: "",
@@ -49,19 +49,18 @@ History.prototype = {
 			maxResults: this.maxHistoryEntries
 		}, function(results){
 			that.unprocessed = results;
-			// TODO: Do something less hacky than this!!
-			that.timer = setInterval(varName+".processHistoryEntry(\""+varName+"\");", that.delay);
+			setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
+				// Creating a closure around that.processHistoryEntry() is necessary because
+				// 'this' is passed as a hidden argument by the caller, which, 
+				// in the case of setTimeout will be DOMWindow. 
 		});
 	},
-	
-	processHistoryEntry: function(varName) {
+
+	processHistoryEntry: function(callback) {
 		var that = this;
-		
-		clearInterval(this.timer);
 		if(this.unprocessed.length == 0) {
-			this.computeAndStoreTfidfs(function() {
-				that.historyLoaded();					
-			});
+			// Done loading all history entries.
+			this.computeAndStoreTfidfs(callback);
 			return;
 		}
 
@@ -70,7 +69,7 @@ History.prototype = {
 		var url = entry.url;
 		for(var i = 0; i<stopwebsites.length; i++) {
 			if (url.match(stopwebsites[i])) {
-				this.timer = setInterval(varName+".processHistoryEntry(\""+varName+"\");", this.delay)
+				setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
 				return;
 			}
 		}
@@ -86,16 +85,16 @@ History.prototype = {
 		} catch (err) {
 			alert(err);
 		}
-			
+
 		// Compute tf-idfs and save them to disk in batches, then LOOP.
 		if (this.tfs.length == this.batchSize) {
 			this.computeAndStoreTfidfs(function(){
-				that.timer = setInterval(varName+".processHistoryEntry(\""+varName+"\");", that.delay);
+				setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
 			});
 		}
-		else this.timer = setInterval(varName+".processHistoryEntry(\""+varName+"\");", that.delay);
+		else setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
 	},
-	
+
 	computeTfsDfs: function(url, s) {
 		var words = s.toLowerCase().match(/[a-zA-Z]+/g);
 		if (words == null) return;
@@ -131,15 +130,18 @@ History.prototype = {
 		var v = new Array();
 		var l = 0;
 		for (var word in this.tfs[url]) {
-			v[word] = this.tfs[url][word] * Math.log((this.nrEntries + this.batchSize) / this.dfs[word]) / Math.LN2;
+			v[word] = this.tfs[url][word] * Math.log((this.nrProcessed + this.batchSize) / this.dfs[word]) / Math.LN2;
 			l += v[word] * v[word];
 		}
 		this.tfidf[url] = {vector:v, length:l};
+		this.nrProcessed++;
+
 		delete this.tfs[url];
 		this.tfs.length--;
 	},
 
 	historyLoaded: function() {
-		this.history.ready = true;
+		this.ready = true;
+		alert("All loaded");
 	}
 };

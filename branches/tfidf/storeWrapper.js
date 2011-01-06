@@ -17,13 +17,9 @@ StoreWrapper.prototype = {
 		this.perPage = merge(10, opts.perPage);
 		this.maxVectorLength = merge(2500000, opts.maxVectorLength);
 		
-		// Default sqlite callbacks.
-		this.onError = function(){};
-		this.onData = function(){};
-		
 		// Parameter keys
 		this.keyLastProcessedHistoryEntry = "lastProcessedHistoryEntry";
-		this.keyNrEntries = "nrEntries";
+		this.keyNrProcessed = "nrProcessed";
 		this.keyDfs = "dfs"
 
 		// instantiate the store
@@ -46,7 +42,7 @@ StoreWrapper.prototype = {
 	storeParams: function(history, callback) {
 		var sql = "REPLACE INTO " + this.paramTable + 
 			" SELECT \"" + this.keyLastProcessedHistoryEntry + "\", \"" + history.lastProcessedHistoryEntry + "\" UNION " +
-			" SELECT \"" + this.keyNrEntries + "\", \"" + history.nrEntries + "\" UNION " +
+			" SELECT \"" + this.keyNrProcessed + "\", \"" + history.nrProcessed + "\" UNION " +
 			" SELECT \"" + this.dfs + "\", \"" + serializeIntArray(history.dfs) + "\"";
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function() {
