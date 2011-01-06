@@ -19,6 +19,7 @@ History.prototype = {
 		this.dfs = new Array();
 		this.tfs = new Array();
 		this.tfidf = new Array();
+		this.scores = new Array();
 		this.unprocessed = null;
 
 		// Default properties
@@ -29,6 +30,31 @@ History.prototype = {
 		if(opts.store == undefined || opts.store == null) {
 			this.store = new StoreWrapper({});
 		} else this.store = opts.store;
+	},
+
+	historyLoaded: function() {
+		this.ready = true;
+	},
+
+	registerForNewPageLoadedEvents: function(){
+		var that = this;
+		if(this.ready == false) return; 
+
+		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
+			var url = request.url;
+			that.lastProcessedHistoryEntry = (new Date).getTime();
+			for (var i = 0; i < stopwebsites.length; i++) {
+				if (url.match(stopwebsites[i])) return;
+			}
+
+			that.computeTfsDfs(url, request.text);
+			that.computeTfidf(url);
+			that.store.storeTfidf(that, url, function() {
+				that.computeTfidfScores(url, function() {
+					delete that.tfidf[url];
+				});				
+			});
+		});
 	},
 
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from dis.
@@ -101,6 +127,7 @@ History.prototype = {
 
 		this.tfs[url] = new Array();
 		this.tfs.length++;
+		this.nrProcessed++;
 		for (var i = 0; i < words.length; i++) {
 			var word = stemmer(words[i]);
 			if (stopwords[word] != 1) {
@@ -132,18 +159,47 @@ History.prototype = {
 		var v = new Array();
 		var l = 0;
 		for (var word in this.tfs[url]) {
-			v[word] = this.tfs[url][word] * Math.log((this.nrProcessed + this.batchSize) / this.dfs[word]) / Math.LN2;
+			v[word] = this.tfs[url][word] * Math.log(this.nrProcessed / this.dfs[word]) / Math.LN2;
 			l += v[word] * v[word];
 		}
-		this.tfidf[url] = {vector:v, length:l};
-		this.nrProcessed++;
+		l = Math.sqrt(l);
 
+		this.tfidf[url] = {vector:v, length:l};
 		delete this.tfs[url];
 		this.tfs.length--;
 	},
 
-	historyLoaded: function() {
-		this.ready = true;
-		alert("All loaded");
+	computeTfidfScores: function(url, callback) {
+		var that = this;
+		var score = new Array();
+		this.computeTfidfScoresPaged(url, score, 0, function() {
+			that.scores[url] = score.sort(function(a,b) {return b.score - a.score});
+			callback();
+		});
+	},
+
+	computeTfidfScoresPaged: function(url, score, page, callback){
+		var that = this;
+		var v = this.tfidf[url].vector;
+		
+		// Compute tfidf scores for the current page
+		this.store.getTfidfPage(page, function(tfidfPage){
+			if (tfidfPage.length == 0) { callback(); return; }
+			
+			for (var pageUrl in tfidfPage) {
+				if (pageUrl != url) {
+					var s = 0;
+					var pageV = tfidfPage[pageUrl].vector;
+					for (var word in v) 
+						if (typeof(pageV[word]) == 'number') s += v[word] * pageV[word];
+
+					score.push({score: s / (that.tfidf[url].length * tfidfPage[pageUrl].length), url:pageUrl});
+				}
+			}
+			delete tfidfPage;
+			
+			// LOOP
+			that.computeTfidfScoresPaged(url, score, page + 1, callback);
+		});
 	}
 };

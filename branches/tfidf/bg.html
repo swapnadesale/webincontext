@@ -7,75 +7,21 @@
 	
 	<script>
 		var hist;
-		function loadAllHistory(){
+		function run(){
 			hist = new History({});
 			// 1. Load existing state from disk.
-			hist.loadParametersFromDisk(function() {
+			hist.loadParametersFromDisk(function(){
 				// 2. Load (+process&save) yet unprocessed URLs from history.
-				hist.loadUnprocessedURLs(function() {
+				hist.loadUnprocessedURLs(function(){
 					hist.historyLoaded();
+					// 3. Register for new page loaded events.
+					// TODO: think about how to make this work even before we've started processing					
+					hist.registerForNewPageLoadedEvents();
 				});
 			});
 		}
-
-//		function registerForPageLoadedEvents() {
-//			chrome.extension.onRequest.addListener(
-//				function(request, sender, sendResponse) {
-//					for(var i = 0; i<stopwebsites.length; i++) {
-//						if(request.url.match(stopwebsites[i])) return;
-//					}
-//
-//					computeTfsDfs(request.url, request.text, (new Date).getTime(), function(tfs){
-//						if (history.ready) {
-//							computeTfidf(request.url, tfs, function(tfidf){
-//								computeTfidfScores(request.url, tfidf);
-//							});
-//						}						
-//					});
-//  			});
-//		}
-		
-		
-// Tf-Idf Vector Space
-// ========================================================================================
-		
-//		function computeTfidfScores(newUrl, newTfidf) {
-//			var score = new Array();
-//			computeTfidfScoresPaged(newUrl, newTfidf, score, 1, function() {
-//				history.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
-//			});
-//		}
-//		
-//		function computeTfidfScoresPaged(newUrl, newTfidf, score, page, callback) {
-//			store.paged(page, function(entries) {
-//				// Compute tfidf scores for the current page
-//				for (var i = 0; i < entries.length; i++) {
-//					keyComponents = entries[i].key.split(" ");
-//					if (keyComponents[0] != keyTfidfEntry) 
-//						continue;
-//					
-//					url = keyComponents[1];
-//					if (url != newUrl) {
-//						tfidf = {tfidf:parseFloatArray(entries[i].value.tfidf), length:entries[i].value.length};							
-//
-//						var s = 0;
-//						for (word in newTfidf.tfidf) {
-//							if (typeof(tfidf.tfidf[word]) == 'number') {
-//								s += newTfidf.tfidf[word] * tfidf.tfidf[word];
-//							}
-//						}
-//						score[score.length] = {score:s/(newTfidf.length*tfidf.length), url:url};
-//					}
-//				}
-//				
-//				// Loop
-//				if (entries.length == 0) callback();
-//				else computeTfidfScoresPaged(newUrl, newTfidf, score, page + 1, callback);
-//			});
-//		}
-
 	</script>
 </head>
-<body onload="loadAllHistory();">
+<body onload="run();">
 </body>
 </html>

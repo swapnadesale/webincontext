@@ -36,6 +36,7 @@ StoreWrapper.prototype = {
 	
 	loadParams: function(history, callback) {
 		var that = this;
+		
 		var sql = "SELECT * FROM " + this.paramTable;
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result) {
@@ -44,15 +45,12 @@ StoreWrapper.prototype = {
 					switch(row.key) {
 						case that.keyLastProcessedHistoryEntry:
 							history.lastProcessedHistoryEntry = parseFloat(row.value);
-							alert("Last processed history entry: " + history.lastProcessedHistoryEntry);
 							break;
 						case that.keyNrProcessed:
 							history.nrProcessed = parseInt(row.value);
-							alert("Nr processed: " + history.nrProcessed);
 							break;
 						case that.keyDfs:
 							history.dfs = parseIntArray(row.value);
-							alert(serializeIntArray(history.dfs));
 					}
 				}
 				callback();	
@@ -72,23 +70,39 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	loadTfidfPage: function(history, page, callback) {
+	getTfidfPage: function(page, callback) {
+		var that = this;
 		
+		var offset = that.perPage * page ;
+		var sql = "SELECT * FROM " + that.tfidfTable + " ASC LIMIT ? OFFSET ?";
+		this.db.transaction(function(t) {
+		    t.executeSql(sql, [that.perPage, offset], function(tx, results) {
+				var tfidfPage = new Array();
+				for (var i = 0, l = results.rows.length; i < l; i++) {
+					var row = results.rows.item(i);
+					tfidfPage[row.url] = {vector:parseFloatArray(row.vector), length:row.length};
+					tfidfPage.length++;
+				}
+				callback(tfidfPage);
+			});
+		});
 	},
 	
 	storeTfidf: function(history, url, callback) {
-		var that = this;		
+		var that = this;
+			
 		// Add the tf-idf score.
 		var sql = "REPLACE INTO " + this.tfidfTable + 
-			"VALUES (\"" + url + "\", \"" + serializeFloatArray(history.tfidf[url].vector, 4) + "\", " +
+			" VALUES (\"" + url + "\", \"" + serializeFloatArray(history.tfidf[url].vector, 4) + "\", " +
 				history.tfidf[url].length + ")";
+				
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result) {
-					// Also update the parameters.
-					that.storeParams(history, function() {
-						callback();
-					});
+				// Also update the parameters.
+				that.storeParams(history, function() {
+					callback();
 				});
+			});
 		});
 	},
 	
