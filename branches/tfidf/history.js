@@ -23,9 +23,9 @@ History.prototype = {
 		this.unprocessed = null;
 
 		// Default properties
-		this.maxHistoryEntries = merge(100, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(4000, opts.maxHistoryEntries);
 		this.delay = merge(50, opts.delay);
-		this.batchSize = merge(10, opts.batchSize);
+		this.batchSize = merge(500, opts.batchSize);
 
 		if(opts.store == undefined || opts.store == null) {
 			this.store = new StoreWrapper({});
@@ -108,9 +108,7 @@ History.prototype = {
 			this.div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
 			// Compute TFs and DFs.
 			this.computeTfsDfs(url, this.div.innerText);
-		} catch (err) {
-			alert(err);
-		}
+		} catch (err) {}
 
 		// Compute tf-idfs and save them to disk in batches, then LOOP.
 		if (this.tfs.length == this.batchSize) {
