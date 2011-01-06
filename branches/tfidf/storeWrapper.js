@@ -35,17 +35,38 @@ StoreWrapper.prototype = {
 	},
 	
 	loadParams: function(history, callback) {
-		// TODO
-		callback();
+		var that = this;
+		var sql = "SELECT * FROM " + this.paramTable;
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, result) {
+				for(var i=0; i<result.rows.length; i++) {
+					var row = result.rows.item(i);
+					switch(row.key) {
+						case that.keyLastProcessedHistoryEntry:
+							history.lastProcessedHistoryEntry = parseFloat(row.value);
+							alert("Last processed history entry: " + history.lastProcessedHistoryEntry);
+							break;
+						case that.keyNrProcessed:
+							history.nrProcessed = parseInt(row.value);
+							alert("Nr processed: " + history.nrProcessed);
+							break;
+						case that.keyDfs:
+							history.dfs = parseIntArray(row.value);
+							alert(serializeIntArray(history.dfs));
+					}
+				}
+				callback();	
+			});
+		});
 	},
 	
 	storeParams: function(history, callback) {
 		var sql = "REPLACE INTO " + this.paramTable + 
 			" SELECT \"" + this.keyLastProcessedHistoryEntry + "\", \"" + history.lastProcessedHistoryEntry + "\" UNION " +
 			" SELECT \"" + this.keyNrProcessed + "\", \"" + history.nrProcessed + "\" UNION " +
-			" SELECT \"" + this.dfs + "\", \"" + serializeIntArray(history.dfs) + "\"";
+			" SELECT \"" + this.keyDfs + "\", \"" + serializeIntArray(history.dfs) + "\"";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function() {
+			t.executeSql(sql, [], function(tx, result) {
 				callback();
 			});
 		});
@@ -56,7 +77,19 @@ StoreWrapper.prototype = {
 	},
 	
 	storeTfidf: function(history, url, callback) {
-		
+		var that = this;		
+		// Add the tf-idf score.
+		var sql = "REPLACE INTO " + this.tfidfTable + 
+			"VALUES (\"" + url + "\", \"" + serializeFloatArray(history.tfidf[url].vector, 4) + "\", " +
+				history.tfidf[url].length + ")";
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, result) {
+					// Also update the parameters.
+					that.storeParams(history, function() {
+						callback();
+					});
+				});
+		});
 	},
 	
 	storeAllTfidfs: function(history, callback) {

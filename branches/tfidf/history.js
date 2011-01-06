@@ -116,6 +116,8 @@ History.prototype = {
 
 	computeAndStoreTfidfs: function(callback) {
 		var that = this;
+		if (this.tfs.length == 0) { callback(); return;}
+		
 		for(var url in this.tfs) this.computeTfidf(url);
 		this.store.storeAllTfidfs(this, function(){
 			// Memory management.
