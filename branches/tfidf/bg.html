@@ -1,298 +1,77 @@
 <html>
 <head>
-	<script LANGUAGE="JavaScript" SRC="lawnchair/Lawnchair.js"></script>
-	<script LANGUAGE="JavaScript" SRC="lawnchair/LawnchairAdaptorHelpers.js"></script>
-	<script LANGUAGE="JavaScript" SRC="lawnchair/WebkitSQLiteAdaptor.js"></script>
+	<script LANGUAGE="JavaScript" SRC="history.js"></script>
+	<script LANGUAGE="JavaScript" SRC="storeWrapper.js"></script>
 	<script LANGUAGE="JavaScript" SRC="stemmer.js"></script>
+	<script LANGUAGE="JavaScript" SRC="helperFunctions.js"></script>
+	
 	<script>
-		// Initialize the word and website stoplists.
-		var wordlist = ["a", "a's", "able", "about", "above", "according", "accordingly", "across", "actually", "after", "afterwards", "again", "against", "ain't", "all", "allow", "allows", "almost", "alone", "along", "already", "also", "although", "always", "am", "among", "amongst", "an", "and", "another", "any", "anybody", "anyhow", "anyone", "anything", "anyway", "anyways", "anywhere", "apart", "appear", "appreciate", "appropriate", "are", "aren't", "around", "as", "aside", "ask", "asking", "associated", "at", "available", "away", "awfully", "be", "became", "because", "become", "becomes", "becoming", "been", "before", "beforehand", "behind", "being", "believe", "below", "beside", "besides", "best", "better", "between", "beyond", "both", "brief", "but", "by", "c'mon", "c's", "came", "can", "can't", "cannot", "cant", "causes", "certain", "certainly", "changes", "clearly", "com", "come", "comes", "concerning", "consequently", "consider", "considering", "contain", "containing", "contains", "corresponding", "could", "couldn't", "course", "currently", "dear", "definitely", "described", "despite", "did", "didn't", "different", "do", "does", "doesn't", "doing", "don't", "done", "down", "downwards", "during", "each", "edu", "eg", "eight", "either", "else", "elsewhere", "enough", "entirely", "especially", "etc", "even", "ever", "every", "everybody", "everyone", "everything", "everywhere", "ex", "exactly", "example", "except", "far", "few", "fifth", "first", "five", "followed", "following", "follows", "for", "former", "formerly", "forth", "four", "from", "further", "furthermore", "get", "gets", "getting", "given", "gives", "goes", "going", "gone", "got", "gotten", "greetings", "had", "hadn't", "happens", "hardly", "has", "hasn't", "have", "haven't", "having", "he", "he's", "hello", "help", "hence", "her", "here's", "hereafter", "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his", "hither", "hopefully", "how", "howbeit", "however", "i", "i'd", "i'll", "i'm", "i've", "ie", "if", "ignored", "immediate", "in", "inasmuch", "indeed", "indicate", "indicated", "indicates", "inner", "insofar", "instead", "into", "inward", "is", "isn't", "it", "it'd", "it'll", "it's", "its", "itself", "just", "keep", "keeps", "kept", "know", "known", "knows", "last", "lately", "later", "latter", "latterly", "least", "less", "lest", "let", "let's", "like", "liked", "likely", "little", "look", "looking", "looks", "ltd", "mainly", "many", "may", "maybe", "me", "mean", "meanwhile", "merely", "might", "more", "moreover", "most", "mostly", "much", "must", "my", "myself", "name", "namely", "near", "nearly", "necessary", "need", "needs", "neither", "never", "nevertheless", "new", "next", "nine", "no", "nobody", "non", "none", "noone", "nor", "normally", "not", "nothing", "novel", "now", "nowhere", "obviously", "of", "off", "often", "oh", "ok", "okay", "old", "on", "once", "one", "ones", "only", "onto", "or", "other", "others", "otherwise", "ought", "our", "ours", "ourselves", "outside", "over", "overall", "own", "p", "particular", "particularly", "per", "perhaps", "placed", "please", "plus", "possible", "presumably", "probably", "provides", "q", "que", "quite", "qv", "rather", "rd", "really", "reasonably", "regarding", "regardless", "regards", "relatively", "respectively", "right", "said", "same", "saw", "say", "saying", "says", "second", "secondly", "see", "seeing", "seem", "seemed", "seeming", "seems", "seen", "self", "selves", "sensible", "sent", "serious", "seriously", "seven", "several", "shall", "she", "should", "shouldn't", "since", "six", "so", "some", "somebody", "somehow", "someone", "something", "sometime", "sometimes", "somewhat", "somewhere", "soon", "sorry", "specified", "specify", "specifying", "still", "sub", "such", "sup", "sure", "t's", "take", "taken", "tell", "tends", "than", "thank", "thanks", "thanx", "that", "that's", "thats", "the", "their", "theirs", "them", "themselves", "then", "thence", "there", "there's", "thereafter", "thereby", "therefore", "therein", "theres", "thereupon", "these", "they", "they'd", "they'll", "they're", "they've", "think", "third", "this", "thorough", "thoroughly", "those", "though", "three", "through", "throughout", "thru", "thus", "tis", "to", "together", "too", "took", "toward", "towards", "tried", "tries", "truly", "try", "trying", "twas", "twice", "two", "un", "under", "unfortunately", "unless", "unlikely", "until", "unto", "up", "upon", "us", "used", "useful", "uses", "using", "usually", "uucp", "value", "various", "via", "viz", "vs", "wants", "was", "wasn't", "way", "we", "we'd", "we'll", "we're", "we've", "welcome", "well", "went", "were", "weren't", "what", "what's", "whatever", "when", "whence", "whenever", "where", "where's", "whereafter", "whereas", "whereby", "wherein", "whereupon", "wherever", "whether", "which", "while", "whither", "who", "who's", "whoever", "whole", "whom", "whose", "why", "will", "willing", "wish", "with", "within", "without", "won't", "wonder", "would", "wouldn't", "x", "yes", "yet", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves", "z", "zero"];
-		var stopwords = new Array();
-		for(var i=0; i<wordlist.length; i++) {
-			stopwords[wordlist[i]] = 1;
+		var hist;
+		function loadAllHistory(){
+			hist = new History({});
+			// 1. Load existing state from disk.
+			hist.loadParametersFromDisk(function() {
+				// 2. Load (+process&save) yet unprocessed URLs from history.
+				hist.loadUnprocessedURLs("hist");
+			});
 		}
-		var stopwebsites = [".google.", ".facebook.", ".youtube."];		
 
-		var log = "";
-		var detailsPage;
-
-// Storage keys
-// ============
-		keyLastProcessedHistoryEntry = "lastProcessedHistoryEntry";
-		keyNrEntries = "nrEntries";
-		keyDfs = "dfs"
-		keyTfsEntry = "tfs";
-		keyTfidfEntry = "tfidf";
-
-// History
-// ========================================================================================
-		var store = new Lawnchair({adaptor: "webkit", name: "store", perPage:100});
+//		function registerForPageLoadedEvents() {
+//			chrome.extension.onRequest.addListener(
+//				function(request, sender, sendResponse) {
+//					for(var i = 0; i<stopwebsites.length; i++) {
+//						if(request.url.match(stopwebsites[i])) return;
+//					}
+//
+//					computeTfsDfs(request.url, request.text, (new Date).getTime(), function(tfs){
+//						if (history.ready) {
+//							computeTfidf(request.url, tfs, function(tfidf){
+//								computeTfidfScores(request.url, tfidf);
+//							});
+//						}						
+//					});
+//  			});
+//		}
 		
-		var history;
-		history.scores = new Array();
-		history.ready = false;
-		function loadAllHistory() {
-//			store.nuke();
-//			return;
-			
-			// 1. Register for Page Loaded Events.
-			registerForPageLoadedEvents();
-
-			// 2. Load lastProcessed and dfs from disk			
-			store.get(keyLastProcessedHistoryEntry, function(lastProcessed){
-				if(lastProcessed == null) {
-					// Executing the extension for the first time.
-					history.lastProcessedHistoryEntry = 0;
-					history.nrEntries = 0;
-					history.dfs = new Array();
-					processHistory();
-				} else {
-					history.lastProcessedHistoryEntry = lastProcessed.value;
-					store.get(keyNrEntries, function(nrEntries){
-						history.nrEntries = nrEntries.value;
-						store.get(keyDfs, function(dfs) {
-							history.dfs = parseIntArray(dfs.value);
-							
-							// 3. Load yet unprocessed URLs from history.
-							processHistory();		
-						});
-					});
-				}
-			});
-		}
-
-		function registerForPageLoadedEvents() {
-			chrome.extension.onRequest.addListener(
-				function(request, sender, sendResponse) {
-					for(var i = 0; i<stopwebsites.length; i++) {
-						if(request.url.match(stopwebsites[i])) return;
-					}
-
-					computeTfsDfs(request.url, request.text, (new Date).getTime(), function(tfs){
-						if (history.ready) {
-							computeTfidf(request.url, tfs, function(tfidf){
-								computeTfidfScores(request.url, tfidf);
-							});
-						}						
-					});
-  			});
-		}
 		
-		function processHistory() {
-			div = document.createElement('div');	// Used to parse the retrieved HTML for each page.
-			chrome.history.search({
-				text: "",
-				startTime:history.lastProcessedHistoryEntry,
-				maxResults: 4000
-			}, function(results){
-				log += "Retrieving " + results.length + " results from history. <br>"
-				history.unprocessed = results;
-				timer = setInterval("processHistoryEntry();", 100);
-			});
-		}
-
-		function processHistoryEntry() {
-			clearInterval(timer);
-			if(history.unprocessed.length == 0) {
-				historyLoaded();
-				return;
-			}
-			
-			req = new XMLHttpRequest();
-			entry = history.unprocessed.pop();
-			url = entry.url;					
-			
-			for(var i = 0; i<stopwebsites.length; i++) {
-				if (url.match(stopwebsites[i])) {
-					timer = setInterval("processHistoryEntry();", 100);
-					return;
-				}
-			}
-
-			lastVisitTime = entry.lastVisitTime;
-			try {
-				req.open("GET", url, false);
-				req.send();
-				// Parse the html, eliminating <script> and <style> content.
-				div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-				// Compute TFs and DFs (and update disk storage).
-				computeTfsDfs(url, div.innerText, lastVisitTime, function(tfs) {
-					timer = setInterval("processHistoryEntry();", 100);
-				});
-			} 
-			catch (err) {
-				log += err + "<br>";
-				timer = setInterval("processHistoryEntry();", 100);
-			}
-		}
-
-		function computeTfsDfs(url, s, lastVisitTime, callback){
-			words = s.toLowerCase().match(/[a-zA-Z]+/g);
-			if (words == null) {
-				callback(null);
-				return;
-			}
-
-			tfs = new Array();			
-			for (var i = 0; i < words.length; i++) {
-				word = stemmer(words[i]);
-				if (stopwords[word] != 1) {
-					if (typeof(tfs[word]) != 'number') {
-						tfs[word] = 1;
-						if (typeof(history.dfs[word]) != 'number') {
-							history.dfs[word] = 1;
-							history.dfs.length++;
-						}
-						else history.dfs[word]++;
-					}
-					else tfs[word]++;
-				}
-			}
-
-			// Update disk storage
-			var key = keyTfidfEntry+" "+url;
-			store.get(key, function(value) {
-				// Check to see if we should update the nrEntries.
-				if(value == null) history.nrEntries++;
-				
-				store.save({key:keyTfsEntry+" "+url, value:serializeIntArray(tfs)}, function(obj){
-					store.save({key:keyDfs, value:serializeIntArray(history.dfs)}, function(obj){
-						store.save({key:keyLastProcessedHistoryEntry, value:lastVisitTime}, function(obj){
-							store.save({key:keyNrEntries, value:history.nrEntries}, function(obj){
-								callback(tfs);	// "return";	 
-							});		
-						});	
-					});
-				});
-			});
-		}
-		
-		function historyLoaded() {
-			// Compute tf-idf scores.
-			computeTfidfPaged(1, function() {
-				history.ready = true;
-			});
-		}
-
 // Tf-Idf Vector Space
 // ========================================================================================
-		function computeTfidfPaged(page, callback) {
-			store.paged(page, function(entries){
-				// Iteration function for the elements of one page.
-				var iteration = function(i, innerCallback) {
-					if (i < entries.length) {
-						keyComponents = entries[i].key.split(" ");
-						if (keyComponents[0] == keyTfsEntry) {
-							url = keyComponents[1];
-							tfs = parseIntArray(entries[i].value);
-							computeTfidf(url, tfs, function(tfidf){
-								// Loop through the elements of one page.
-								iteration(i + 1, innerCallback);
-							});
-						} else iteration(i + 1, innerCallback);
-					}
-					else innerCallback();
-				}
-				
-				// The actual inner loop.
-				iteration(0, function() {
-					// The outer (page) loop.
-					if (entries.length == 0) callback();
-					else computeTfidfPaged(page + 1, callback);
-				});
-			});
-		}
 		
-		function computeTfidf(url, tfs, callback) {
-			var tfidf = new Array();
-			var length = 0;
-			for(word in tfs) {
-				tfidf[word] = tfs[word] * Math.log(history.nrEntries / history.dfs[word]) / Math.LN2;
-				length += tfidf[word]*tfidf[word];
-			}
-			length = Math.sqrt(length);
-			
-			// Update disk storage
-			store.save({key:keyTfidfEntry+" "+url, value:{tfidf:serializeFloatArray(tfidf,5), length:length}}, function(obj){
-				store.remove(keyTfsEntry+" "+url, function(obj) {
-					callback({tfidf:tfidf, length:length});		// "return";
-				});
-			});
-		}
-		
-		function computeTfidfScores(newUrl, newTfidf) {
-			var score = new Array();
-			computeTfidfScoresPaged(newUrl, newTfidf, score, 1, function() {
-				history.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
-			});
-		}
-		
-		function computeTfidfScoresPaged(newUrl, newTfidf, score, page, callback) {
-			store.paged(page, function(entries) {
-				// Compute tfidf scores for the current page
-				for (var i = 0; i < entries.length; i++) {
-					keyComponents = entries[i].key.split(" ");
-					if (keyComponents[0] != keyTfidfEntry) 
-						continue;
-					
-					url = keyComponents[1];
-					if (url != newUrl) {
-						tfidf = {tfidf:parseFloatArray(entries[i].value.tfidf), length:entries[i].value.length};							
+//		function computeTfidfScores(newUrl, newTfidf) {
+//			var score = new Array();
+//			computeTfidfScoresPaged(newUrl, newTfidf, score, 1, function() {
+//				history.scores[newUrl] = score.sort(function(a,b) {return b.score - a.score});
+//			});
+//		}
+//		
+//		function computeTfidfScoresPaged(newUrl, newTfidf, score, page, callback) {
+//			store.paged(page, function(entries) {
+//				// Compute tfidf scores for the current page
+//				for (var i = 0; i < entries.length; i++) {
+//					keyComponents = entries[i].key.split(" ");
+//					if (keyComponents[0] != keyTfidfEntry) 
+//						continue;
+//					
+//					url = keyComponents[1];
+//					if (url != newUrl) {
+//						tfidf = {tfidf:parseFloatArray(entries[i].value.tfidf), length:entries[i].value.length};							
+//
+//						var s = 0;
+//						for (word in newTfidf.tfidf) {
+//							if (typeof(tfidf.tfidf[word]) == 'number') {
+//								s += newTfidf.tfidf[word] * tfidf.tfidf[word];
+//							}
+//						}
+//						score[score.length] = {score:s/(newTfidf.length*tfidf.length), url:url};
+//					}
+//				}
+//				
+//				// Loop
+//				if (entries.length == 0) callback();
+//				else computeTfidfScoresPaged(newUrl, newTfidf, score, page + 1, callback);
+//			});
+//		}
 
-						var s = 0;
-						for (word in newTfidf.tfidf) {
-							if (typeof(tfidf.tfidf[word]) == 'number') {
-								s += newTfidf.tfidf[word] * tfidf.tfidf[word];
-							}
-						}
-						score[score.length] = {score:s/(newTfidf.length*tfidf.length), url:url};
-					}
-				}
-				
-				// Loop
-				if (entries.length == 0) callback();
-				else computeTfidfScoresPaged(newUrl, newTfidf, score, page + 1, callback);
-			});
-		}
-
-// Convenience functions
-// ========================================================================================
-		function parseIntArray(arrayString) {
-			var a = new Array();
-			entries = arrayString.match(/[a-z]+:[0-9]+/g);
-			if (entries == null) return a;
-			for(var i = 0; i<entries.length; i++) {
-				entry = entries[i];
-				a[entry.match(/[a-z]+/g)] = parseInt(entry.match(/[0-9]+/g));
-			}
-			return a;
-		}
-		function serializeIntArray(a) {
-			var s = "";
-			for(entry in a) {
-				s += entry + ":" + a[entry] + ", ";
-			}
-			return s;
-		}
-
-		function parseFloatArray(arrayString) {
-			var a = new Array();
-			entries = arrayString.match(/[a-z]+:[0-9]+.[0-9]+/g);
-			if (entries == null) return a;
-			for(var i = 0; i<entries.length; i++) {
-				entry = entries[i];
-				a[entry.match(/[a-z]+/g)] = parseFloat(entry.match(/[0-9]+.[0-9]+/g));
-			}
-			return a;
-		}
-		
-		function serializeFloatArray(a, dec) {
-			var s = "";
-			for(entry in a) {
-				s += entry + ":" + a[entry].toFixed(dec) + ", ";
-			}
-			return s;
-		}
 	</script>
 </head>
 <body onload="loadAllHistory();">
