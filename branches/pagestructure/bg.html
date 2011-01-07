@@ -10,34 +10,31 @@
 		var struct = new Array();
 		
 		var div = document.createElement('div');
+		var nrNodes;
 		function run(){
 			chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
 				div.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+				nrNodes = 0;
 				struct[request.url] = examineNode(div, "");
 			});
 		}
 		
 		function examineNode(node, s) {
-			if((node.nodeName != 'DIV') && (node.nodeName != "#text") && 
-				(node.nodeName != "#textA") && (node.nodeName != "#textb") &&
-				(node.nodeName != "SPAN") && (node.nodeName != "INPUT") && (node.nodeName != "IMG") && 
-				(node.nodeName != "A") && (node.nodeName != "B") && (node.nodeName != "FORM") && 
-				(node.nodeName != "TABLE") && (node.nodeName != "NOSCRIPT") &&
-				(node.nodeName != "SELECT") && (node.nodeName != "OPTION") &&
-				(node.nodeName != "NOBR") && (node.nodeName != "SMALL") && (node.nodeName != "LI") &&
-				(node.nodeName != "UL") && (node.nodeName != "OL") && (node.nodeName != "TBODY") && 
-				(node.nodeName != "TD") && (node.nodeName != "TR") && (node.nodeName != "U") &&
-				(node.nodeName != "BR") && (node.nodeName != "#comment") && (node.nodeName != "P") && 
-				(node.nodeName != "STRONG")) 
-				s += node.nodeName;
+			var structNode = false;
+			if ((node.nodeName == 'DIV') || (node.nodeName == "NOSCRIPT") ||
+			(node.nodeName == "TABLE") || (node.nodeName == "FORM") ||
+			(node.nodeName == "UL") || (node.nodeName == "OL")) {
+				s += node.nodeName + "(";
+				structNode = true;
+				nrNodes++;
+			}
 			
-			if(node.nodeType == 1) {
-				s += " ";			
+			if(node.nodeType == 1)
 				for (var i = 0, l = node.childNodes.length; i < l; i++) {
 					s = examineNode(node.childNodes[i], s);
 				}
-				s += " ";
-			}
+
+			if(structNode) { s+= ")"; }
 			return s;
 		}
 	</script>
