@@ -1,4 +1,4 @@
 chrome.extension.sendRequest({
-	url:document.URL, 
-	text:document.body.innerText
+	url: document.URL, 
+	body: document.body.innerHTML
 });

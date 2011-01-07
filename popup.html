@@ -3,27 +3,18 @@
 	<script>
 		var bg = chrome.extension.getViews()[0];
 		
-		if (bg.hist.ready == false) {
-			document.write("Sorry, not done yet! <br>");
-			document.write("Processed: " + bg.hist.nrProcessed + " history entries. <br>");
-			document.write("Remaining: " + bg.hist.unprocessed.length + ". <br><br>");
-		} else {
-			chrome.tabs.getSelected(null, function(tab){
-				var url = tab.url;
+		chrome.tabs.getSelected(null, function(tab){
+			var url = tab.url;
 
-				var scores = bg.hist.scores[url];
-				if(scores == null) {
-					document.write("TfIdf scores not yet computed.");
-					return;
-				}
-	
-				document.write("Suggestions for url: " + url + "<br>");
-				for(var i = 0; i<5; i++) {
-					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
-						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
-				}
-			});
-		}
+			var struct = bg.struct[url];
+			if(struct == null) {
+				document.write("Website structure not yet computed.");
+				return;
+			}
+			
+			document.write("Structure for url: " + url + "<br><br>");
+			document.write(struct);
+		});
 	</script>
 </body>
 </html>
