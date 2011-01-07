@@ -1,15 +1,15 @@
 {
-  "name": "inContext",
-  "version": "4.0",
+  "name": "pageStructure",
+  "version": "1.0",
   "description": "",
   "background_page": "bg.html",
   "browser_action": {
-    "default_icon": "icon.png",
+    "default_icon": "icon.jpg",
     "default_popup": "popup.html"
    },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["http://*/*"],
       "js": ["gettext.js"]
     }
   ],
