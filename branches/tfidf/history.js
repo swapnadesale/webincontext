@@ -5,6 +5,8 @@ for(var i=0; i<wordlist.length; i++) {
 	stopwords[wordlist[i]] = 1;
 }
 var stopwebsites = [".google.", ".facebook.", ".youtube."];
+var protocol = "http://";
+
 
 var History = function(opts) {
 	this.init(opts);
@@ -43,6 +45,7 @@ History.prototype = {
 		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
 			var url = request.url;
 			that.lastProcessedHistoryEntry = (new Date).getTime();
+			if (url.substr(0, protocol.length) != protocol) return;
 			for (var i = 0; i < stopwebsites.length; i++) {
 				if (url.match(stopwebsites[i])) return;
 			}
@@ -91,7 +94,8 @@ History.prototype = {
 		var entry = this.unprocessed.pop();
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;
 		var url = entry.url;
-		detailsPage.document.write((new Date()).toGMTString() + ": " + url + "<br>");
+		// detailsPage.document.write((new Date()).toGMTString() + ": " + url + "<br>");
+		if(url.substr(0, protocol.length) != protocol) { this.processHistoryEntry(callback); return; }
 		for(var i = 0; i<stopwebsites.length; i++) {
 			if (url.match(stopwebsites[i])) { 
 				this.processHistoryEntry(callback); 
