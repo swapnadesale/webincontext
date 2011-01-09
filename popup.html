@@ -12,11 +12,8 @@
 				return;
 			}
 			
-			document.write("Structure for url: " + url + "<br>");
-			document.write(struct.length + " parts <br><br>");
-			for (var i = 0; i < struct.length; i++) {
-				document.write(struct[i] + "<br><br>");
-			}
+			document.write(bg.structureTreeToString(struct));
+			
 		});
 	</script>
 </body>

@@ -13,21 +13,34 @@
 		function run(){
 			chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
 				div.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-				struct[request.url] = new Array();
-				examineNode(request.url, div);
+				struct[request.url] = examineNode(div);
 			});
 		}
 		
 		
 		// Assumes this is a structure node (initially called on a div)
-		function examineNode(url, node) {
+		function examineNode(node) {
+			var s = new Array();
 			var rest = "";
 			for (var i = 0, l = node.childNodes.length; i < l; i++) {
 				var child = node.childNodes[i];
-				if (structureNodes[child.nodeName] == 1) examineNode(url, child);
-				else if(child.innerText != null) rest += child.innerText + " ";
+				if (structureNodes[child.nodeName] == 1) {
+					var schild = examineNode(child);
+					if(schild != null) s.push(schild);
+				} else if (child.innerText != null) rest += child.innerText + " ";
 			}
-			if(rest != "") struct[url].push(rest);
+			if(rest != "") s.push(rest); 
+			
+			if(s.length > 0) return s; else return null;
+		}
+		
+		function structureTreeToString(node) {
+			var s = "(";
+			for(var i = 0; i<node.length; i++) {
+				if(typeof(node[i]) == "string") s += node[i];
+				else s += structureTreeToString(node[i]); 
+			}
+			return s+")";
 		}
 	</script>
 </head>
