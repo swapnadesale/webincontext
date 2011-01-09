@@ -1,41 +1,33 @@
 <html>
 <head>
 	<script>
+		var nodelist = ['DIV', 'TABLE', 'FORM', 'UL', 'OL', 'SPAN', 'NOSCRIPT'];
+		var structureNodes = new Array();
+		for(var i=0; i<nodelist.length; i++) {
+			structureNodes[nodelist[i]] = 1;
+		}
 		
-		/*
-		 * while node type is 3, look at all the children, print their types, and recurse.
-		 * var child = document.body.firstChild.nextSibling; 
-			alert("Child of type: " + child.nodeType + ", data: " + child.nodeName);
-		 */
+		
 		var struct = new Array();
-		
 		var div = document.createElement('div');
-		var nrNodes;
 		function run(){
 			chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
 				div.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-				nrNodes = 0;
-				struct[request.url] = examineNode(div, "");
+				struct[request.url] = new Array();
+				examineNode(request.url, div);
 			});
 		}
 		
-		function examineNode(node, s) {
-			var structNode = false;
-			if ((node.nodeName == 'DIV') || (node.nodeName == "NOSCRIPT") ||
-			(node.nodeName == "TABLE") || (node.nodeName == "FORM") ||
-			(node.nodeName == "UL") || (node.nodeName == "OL")) {
-				s += node.nodeName + "(";
-				structNode = true;
-				nrNodes++;
+		
+		// Assumes this is a structure node (initially called on a div)
+		function examineNode(url, node) {
+			var rest = "";
+			for (var i = 0, l = node.childNodes.length; i < l; i++) {
+				var child = node.childNodes[i];
+				if (structureNodes[child.nodeName] == 1) examineNode(url, child);
+				else if(child.innerText != null) rest += child.innerText + " ";
 			}
-			
-			if(node.nodeType == 1)
-				for (var i = 0, l = node.childNodes.length; i < l; i++) {
-					s = examineNode(node.childNodes[i], s);
-				}
-
-			if(structNode) { s+= ")"; }
-			return s;
+			if(rest != "") struct[url].push(rest);
 		}
 	</script>
 </head>

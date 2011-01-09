@@ -12,8 +12,11 @@
 				return;
 			}
 			
-			document.write("Structure for url: " + url + " with nrNodes: " + bg.nrNodes + "<br><br>");
-			document.write(struct);
+			document.write("Structure for url: " + url + "<br>");
+			document.write(struct.length + " parts <br><br>");
+			for (var i = 0; i < struct.length; i++) {
+				document.write(struct[i] + "<br><br>");
+			}
 		});
 	</script>
 </body>
