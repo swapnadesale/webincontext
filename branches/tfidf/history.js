@@ -23,9 +23,9 @@ History.prototype = {
 		this.unprocessed = null;
 
 		// Default properties
-		this.maxHistoryEntries = merge(4000, opts.maxHistoryEntries);
-		this.delay = merge(50, opts.delay);
-		this.batchSize = merge(500, opts.batchSize);
+		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
+		this.timeout = merge(20000, opts.timeout);
+		this.batchSize = merge(100, opts.batchSize);
 
 		if(opts.store == undefined || opts.store == null) {
 			this.store = new StoreWrapper({});
@@ -75,10 +75,7 @@ History.prototype = {
 			maxResults: this.maxHistoryEntries
 		}, function(results){
 			that.unprocessed = results;
-			setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
-				// Creating a closure around that.processHistoryEntry() is necessary because
-				// 'this' is passed as a hidden argument by the caller, which, 
-				// in the case of setTimeout will be DOMWindow. 
+			that.processHistoryEntry(callback);
 		});
 	},
 
@@ -90,33 +87,45 @@ History.prototype = {
 			return;
 		}
 
+		// Filter out undesired URLs.
 		var entry = this.unprocessed.pop();
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;
 		var url = entry.url;
+		detailsPage.document.write((new Date()).toGMTString() + ": " + url + "<br>");
 		for(var i = 0; i<stopwebsites.length; i++) {
-			if (url.match(stopwebsites[i])) {
-				setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
-				return;
+			if (url.match(stopwebsites[i])) { 
+				this.processHistoryEntry(callback); 
+				return; 
 			}
 		}
 
+		// Preparing the save&loop function for the async request send.
+		var saveAndLoop = function() {
+			// Compute tf-idfs and save them to disk in batches, then loop.
+			if (that.tfs.length == that.batchSize) {
+				that.computeAndStoreTfidfs(function(){ that.processHistoryEntry(callback); });
+			} else that.processHistoryEntry(callback);
+		};
+
+		// Try loading the page, through an async send request.
 		try {
 			var req = new XMLHttpRequest();
-			req.open("GET", url, false);
+			req.open("GET", url, true);
+			var reqTimeout = setTimeout(function() { saveAndLoop(); }, this.timeout);
+			req.onreadystatechange = function() {
+  				if (req.readyState == 4) {
+					if(req.status == 200) {		// Successful.
+						// Parse the html, eliminating <script> and <style> content.
+						that.div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+						// Compute TFs and DFs.
+						that.computeTfsDfs(url, that.div.innerText);
+					}
+					clearTimeout(reqTimeout);
+    				saveAndLoop();
+    			}
+  			}
 			req.send();
-			// Parse the html, eliminating <script> and <style> content.
-			this.div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-			// Compute TFs and DFs.
-			this.computeTfsDfs(url, this.div.innerText);
-		} catch (err) {}
-
-		// Compute tf-idfs and save them to disk in batches, then LOOP.
-		if (this.tfs.length == this.batchSize) {
-			this.computeAndStoreTfidfs(function(){
-				setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
-			});
-		}
-		else setTimeout(function() { that.processHistoryEntry(callback); }, that.delay);
+		} catch (err) { saveAndLoop(); }
 	},
 
 	computeTfsDfs: function(url, s) {

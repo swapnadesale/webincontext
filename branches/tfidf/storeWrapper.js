@@ -10,11 +10,11 @@ StoreWrapper.prototype = {
 		this.name = merge('MyStore', opts.name);
 		this.version = merge('2.0', opts.version);
 		this.display = merge('Store', opts.display);
-		this.max = merge(65536, opts.max);
+		this.max = merge(512*1024*1024, opts.max);
 		
 		this.paramTable = merge('paramTable', opts.paramTable);
 		this.tfidfTable = merge('tfidfTable', opts.mainTable);
-		this.perPage = merge(10, opts.perPage);
+		this.perPage = merge(500, opts.perPage);
 		this.maxVectorLength = merge(2500000, opts.maxVectorLength);
 		
 		// Parameter keys
