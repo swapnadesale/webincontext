@@ -12,7 +12,7 @@
 		
 		var hist;
 		function run(){
-			hist = new History({maxHistoryEntries:50});
+			hist = new History({maxHistoryEntries:4000});
 			// 1. Load existing state from disk.
 			hist.loadParametersFromDisk(function(){
 				detailsPage = chrome.extension.getViews()[1];
