@@ -1,4 +1,4 @@
-// Word and website stoplists
+// CONSTANTS
 var wordlist = ["a", "a's", "able", "about", "above", "according", "accordingly", "across", "actually", "after", "afterwards", "again", "against", "ain't", "all", "allow", "allows", "almost", "alone", "along", "already", "also", "although", "always", "am", "among", "amongst", "an", "and", "another", "any", "anybody", "anyhow", "anyone", "anything", "anyway", "anyways", "anywhere", "apart", "appear", "appreciate", "appropriate", "are", "aren't", "around", "as", "aside", "ask", "asking", "associated", "at", "available", "away", "awfully", "be", "became", "because", "become", "becomes", "becoming", "been", "before", "beforehand", "behind", "being", "believe", "below", "beside", "besides", "best", "better", "between", "beyond", "both", "brief", "but", "by", "c'mon", "c's", "came", "can", "can't", "cannot", "cant", "causes", "certain", "certainly", "changes", "clearly", "com", "come", "comes", "concerning", "consequently", "consider", "considering", "contain", "containing", "contains", "corresponding", "could", "couldn't", "course", "currently", "dear", "definitely", "described", "despite", "did", "didn't", "different", "do", "does", "doesn't", "doing", "don't", "done", "down", "downwards", "during", "each", "edu", "eg", "eight", "either", "else", "elsewhere", "enough", "entirely", "especially", "etc", "even", "ever", "every", "everybody", "everyone", "everything", "everywhere", "ex", "exactly", "example", "except", "far", "few", "fifth", "first", "five", "followed", "following", "follows", "for", "former", "formerly", "forth", "four", "from", "further", "furthermore", "get", "gets", "getting", "given", "gives", "goes", "going", "gone", "got", "gotten", "greetings", "had", "hadn't", "happens", "hardly", "has", "hasn't", "have", "haven't", "having", "he", "he's", "hello", "help", "hence", "her", "here's", "hereafter", "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his", "hither", "hopefully", "how", "howbeit", "however", "i", "i'd", "i'll", "i'm", "i've", "ie", "if", "ignored", "immediate", "in", "inasmuch", "indeed", "indicate", "indicated", "indicates", "inner", "insofar", "instead", "into", "inward", "is", "isn't", "it", "it'd", "it'll", "it's", "its", "itself", "just", "keep", "keeps", "kept", "know", "known", "knows", "last", "lately", "later", "latter", "latterly", "least", "less", "lest", "let", "let's", "like", "liked", "likely", "little", "look", "looking", "looks", "ltd", "mainly", "many", "may", "maybe", "me", "mean", "meanwhile", "merely", "might", "more", "moreover", "most", "mostly", "much", "must", "my", "myself", "name", "namely", "near", "nearly", "necessary", "need", "needs", "neither", "never", "nevertheless", "new", "next", "nine", "no", "nobody", "non", "none", "noone", "nor", "normally", "not", "nothing", "novel", "now", "nowhere", "obviously", "of", "off", "often", "oh", "ok", "okay", "old", "on", "once", "one", "ones", "only", "onto", "or", "other", "others", "otherwise", "ought", "our", "ours", "ourselves", "outside", "over", "overall", "own", "p", "particular", "particularly", "per", "perhaps", "placed", "please", "plus", "possible", "presumably", "probably", "provides", "q", "que", "quite", "qv", "rather", "rd", "really", "reasonably", "regarding", "regardless", "regards", "relatively", "respectively", "right", "said", "same", "saw", "say", "saying", "says", "second", "secondly", "see", "seeing", "seem", "seemed", "seeming", "seems", "seen", "self", "selves", "sensible", "sent", "serious", "seriously", "seven", "several", "shall", "she", "should", "shouldn't", "since", "six", "so", "some", "somebody", "somehow", "someone", "something", "sometime", "sometimes", "somewhat", "somewhere", "soon", "sorry", "specified", "specify", "specifying", "still", "sub", "such", "sup", "sure", "t's", "take", "taken", "tell", "tends", "than", "thank", "thanks", "thanx", "that", "that's", "thats", "the", "their", "theirs", "them", "themselves", "then", "thence", "there", "there's", "thereafter", "thereby", "therefore", "therein", "theres", "thereupon", "these", "they", "they'd", "they'll", "they're", "they've", "think", "third", "this", "thorough", "thoroughly", "those", "though", "three", "through", "throughout", "thru", "thus", "tis", "to", "together", "too", "took", "toward", "towards", "tried", "tries", "truly", "try", "trying", "twas", "twice", "two", "un", "under", "unfortunately", "unless", "unlikely", "until", "unto", "up", "upon", "us", "used", "useful", "uses", "using", "usually", "uucp", "value", "various", "via", "viz", "vs", "wants", "was", "wasn't", "way", "we", "we'd", "we'll", "we're", "we've", "welcome", "well", "went", "were", "weren't", "what", "what's", "whatever", "when", "whence", "whenever", "where", "where's", "whereafter", "whereas", "whereby", "wherein", "whereupon", "wherever", "whether", "which", "while", "whither", "who", "who's", "whoever", "whole", "whom", "whose", "why", "will", "willing", "wish", "with", "within", "without", "won't", "wonder", "would", "wouldn't", "x", "yes", "yet", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves", "z", "zero"];
 var stopwords = new Array();
 for(var i=0; i<wordlist.length; i++) {
@@ -12,6 +12,8 @@ var structureNodes = new Array();
 for(var i=0; i<nodelist.length; i++) {
 	structureNodes[nodelist[i]] = 1;
 }
+
+domainReg = new RegExp(protocol+"[a-zA-Z0-9\x2E]*"+"/", "");
 
 
 
@@ -46,25 +48,28 @@ History.prototype = {
 	},
 
 	registerForNewPageLoadedEvents: function(){
-//		var that = this;
-//		if(this.ready == false) return; 
-//
-//		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
-//			var url = request.url;
-//			that.lastProcessedHistoryEntry = (new Date).getTime();
-//			if (url.substr(0, protocol.length) != protocol) return;
-//			for (var i = 0; i < stopwebsites.length; i++) {
-//				if (url.match(stopwebsites[i])) return;
-//			}
-//
-//			that.computeTfsDfs(url, request.text);
-//			that.computeTfidf(url);
-//			that.store.storeTfidf(that, url, function() {
-//				that.computeTfidfScores(url, function() {
-//					delete that.tfidf[url];
-//				});				
-//			});
-//		});
+		var that = this;
+		if(this.ready == false) return; 
+
+		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
+			var url = request.url;
+			that.lastProcessedHistoryEntry = (new Date).getTime();
+			if (url.substr(0, protocol.length) != protocol) return;
+			for (var i = 0; i < stopwebsites.length; i++) {
+				if (url.match(stopwebsites[i])) return;
+			}
+
+			var div = document.createElement('body'); 
+			div.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+
+			that.computeTfsDfs(url, div);
+			that.computeTfidf(url);
+			that.store.storeTfidf(that, url, function() {
+				that.computeTfidfScores(url, function() {
+					delete that.tfidf[url];
+				});				
+			});
+		});
 	},
 
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from dis.
@@ -126,7 +131,8 @@ History.prototype = {
   				if (req.readyState == 4) {
 					if(req.status == 200) {		// Successful.
 						// Parse the html, eliminating <script> and <style> content.
-						var div = document.createElement('html'); 
+						var div = document.createElement('html');
+						
 						div.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
 						div = div.getElementsByTagName('body')[0];
 
@@ -142,12 +148,12 @@ History.prototype = {
 	},
 
 	computeTfsDfs: function(url, div) {
-		var s = this.buildPageStructure(div, new Array());
+		var s = this.buildPageStructure(div, new Array(), url);
 		this.tfs[url] = new Array();
 		this.tfs[url][0] = new Array();
 		var tfsAll = this.tfs[url][0];
 
-		for(var i=0; i<s.length; i++){
+		for(var i=1; i<s.length; i++){
 			var words = s[i].toLowerCase().match(/[a-zA-Z]+/g);
 			if (words == null) continue;
 
@@ -157,14 +163,15 @@ History.prototype = {
 			for (var j = 0; j < words.length; j++) {
 				var word = stemmer(words[j]);
 				if (stopwords[word] != 1) {
-					if (typeof(tfsPart[word]) != 'number') {
-						tfsPart[word] = 1;
-						// Only add to dfs the first a word is encoutered.
+					if (typeof(tfsPart[word]) != 'number') tfsPart[word] = 1;
+					else tfsPart[word]++;
+					
+					if (typeof(tfsAll[word]) != 'number') {
+						tfsAll[word] = 1;
+						// Only add to dfs the first time a word is encoutered.
 						if (typeof(this.dfs[word]) != 'number') this.dfs[word] = 1;
 						else this.dfs[word]++;
-					} else tfsPart[word]++;
-					
-					if (typeof(tfsAll[word]) != 'number') tfsAll[word] = 1;
+					}
 					else tfsAll[word]++;
 				}
 			}
@@ -177,12 +184,16 @@ History.prototype = {
 	},
 
 	// Assumes this is a structure node (initially called on a div)
-	buildPageStructure: function(node, struct) {
+	buildPageStructure: function(node, struct, url) {
 		var rest = "";
 		for (var i = 0, l = node.childNodes.length; i < l; i++) {
 			var child = node.childNodes[i];
-			if (structureNodes[child.nodeName] == 1) this.buildPageStructure(child, struct);
-			else if(child.innerText != null) rest += child.innerText + " ";
+			if (structureNodes[child.nodeName] == 1) 
+				this.buildPageStructure(child, struct, url);
+			else 
+				if (child.innerText != null) {
+					rest += child.innerText + " ";
+				}
 		}
 		if(rest != "") struct.push(rest);
 		return struct;
@@ -222,37 +233,59 @@ History.prototype = {
 		this.tfs.length--;
 	},
 
-//	computeTfidfScores: function(url, callback) {
-//		var that = this;
-//		var score = new Array();
-//		this.computeTfidfScoresPaged(url, score, 0, function() {
-//			that.scores[url] = score.sort(function(a,b) {return b.score - a.score});
-//			callback();
-//		});
-//	},
-//
-//	computeTfidfScoresPaged: function(url, score, page, callback){
-//		var that = this;
-//		var v = this.tfidf[url].vector;
-//		
-//		// Compute tfidf scores for the current page
-//		this.store.getTfidfPage(page, function(tfidfPage){
-//			if (tfidfPage.length == 0) { callback(); return; }
-//			
-//			for (var pageUrl in tfidfPage) {
-//				if (pageUrl != url) {
-//					var s = 0;
-//					var pageV = tfidfPage[pageUrl].vector;
-//					for (var word in v) 
-//						if (typeof(pageV[word]) == 'number') s += v[word] * pageV[word];
-//
-//					score.push({score: s / (that.tfidf[url].length * tfidfPage[pageUrl].length), url:pageUrl});
-//				}
-//			}
-//			delete tfidfPage;
-//			
-//			// LOOP
-//			that.computeTfidfScoresPaged(url, score, page + 1, callback);
-//		});
-//	}
+	computeTfidfScores: function(url, callback) {
+		var that = this;
+		var score = new Array();
+		this.computeTfidfScoresPaged(url, score, 0, function() {
+			that.scores[url] = score.sort(function(a,b) {return b.score - a.score});
+			callback();
+		});
+	},
+
+	computeTfidfScoresPaged: function(url, score, page, callback){
+		var that = this;
+		var domain = url.match(domainReg);
+		
+		// Compute tfidf scores for the current page
+		this.store.getTfidfPage(page, function(tfidfPage){
+			if (tfidfPage.length == 0) { callback(); return; }
+			
+			for (var pageUrl in tfidfPage) {
+				if (pageUrl != url) {
+					pageDomain = pageUrl.match(domainReg);
+					
+					var v = copyArray(that.tfidf[url][0].vector);
+					var pageV = copyArray(tfidfPage[pageUrl][0].vector);
+					var l = that.tfidf[url][0].length;
+					var pageL = tfidfPage[pageUrl][0].length;
+					
+					if(pageDomain == domain) {
+						// If from the same domain, substract common parts.
+						for(var i = 1; i < tfidfPage[pageUrl].length; i++){
+							var part = that.tfidf[url][i];
+							var pagePart = tfidfPage[url][i];
+							if(part.length == pagePart.length) {
+								for(word in part.vector) {
+									v[word] -= part.vector[word];
+									pageV[word] -= pagePart.vector[word];
+								}
+								l = Math.sqrt(l*l - part.length*part.length);
+								pageL = Math.sqrt(pageL*pageL - pagePart.length*pagePart.length);
+							}
+						}
+					}
+					
+					var s = 0;
+					for (var word in v) 
+						if (typeof(pageV[word]) == 'number') s += v[word] * pageV[word];
+
+					score.push({score:s/(l*pageL), url:pageUrl});
+				}
+			}
+			delete tfidfPage;
+			
+			// LOOP
+			that.computeTfidfScoresPaged(url, score, page + 1, callback);
+		});
+	}
 };

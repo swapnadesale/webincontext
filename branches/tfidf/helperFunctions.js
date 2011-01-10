@@ -2,6 +2,12 @@ function merge(defaultOption, userOption) {
 	return (userOption == undefined || userOption == null) ? defaultOption: userOption;
 }
 
+function copyArray(a) {
+	var b = new Array();
+	for(key in a) b[key] = a[key];
+	return b;
+}
+
 function parseIntArray(arrayString){
 	var a = new Array();
 	entries = arrayString.match(/[a-z]+:[0-9]+/g);

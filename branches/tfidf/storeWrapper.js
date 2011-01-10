@@ -88,8 +88,8 @@ StoreWrapper.prototype = {
 					var parts = row.vectors.split("|");
 					for(var j = 0; j < parts.length; j++) {
 						var elem = parts[j].split(";");
-						var v = parseFloatVector(elem[0].split("=")[1]);
-						var l = parseFloatVector(elem[1].split("=")[1]);
+						var v = parseFloatArray(elem[0].split("=")[1]);
+						var l = parseFloat(elem[1].split("=")[1]);
 						tfidfPage[row.url][j] = {vector:v, length:l};
 					}
 				}
@@ -109,7 +109,7 @@ StoreWrapper.prototype = {
 			"l = " + history.tfidf[url][i].length + " | ";	
 		}
 		vectors = vectors.substring(0, vectors.length - 1 - 3);	// Take out the last " | ".
-		var sql = "REPLACE INTO " + this.tfidfTable + " VALUES (\"" + url + "\", \"" + vectors + ")";
+		var sql = "REPLACE INTO " + this.tfidfTable + " VALUES (\"" + url + "\", \"" + vectors + "\")";
 		
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result) {
