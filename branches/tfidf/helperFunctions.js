@@ -8,6 +8,7 @@ function copyArray(a) {
 	return b;
 }
 
+
 function parseIntArray(arrayString){
 	var a = new Array();
 	entries = arrayString.match(/[a-z]+:[0-9]+/g);

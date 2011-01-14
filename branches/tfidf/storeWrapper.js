@@ -30,7 +30,8 @@ StoreWrapper.prototype = {
 			t.executeSql("CREATE TABLE " + that.paramTable + " (key CHAR(20), value CHAR(" + that.maxVectorLength + "), PRIMARY KEY (key))");
 		});
 		this.db.transaction(function(t){
-			t.executeSql("CREATE TABLE " + that.tfidfTable + " (url CHAR(4098), vectors CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
+			t.executeSql("CREATE TABLE " + that.tfidfTable + " (url CHAR(4098), all CHAR(" + that.maxVectorLength + "), " + 
+				"parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
 		});
 	},
 	
@@ -81,16 +82,25 @@ StoreWrapper.prototype = {
 				for (var i = 0, l = results.rows.length; i < l; i++) {
 					var row = results.rows.item(i);
 					
-					tfidfPage[row.url] = new Array();
+					tfidfPage[row.url] = {};
 					tfidfPage.length++;
 
-					// Format: "v = ...; l = ... | v = ...; l = ... etc"
-					var parts = row.vectors.split("|");
+					// Get the all vector
+					// Format: "v = ...; l = ..."
+					var elem = parts[j].split(";");
+					var v = parseFloatArray(elem[0].split("=")[1]);
+					var l = parseFloat(elem[1].split("=")[1]);
+					tfidfPage[row.url].all = {v:v, l:l};
+
+					// Get the parts
+					// Format: "v = ...; hash = ... | v = ...; hash = ... etc"
+					tfidfPage[row.url].parts = new Array();
+					var parts = row.parts.split("|");
 					for(var j = 0; j < parts.length; j++) {
 						var elem = parts[j].split(";");
 						var v = parseFloatArray(elem[0].split("=")[1]);
-						var l = parseFloat(elem[1].split("=")[1]);
-						tfidfPage[row.url][j] = {vector:v, length:l};
+						var hash = parseFloat(elem[1].split("=")[1]);
+						tfidfPage[row.url].parts[j] = {v:v, hash:hash};
 					}
 				}
 				callback(tfidfPage);
@@ -102,14 +112,10 @@ StoreWrapper.prototype = {
 		var that = this;
 			
 		// Add the tf-idf score.
-		// Format: "v = ...; l = ... | v = ...; l = ... etc"
-		var vectors = "";
-		for(var i = 0; i<history.tfidf[url].length; i++) {
-			vectors += "v = " + serializeFloatArray(history.tfidf[url][i].vector, 4) + "; " +
-			"l = " + history.tfidf[url][i].length + " | ";	
-		}
-		vectors = vectors.substring(0, vectors.length - 1 - 3);	// Take out the last " | ".
-		var sql = "REPLACE INTO " + this.tfidfTable + " VALUES (\"" + url + "\", \"" + vectors + "\")";
+		var tfidf = history.tfidf[url];
+		var all = this.serializeAll(tfidf.all);
+		var parts = this.serializeParts(tfidf.parts);
+		var sql = "REPLACE INTO " + this.tfidfTable + " VALUES (\"" + url + "\", \"" + all + "\", \"" + parts + "\")";
 		
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result) {
@@ -120,21 +126,17 @@ StoreWrapper.prototype = {
 			});
 		});
 	},
-	
+		
 	storeAllTfidfs: function(history, callback) {
 		var that = this;
 		
 		// Add all the tf-idf scores.
-		// Format: "v = ...; l = ... | v = ...; l = ... etc"
 		var sql = "REPLACE INTO " + this.tfidfTable + " ";
 		for(var url in history.tfidf) {
-			var vectors = "";
-			for(var i = 0; i<history.tfidf[url].length; i++) {
-				vectors += "v = " + serializeFloatArray(history.tfidf[url][i].vector, 4) + "; " +
-					"l = " + history.tfidf[url][i].length + " | ";	
-			}
-			vectors = vectors.substring(0, vectors.length - 1 - 3);	// Take out the last " | ".
-			sql += "SELECT \"" + url + "\", \"" + vectors + "\" UNION ";
+			var tfidf = history.tfidf[url];
+			var all = this.serializeAll(tfidf.all);
+			var parts = this.serializeParts(tfidf.parts);
+			sql += "SELECT \"" + url + "\", \"" + all + "\", \"" + parts + "\" UNION ";
 		}
 		sql = sql.substring(0, sql.length - 1 - 6);	// Take out the last UNION.
 		
@@ -146,5 +148,18 @@ StoreWrapper.prototype = {
 					});
 				});
 		});
-	}
+	},
+	
+	serializeAll: function(all) {
+		return "v = " + serializeFloatArray(all.v) + "; l = " + all.l;
+	},
+	
+	serializeParts: function(parts) {
+		// Format: "v = ...; hash = ... | v = ...; hash = ... etc"
+		var s = "";
+		for(var i = 0; i<parts.length; i++)
+			s += "v = " + serializeFloatArray(parts[i].v, 4) + "; hash = " + parts[i].hash+ " | ";	
+		s = s.substring(0, s.length - 1 - 3);	// Take out the last " | ".
+		return s;
+	},
 };
