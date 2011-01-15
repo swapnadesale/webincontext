@@ -143,6 +143,8 @@ StoreWrapper.prototype = {
 					that.storeParams(history, function() {
 						callback();
 					});
+				}, function(tx, error) {
+					detailsPage.document.write("<br>Store error: " + error.message + "<br>");
 				});
 		});
 	},

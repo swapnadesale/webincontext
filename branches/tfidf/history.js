@@ -33,7 +33,7 @@ History.prototype = {
 		this.unprocessed = null;
 		
 		// Default properties
-		this.maxHistoryEntries = merge(1000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
 		this.timeout = merge(20000, opts.timeout);
 		this.batchSize = merge(1000, opts.batchSize);
 		
@@ -110,7 +110,7 @@ History.prototype = {
 		var saveAndLoop = function(){
 			// Store the tfss to disk in batches, discard them from memory, then loop.
 			if (that.tfs.length == that.batchSize) {
-				that.store.storeAllTfss(function(){
+				that.store.storeAllTfss(that, function(){
 					delete that.tfs;
 					that.tfs = new Array();
 					that.processHistoryEntry(callback); 
