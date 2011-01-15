@@ -13,7 +13,7 @@ for(var i=0; i<nodelist.length; i++) {
 	structureNodes[nodelist[i]] = 1;
 }
 
-domainReg = new RegExp(protocol+"[a-zA-Z0-9\x2E]*"+"/", "");
+domainReg = new RegExp(protocol+"[a-zA-Z0-9\x2D\x2E\x5F]*"+"/", "");
 
 
 
@@ -33,7 +33,7 @@ History.prototype = {
 		this.unprocessed = null;
 		
 		// Default properties
-		this.maxHistoryEntries = merge(50, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(1000, opts.maxHistoryEntries);
 		this.timeout = merge(20000, opts.timeout);
 		this.batchSize = merge(1000, opts.batchSize);
 		
@@ -259,8 +259,10 @@ History.prototype = {
 					
 					// If from the same domain, substract common parts.
 					var pageDomain = pageUrl.match(domainReg);
+					if(pageDomain == null) alert(pageUrl);
 					var foundCommon = false;
 					if (pageDomain.toString() == domain.toString()) {
+						detailsPage.document.write("<br>Intersecting with URL: " + pageUrl + "<br>");
 						for (var i = 0; i < that.tfs[url].parts.length; i++) {
 							// Find common parts.
 							var hash = that.tfs[url].parts[i].hash;
@@ -272,7 +274,10 @@ History.prototype = {
 							
 							if (j < tfsPage[pageUrl].parts.length) {
 								// Double check that arrays are equal.
-								if(!equalArrays(that.tfs[url].parts[i].v, tfsPage[pageUrl].parts[j].v)) continue;
+								if (!equalArrays(that.tfs[url].parts[i].v, tfsPage[pageUrl].parts[j].v)) {
+									detailsPage.document.write("Different part: " + serializeIntArray(that.tfs[url].parts[i].v) + "<br>");
+									continue;
+								}
 								 
 								// If first common part found, copy the vectors.
 								if (!foundCommon) {
@@ -287,6 +292,9 @@ History.prototype = {
 									v[word] -= part[word];
 									pageV[word] -= part[word];
 								}
+								detailsPage.document.write("Common part: " + serializeIntArray(part) + "<br>");
+							} else {
+								detailsPage.document.write("Different part: " + serializeIntArray(that.tfs[url].parts[i].v) + "<br>");
 							}
 						}
 					}
