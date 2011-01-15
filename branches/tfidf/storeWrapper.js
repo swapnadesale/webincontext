@@ -14,6 +14,7 @@ StoreWrapper.prototype = {
 		
 		this.paramTable = merge('paramTable', opts.paramTable);
 		this.tfsTable = merge('tfsTable', opts.mainTable);
+		this.sidePartsTable = merge('sidePartsTable', opts.sidePartsTable)
 		this.perPage = merge(500, opts.perPage);
 		this.maxVectorLength = merge(2500000, opts.maxVectorLength);
 		
@@ -33,8 +34,11 @@ StoreWrapper.prototype = {
 			t.executeSql("CREATE TABLE " + that.tfsTable + " (url CHAR(4098), vall CHAR(" + that.maxVectorLength + "), " + 
 				"parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
 		});
+		this.db.transaction(function(t){
+			t.executeSql("CREATE TABLE " + that.sidePartsTable + " (domain CHAR(4098), parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (domain))");
+		});
 	},
-	
+
 	loadParams: function(history, callback) {
 		var that = this;
 		
@@ -71,44 +75,42 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	getTfsPage: function(page, callback) {
-		var that = this;
-		
-		var offset = that.perPage * page ;
-		var sql = "SELECT * FROM " + that.tfsTable + " ASC LIMIT ? OFFSET ?";
-		this.db.transaction(function(t) {
-		    t.executeSql(sql, [that.perPage, offset], function(tx, results) {
-				var tfsPage = new Array();
-				for (var i = 0; i < results.rows.length; i++) {
-					var row = results.rows.item(i);
-					
-					tfsPage[row.url] = {};
-					tfsPage.length++;
-
-					// Get the all vector
-					tfsPage[row.url].all = parseIntArray(row.vall);
-
-					// Get the parts
-					// Format: "v = ...; hash = ... | v = ...; hash = ... etc"
-					tfsPage[row.url].parts = new Array();
-					var parts = row.parts.split("|");
-					for(var j = 0; j < parts.length; j++) {
-						var elem = parts[j].split(";");
-						var v = parseIntArray(elem[0].split("=")[1]);
-						var hash = parseInt(elem[1].split("=")[1]);
-						tfsPage[row.url].parts[j] = {v:v, hash:hash};
-					}
-				}
-				callback(tfsPage);
+	getAllURLs: function(callback) {
+		var sql = "SELECT url FROM " + this.tfsTable;
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, results) {
+				var urls = new Array();
+				for (var i = 0; i < results.rows.length; i++) urls.push(results.rows.item(i).url);
+				callback(urls);
 			});
 		});
 	},
 	
-	storeTfs: function(history, url, callback) {
+	getTfsPage: function(page, callback) {
+		var that = this;
+		var offset = that.perPage * page ;
+		var sql = "SELECT * FROM " + that.tfsTable + " ASC LIMIT ? OFFSET ?";
+		this.db.transaction(function(t) {
+		    t.executeSql(sql, [that.perPage, offset], function(tx, results) {
+				callback(that.parseTfsResults(results));
+			});
+		});
+	},
+	
+	getTfssForDomain: function(domain, callback) {
+		var that = this;
+		var sql = "SELECT * FROM " + this.tfsTable + " WHERE url LIKE \"" + domain + "%\"";
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, results) {
+				callback(that.parseTfsResults(results));
+			});
+		});
+	},
+	
+	storeTfs: function(tfs, callback) {
 		var that = this;
 			
 		// Add the tf-idf score.
-		var tfs = history.tfs[url];
 		var all = this.serializeAll(tfs.all);
 		var parts = this.serializeParts(tfs.parts);
 		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (\"" + url + "\", \"" + all + "\", \"" + parts + "\")";
@@ -123,14 +125,14 @@ StoreWrapper.prototype = {
 		});
 	},
 		
-	storeAllTfss: function(history, callback) {
+	storeAllTfss: function(tfss, callback) {
 		var that = this;
-		if(history.tfs.length == 0) { callback(); return; }
+		if(tfss.length == 0) { callback(); return; }
 		
 		// Add all the tf-idf scores.
 		var sql = "REPLACE INTO " + this.tfsTable + " ";
-		for(var url in history.tfs) {
-			var tfs = history.tfs[url];
+		for(var url in tfss) {
+			var tfs = tfss[url];
 			var all = this.serializeAll(tfs.all);
 			var parts = this.serializeParts(tfs.parts);
 			sql += "SELECT \"" + url + "\", \"" + all + "\", \"" + parts + "\" UNION ";
@@ -143,10 +145,49 @@ StoreWrapper.prototype = {
 					that.storeParams(history, function() {
 						callback();
 					});
-				}, function(tx, error) {
-					// detailsPage.document.write("<br>Store error: " + error.message + "<br>");
-				});
+			});
 		});
+	},
+
+	getSidePartsForDomain: function(domain, callback) {
+		var that = this;
+		var sql = "SELECT parts FROM " + this.sidePartsTable + " WHERE domain LIKE \"" + domain + "\"";
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, results) {
+				var parts = new Array();
+				if ((results != null) && (results.rows.length > 0)) {
+					var ps = results.rows.item(0).parts.split(";");
+					for (var i = 0; i < parts.length; i++) parts.push(parseIntArray(ps[i]));
+				}
+				callback(parts);
+			});
+		});
+	},
+
+	storeSidePartsForDomain: function(domain, parts, callback) {
+		var sql = "REPLACE INTO " + this.sidePartsTable + " VALUES (\"" + url + "\", \"" + this.serializeParts(parts) + "\")";
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, result) { 
+				callback(); 
+			});
+		});
+
+	},
+
+	parseTfsResults: function(results) {
+		var tfsPage = new Array();
+		for (var i = 0; i < results.rows.length; i++) {
+			var row = results.rows.item(i);
+
+			tfsPage[row.url] = {};
+			tfsPage.length++;
+			tfsPage[row.url].all = parseIntArray(row.vall);
+
+			tfsPage[row.url].parts = new Array();
+			var parts = row.parts.split(";");
+			for(var j = 0; j < parts.length; j++) tfsPage[row.url].parts.push(parseIntArray(parts[j]));
+		}
+		return tfsPage;
 	},
 	
 	serializeAll: function(all) {
@@ -154,11 +195,9 @@ StoreWrapper.prototype = {
 	},
 	
 	serializeParts: function(parts) {
-		// Format: "v = ...; hash = ... | v = ...; hash = ... etc"
 		var s = "";
-		for(var i = 0; i<parts.length; i++)
-			s += "v = " + serializeIntArray(parts[i].v) + "; hash = " + parts[i].hash+ " | ";	
-		s = s.substring(0, s.length - 1 - 3);	// Take out the last " | ".
+		for(var i = 0; i<parts.length; i++) s += serializeIntArray(parts[i]) + " ; ";	
+		s = s.substring(0, s.length - 1 - 3);	// Take out the last " ; ".
 		return s;
 	},
 };
