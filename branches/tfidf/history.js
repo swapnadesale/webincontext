@@ -35,7 +35,7 @@ History.prototype = {
 		// Default properties
 		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
 		this.timeout = merge(20000, opts.timeout);
-		this.batchSize = merge(1000, opts.batchSize);
+		this.batchSize = merge(100, opts.batchSize);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -262,7 +262,6 @@ History.prototype = {
 					if(pageDomain == null) alert(pageUrl);
 					var foundCommon = false;
 					if (pageDomain.toString() == domain.toString()) {
-						detailsPage.document.write("<br>Intersecting with URL: " + pageUrl + "<br>");
 						for (var i = 0; i < that.tfs[url].parts.length; i++) {
 							// Find common parts.
 							var hash = that.tfs[url].parts[i].hash;
@@ -275,7 +274,6 @@ History.prototype = {
 							if (j < tfsPage[pageUrl].parts.length) {
 								// Double check that arrays are equal.
 								if (!equalArrays(that.tfs[url].parts[i].v, tfsPage[pageUrl].parts[j].v)) {
-									detailsPage.document.write("Different part: " + serializeIntArray(that.tfs[url].parts[i].v) + "<br>");
 									continue;
 								}
 								 
@@ -292,9 +290,6 @@ History.prototype = {
 									v[word] -= part[word];
 									pageV[word] -= part[word];
 								}
-								detailsPage.document.write("Common part: " + serializeIntArray(part) + "<br>");
-							} else {
-								detailsPage.document.write("Different part: " + serializeIntArray(that.tfs[url].parts[i].v) + "<br>");
 							}
 						}
 					}
