@@ -13,7 +13,7 @@ StoreWrapper.prototype = {
 		this.max = merge(512*1024*1024, opts.max);
 		
 		this.paramTable = merge('paramTable', opts.paramTable);
-		this.tfidfTable = merge('tfidfTable', opts.mainTable);
+		this.tfsTable = merge('tfsTable', opts.mainTable);
 		this.perPage = merge(500, opts.perPage);
 		this.maxVectorLength = merge(2500000, opts.maxVectorLength);
 		
@@ -30,7 +30,7 @@ StoreWrapper.prototype = {
 			t.executeSql("CREATE TABLE " + that.paramTable + " (key CHAR(20), value CHAR(" + that.maxVectorLength + "), PRIMARY KEY (key))");
 		});
 		this.db.transaction(function(t){
-			t.executeSql("CREATE TABLE " + that.tfidfTable + " (url CHAR(4098), vall CHAR(" + that.maxVectorLength + "), " + 
+			t.executeSql("CREATE TABLE " + that.tfsTable + " (url CHAR(4098), vall CHAR(" + that.maxVectorLength + "), " + 
 				"parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
 		});
 	},
@@ -71,51 +71,47 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	getTfidfPage: function(page, callback) {
+	getTfsPage: function(page, callback) {
 		var that = this;
 		
 		var offset = that.perPage * page ;
-		var sql = "SELECT * FROM " + that.tfidfTable + " ASC LIMIT ? OFFSET ?";
+		var sql = "SELECT * FROM " + that.tfsTable + " ASC LIMIT ? OFFSET ?";
 		this.db.transaction(function(t) {
 		    t.executeSql(sql, [that.perPage, offset], function(tx, results) {
-				var tfidfPage = new Array();
+				var tfsPage = new Array();
 				for (var i = 0; i < results.rows.length; i++) {
 					var row = results.rows.item(i);
 					
-					tfidfPage[row.url] = {};
-					tfidfPage.length++;
+					tfsPage[row.url] = {};
+					tfsPage.length++;
 
 					// Get the all vector
-					// Format: "v = ...; l = ..."
-					var elem = row.vall.split(";");
-					var v = parseFloatArray(elem[0].split("=")[1]);
-					var l = parseFloat(elem[1].split("=")[1]);
-					tfidfPage[row.url].all = {v:v, l:l};
+					tfsPage[row.url].all = parseIntArray(row.vall);
 
 					// Get the parts
 					// Format: "v = ...; hash = ... | v = ...; hash = ... etc"
-					tfidfPage[row.url].parts = new Array();
+					tfsPage[row.url].parts = new Array();
 					var parts = row.parts.split("|");
 					for(var j = 0; j < parts.length; j++) {
 						var elem = parts[j].split(";");
-						var v = parseFloatArray(elem[0].split("=")[1]);
-						var hash = parseFloat(elem[1].split("=")[1]);
-						tfidfPage[row.url].parts[j] = {v:v, hash:hash};
+						var v = parseIntArray(elem[0].split("=")[1]);
+						var hash = parseInt(elem[1].split("=")[1]);
+						tfsPage[row.url].parts[j] = {v:v, hash:hash};
 					}
 				}
-				callback(tfidfPage);
+				callback(tfsPage);
 			});
 		});
 	},
 	
-	storeTfidf: function(history, url, callback) {
+	storeTfs: function(history, url, callback) {
 		var that = this;
 			
 		// Add the tf-idf score.
-		var tfidf = history.tfidf[url];
-		var all = this.serializeAll(tfidf.all);
-		var parts = this.serializeParts(tfidf.parts);
-		var sql = "REPLACE INTO " + this.tfidfTable + " VALUES (\"" + url + "\", \"" + all + "\", \"" + parts + "\")";
+		var tfs = history.tfs[url];
+		var all = this.serializeAll(tfs.all);
+		var parts = this.serializeParts(tfs.parts);
+		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (\"" + url + "\", \"" + all + "\", \"" + parts + "\")";
 		
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result) {
@@ -127,15 +123,16 @@ StoreWrapper.prototype = {
 		});
 	},
 		
-	storeAllTfidfs: function(history, callback) {
+	storeAllTfss: function(history, callback) {
 		var that = this;
+		if(history.tfs.length == 0) { callback(); return; }
 		
 		// Add all the tf-idf scores.
-		var sql = "REPLACE INTO " + this.tfidfTable + " ";
-		for(var url in history.tfidf) {
-			var tfidf = history.tfidf[url];
-			var all = this.serializeAll(tfidf.all);
-			var parts = this.serializeParts(tfidf.parts);
+		var sql = "REPLACE INTO " + this.tfsTable + " ";
+		for(var url in history.tfs) {
+			var tfs = history.tfs[url];
+			var all = this.serializeAll(tfs.all);
+			var parts = this.serializeParts(tfs.parts);
 			sql += "SELECT \"" + url + "\", \"" + all + "\", \"" + parts + "\" UNION ";
 		}
 		sql = sql.substring(0, sql.length - 1 - 6);	// Take out the last UNION.
@@ -151,14 +148,14 @@ StoreWrapper.prototype = {
 	},
 	
 	serializeAll: function(all) {
-		return "v = " + serializeFloatArray(all.v, 4) + "; l = " + all.l;
+		return serializeIntArray(all);
 	},
 	
 	serializeParts: function(parts) {
 		// Format: "v = ...; hash = ... | v = ...; hash = ... etc"
 		var s = "";
 		for(var i = 0; i<parts.length; i++)
-			s += "v = " + serializeFloatArray(parts[i].v, 4) + "; hash = " + parts[i].hash+ " | ";	
+			s += "v = " + serializeIntArray(parts[i].v) + "; hash = " + parts[i].hash+ " | ";	
 		s = s.substring(0, s.length - 1 - 3);	// Take out the last " | ".
 		return s;
 	},
