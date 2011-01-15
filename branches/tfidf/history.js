@@ -23,7 +23,7 @@ var History = function(opts) {
 
 History.prototype = {
 	// Initializes all history fields.
-	init: function(opts) {
+	init: function(opts){
 		this.ready = false;
 		this.lastProcessedHistoryEntry = 0;
 		this.nrProcessed = 0;
@@ -32,54 +32,58 @@ History.prototype = {
 		this.tfidf = new Array();
 		this.scores = new Array();
 		this.unprocessed = null;
-
+		
 		// Default properties
-		this.maxHistoryEntries = merge(500, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(50, opts.maxHistoryEntries);
 		this.timeout = merge(20000, opts.timeout);
 		this.batchSize = merge(1000, opts.batchSize);
-
-		if(opts.store == undefined || opts.store == null) {
+		
+		if (opts.store == undefined || opts.store == null) {
 			this.store = new StoreWrapper({});
-		} else this.store = opts.store;
+		}
+		else 
+			this.store = opts.store;
 	},
-
-	historyLoaded: function() {
+	
+	historyLoaded: function(){
 		this.ready = true;
 	},
-
+	
 	registerForNewPageLoadedEvents: function(){
 		var that = this;
-		if(this.ready == false) return; 
-
+		if (this.ready == false) 
+			return;
+		
 		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
 			var url = request.url;
-			if(that.filterULR(url)) return;
+			if (that.filterURL(url)) 
+				return;
 			
 			that.lastProcessedHistoryEntry = (new Date).getTime();
-			var page = document.createElement('body'); 
+			var page = document.createElement('body');
 			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-
+			
 			that.computeTfsDfs(url, page);
 			that.computeTfidf(url);
-			that.store.storeTfidf(that, url, function() {
-				that.computeTfidfScores(url, function() {
+			that.store.storeTfidf(that, url, function(){
+				that.computeTfidfScores(url, function(){
 					delete that.tfidf[url];
-				});				
+				});
 			});
 		});
 	},
-
+	
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from dis.
-	loadParametersFromDisk: function(callback) {
-		this.store.loadParams(this, function() {
+	loadParametersFromDisk: function(callback){
+		this.store.loadParams(this, function(){
 			callback();
-		});		
+		});
 	},
-
+	
 	// Loads, processes and saves yet unprocessed URLs from history
-	loadUnprocessedURLs: function(callback) {
+	loadUnprocessedURLs: function(callback){
 		var that = this;
- 
+		
 		chrome.history.search({
 			text: "",
 			startTime: this.lastProcessedHistoryEntry,
@@ -89,113 +93,140 @@ History.prototype = {
 			that.processHistoryEntry(callback);
 		});
 	},
-
-	processHistoryEntry: function(callback) {
+	
+	processHistoryEntry: function(callback){
 		var that = this;
-		if(this.unprocessed.length == 0) {
+		if (this.unprocessed.length == 0) {
 			// Done loading all history entries.
 			this.computeAndStoreTfidfs(callback);
 			return;
 		}
-
+		
 		var entry = this.unprocessed.pop();
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;
 		var url = entry.url;
-		if(this.filterURL(url)) { this.processHistoryEntry(callback); return; }
-
+		if (this.filterURL(url)) {
+			this.processHistoryEntry(callback);
+			return;
+		}
+		
 		// Preparing the save&loop function for the async request send.
-		var saveAndLoop = function() {
+		var saveAndLoop = function(){
 			// Compute tf-idfs and save them to disk in batches, then loop.
 			if (that.tfs.length == that.batchSize) {
-				that.computeAndStoreTfidfs(function(){ that.processHistoryEntry(callback); });
-			} else that.processHistoryEntry(callback);
+				that.computeAndStoreTfidfs(function(){
+					that.processHistoryEntry(callback);
+				});
+			}
+			else 
+				that.processHistoryEntry(callback);
 		};
-
+		
 		// Try loading the page, through an async send request.
 		try {
 			var req = new XMLHttpRequest();
 			req.open("GET", url, true);
-			var reqTimeout = setTimeout(function() { saveAndLoop(); }, this.timeout);
-			req.onreadystatechange = function() {
-  				if (req.readyState == 4) {
-					if(req.status == 200) {		// Successful.
+			var reqTimeout = setTimeout(function(){
+				saveAndLoop();
+			}, this.timeout);
+			req.onreadystatechange = function(){
+				if (req.readyState == 4) {
+					if (req.status == 200) { // Successful.
 						// Parse the html, eliminating <script> and <style> content.
 						var page = document.createElement('html');
 						page.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
 						page = page.getElementsByTagName('body')[0];
-
-						if (page == null) saveAndLoop();
-						else that.computeTfsDfs(url, page);
+						
+						if (page == null) 
+							saveAndLoop();
+						else 
+							that.computeTfsDfs(url, page);
 					}
 					clearTimeout(reqTimeout);
-    				saveAndLoop();
-    			}
-  			}
+					saveAndLoop();
+				}
+			}
 			req.send();
-		} catch (err) { saveAndLoop(); }
+		} 
+		catch (err) {
+			saveAndLoop();
+		}
 	},
-
-	filterURL: function(url) {
-		if(url.substr(0, protocol.length) != protocol) return true;
-		for(var i = 0; i<stopwebsites.length; i++) {
-			if (url.match(stopwebsites[i])) return true; 
+	
+	filterURL: function(url){
+		if (url.substr(0, protocol.length) != protocol) 
+			return true;
+		for (var i = 0; i < stopwebsites.length; i++) {
+			if (url.match(stopwebsites[i])) 
+				return true;
 		}
 		return false;
 	},
-
+	
 	// Assumes this is a structure node (initially called on the document body)
-	buildPageStructure: function(node, struct) {
+	buildPageStructure: function(node, struct){
 		var rest = "";
 		for (var i = 0, l = node.childNodes.length; i < l; i++) {
 			var child = node.childNodes[i];
-			if (structureNodes[child.nodeName] == 1) this.buildPageStructure(child, struct);
-			else if (child.innerText != null) rest += child.innerText + " ";
+			if (structureNodes[child.nodeName] == 1) 
+				this.buildPageStructure(child, struct);
+			else 
+				if (child.innerText != null) 
+					rest += child.innerText + " ";
 		}
-		if(rest != "") struct.push(rest);
+		if (rest != "") 
+			struct.push(rest);
 		return struct;
 	},
-
+	
 	// Computes tfs[url] = {all: array, parts: array of arrays};
-	computeTfsDfs: function(url, page) {
+	computeTfsDfs: function(url, page){
 		var s = this.buildPageStructure(page, new Array());
 		
 		var tfs = {};
 		tfs.all = new Array();
 		tfs.parts = new Array();
-		for(var i = 0; i < s.length; i++) {
+		for (var i = 0; i < s.length; i++) {
 			var words = s[i].toLowerCase().match(/[a-zA-Z]+/g);
-			if(words == null) continue;
+			if ((words == null) || (words.length == 0)) 
+				continue;
 			
-			var l = tfs.parts.push(new Array());
-			var part = tfs.parts[l - 1];
-			for(var j=0; j<words.length; j++) {
+			var part = new Array();
+			for (var j = 0; j < words.length; j++) {
 				var word = stemmer(words[j]);
-				if(stopwords[word] != 1) {
-					if(typeof(part[word]) != 'number') part[word] = 1;
+				if (stopwords[word] != 1) {
+					if (typeof(part[word]) != 'number') {
+						part[word] = 1;
+						part.length++;
+					}
 					else part[word]++;
 					
-					if(typeof(tfs.all[word] != 'number')) {
+					if (typeof(tfs.all[word]) != 'number') {
 						tfs.all[word] = 1;
 						// Only add to dfs the first time a word is encoutered.
-						if (typeof(this.dfs[word]) != 'number') this.dfs[word] = 1;
-						else this.dfs[word]++;
-					} else tfs.all[word]++;
+						if (typeof(this.dfs[word]) != 'number') 
+							this.dfs[word] = 1;
+						else 
+							this.dfs[word]++;
+					}
+					else tfs.all[word]++;
 				}
 			}
+			if(part.length > 0) tfs.parts.push(part);
 		}
 		
-		if(tfs.parts.length > 0) {
+		if (tfs.parts.length > 0) {
 			this.tfs[url] = tfs;
 			this.tfs.length++;
-			this.nrProcessed++;	
+			this.nrProcessed++;
 		}
 	},
-
+	
 	// Computes tfidf[url] = {all: {v:array, l:l}, parts: array of {v:array, hash:hash}};
-	computeTfidf: function(url) {
+	computeTfidf: function(url){
 		var tfs = this.tfs[url];
 		var tfidf = {};
-
+		
 		// Compute all.
 		var v = new Array();
 		var l = 0;
@@ -203,31 +234,41 @@ History.prototype = {
 			v[word] = tfs.all[word] * Math.log(this.nrProcessed / this.dfs[word]) / Math.LN2;
 			l += v[word] * v[word];
 		}
-		tfidf.all = {v:v, l:l}; 
-
+		tfidf.all = {
+			v: v,
+			l: Math.sqrt(l)
+		};
+		
 		// Compute parts.
 		tfidf.parts = new Array();
-		for(var i=0; i < tfs.parts.length; i++) {
+		for (var i = 0; i < tfs.parts.length; i++) {
 			var part = tfs.parts[i];
 			var v = new Array();
 			var hash = 0;
 			for (var word in part) {
 				v[word] = part[word] * Math.log(this.nrProcessed / this.dfs[word]) / Math.LN2;
 				hash += v[word];
-			} 
-			tfidf.parts[i] = {v:v, hash:hash};	
+			}
+			tfidf.parts[i] = {
+				v: v,
+				hash: hash
+			};
 		}
 		
 		this.tfidf[url] = tfidf;
 		delete this.tfs[url];
 		this.tfs.length--;
 	},
-
-	computeAndStoreTfidfs: function(callback) {
+	
+	computeAndStoreTfidfs: function(callback){
 		var that = this;
-		if (this.tfs.length == 0) { callback(); return; }
+		if (this.tfs.length == 0) {
+			callback();
+			return;
+		}
 		
-		for(var url in this.tfs) this.computeTfidf(url);
+		for (var url in this.tfs) 
+			this.computeTfidf(url);
 		this.store.storeAllTfidfs(this, function(){
 			// Memory management.
 			delete that.tfidf;
@@ -235,60 +276,91 @@ History.prototype = {
 			callback();
 		});
 	},
-
-//	computeTfidfScores: function(url, callback) {
-//		var that = this;
-//		var score = new Array();
-//		this.computeTfidfScoresPaged(url, score, 0, function() {
-//			that.scores[url] = score.sort(function(a,b) {return b.score - a.score});
-//			callback();
-//		});
-//	},
-//
-//	computeTfidfScoresPaged: function(url, score, page, callback){
-//		var that = this;
-//		var domain = url.match(domainReg);
-//		
-//		// Compute tfidf scores for the current page
-//		this.store.getTfidfPage(page, function(tfidfPage){
-//			if (tfidfPage.length == 0) { callback(); return; }
-//			
-//			for (var pageUrl in tfidfPage) {
-//				if (pageUrl != url) {
-//					pageDomain = pageUrl.match(domainReg);
-//					
-//					var v = copyArray(that.tfidf[url][0].vector);
-//					var pageV = copyArray(tfidfPage[pageUrl][0].vector);
-//					var l = that.tfidf[url][0].length;
-//					var pageL = tfidfPage[pageUrl][0].length;
-//					
-//					if(pageDomain == domain) {
-//						// If from the same domain, substract common parts.
-//						for(var i = 1; i < tfidfPage[pageUrl].length; i++){
-//							var part = that.tfidf[url][i];
-//							var pagePart = tfidfPage[url][i];
-//							if(part.length == pagePart.length) {
-//								for(word in part.vector) {
-//									v[word] -= part.vector[word];
-//									pageV[word] -= pagePart.vector[word];
-//								}
-//								l = Math.sqrt(l*l - part.length*part.length);
-//								pageL = Math.sqrt(pageL*pageL - pagePart.length*pagePart.length);
-//							}
-//						}
-//					}
-//					
-//					var s = 0;
-//					for (var word in v) 
-//						if (typeof(pageV[word]) == 'number') s += v[word] * pageV[word];
-//
-//					score.push({score:s/(l*pageL), url:pageUrl});
-//				}
-//			}
-//			delete tfidfPage;
-//			
-//			// LOOP
-//			that.computeTfidfScoresPaged(url, score, page + 1, callback);
-//		});
-//	}
+	
+	computeTfidfScores: function(url, callback){
+		var that = this;
+		
+		detailsPage.document.write("Computing tf-idf scores for url: " + url + "<br><br>");
+		detailsPage.document.write("Parts: <br>");
+		for(var i = 0; i<this.tfidf[url].parts.length; i++) {
+			detailsPage.document.write(serializeFloatArray(this.tfidf[url].parts[i].v, 4) + "<br>");
+		}
+		
+		var score = new Array();
+		this.computeTfidfScoresPaged(url, score, 0, function(){
+			that.scores[url] = score.sort(function(a, b){
+				return b.score - a.score
+			});
+			callback();
+		});
+	},
+	
+	computeTfidfScoresPaged: function(url, score, page, callback){
+		var that = this;
+		var domain = url.match(domainReg);
+		
+		// Compute tfidf scores for the current page
+		this.store.getTfidfPage(page, function(tfidfPage){
+			if (tfidfPage.length == 0) {
+				callback();
+				return;
+			}
+			for (var pageUrl in tfidfPage) {
+				if (pageUrl != url) {
+					var v = copyArray(that.tfidf[url].all.v);
+					var pageV = copyArray(tfidfPage[pageUrl].all.v);
+					
+					var pageDomain = pageUrl.match(domainReg);
+					var foundCommon = false;
+					if (pageDomain.toString() == domain.toString()) {
+						detailsPage.document.write("Intersecting with page: " + pageUrl + "<br>");
+						// If from the same domain, substract common parts.
+						for (var i = 0; i < that.tfidf[url].parts.length; i++) {
+							var hash = that.tfidf[url].parts[i].hash;
+							var j = 0;
+							for (; j < tfidfPage[pageUrl].parts.length; j++) {
+								if (hash == tfidfPage[pageUrl].parts[j].hash) 
+									break;
+							}
+							
+							if (j < tfidfPage[pageUrl].parts.length) {
+								// If common part found, substract from
+								var part = tfidfPage[pageUrl].parts[j].v;
+								for (word in part) {
+									v[word] -= part[word];
+									pageV[word] -= part[word];
+								}
+								foundCommon = true;
+								
+								detailsPage.document.write("Substracted part: " + serializeFloatArray(part, 4)+ "<br>");
+							}
+						}
+					}
+					
+					// If needed, recompute lengths;
+					var l, pageL;
+					if (!foundCommon) {
+						l = that.tfidf[url].all.l;
+						pageL = tfidfPage[pageUrl].all.l;
+					}
+					else {
+						l = 0; pageL = 0;
+						for (var word in v) l += v[word] * v[word];
+						for (var word in pageV) pageL += pageV[word] * pageV[word];
+						l = Math.sqrt(l); pageL = Math.sqrt(pageL);
+					}
+					
+					// Compute the actual scores
+					var s = 0;
+					for (var word in v) 
+						if (typeof(pageV[word]) == 'number') s += v[word] * pageV[word];
+					score.push({score: s/(l*pageL), url: pageUrl});
+				}
+			}
+			
+			delete tfidfPage;
+			// LOOP
+			that.computeTfidfScoresPaged(url, score, page + 1, callback);
+		});
+	},
 };

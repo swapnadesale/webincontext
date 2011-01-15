@@ -30,7 +30,7 @@ StoreWrapper.prototype = {
 			t.executeSql("CREATE TABLE " + that.paramTable + " (key CHAR(20), value CHAR(" + that.maxVectorLength + "), PRIMARY KEY (key))");
 		});
 		this.db.transaction(function(t){
-			t.executeSql("CREATE TABLE " + that.tfidfTable + " (url CHAR(4098), all CHAR(" + that.maxVectorLength + "), " + 
+			t.executeSql("CREATE TABLE " + that.tfidfTable + " (url CHAR(4098), vall CHAR(" + that.maxVectorLength + "), " + 
 				"parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
 		});
 	},
@@ -79,7 +79,7 @@ StoreWrapper.prototype = {
 		this.db.transaction(function(t) {
 		    t.executeSql(sql, [that.perPage, offset], function(tx, results) {
 				var tfidfPage = new Array();
-				for (var i = 0, l = results.rows.length; i < l; i++) {
+				for (var i = 0; i < results.rows.length; i++) {
 					var row = results.rows.item(i);
 					
 					tfidfPage[row.url] = {};
@@ -87,7 +87,7 @@ StoreWrapper.prototype = {
 
 					// Get the all vector
 					// Format: "v = ...; l = ..."
-					var elem = parts[j].split(";");
+					var elem = row.vall.split(";");
 					var v = parseFloatArray(elem[0].split("=")[1]);
 					var l = parseFloat(elem[1].split("=")[1]);
 					tfidfPage[row.url].all = {v:v, l:l};
@@ -151,7 +151,7 @@ StoreWrapper.prototype = {
 	},
 	
 	serializeAll: function(all) {
-		return "v = " + serializeFloatArray(all.v) + "; l = " + all.l;
+		return "v = " + serializeFloatArray(all.v, 4) + "; l = " + all.l;
 	},
 	
 	serializeParts: function(parts) {
