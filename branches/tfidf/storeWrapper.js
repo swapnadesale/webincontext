@@ -124,19 +124,19 @@ StoreWrapper.prototype = {
 		
 	storeAllTfss: function(tfss, callback) {
 		var that = this;
-		if(tfss.length == 0) { callback(); return; }
-		
-		alert("here 2");
+
 		// Add all the tf-idf scores.
 		var sql = "REPLACE INTO " + this.tfsTable + " ";
+		var empty = true;
 		for(var url in tfss) {
 			var tfs = tfss[url];
 			var all = this.serializeAll(tfs.all);
 			var parts = this.serializeParts(tfs.parts);
 			sql += "SELECT \"" + url + "\", \"" + all + "\", \"" + parts + "\" UNION ";
+			empty = false;
 		}
+		if(empty) { callback(); return; }
 		sql = sql.substring(0, sql.length - 1 - 6);	// Take out the last UNION.
-		alert(sql);
 		
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result) {
