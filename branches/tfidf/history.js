@@ -31,9 +31,9 @@ History.prototype = {
 		this.unprocessed = null;
 
 		// Default properties
-		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
-		this.timeout = merge(20000, opts.timeout);
-		this.batchSize = merge(1000, opts.batchSize);
+		this.maxHistoryEntries = merge(1000, opts.maxHistoryEntries);
+		this.timeout = merge(5000, opts.timeout);
+		this.batchSize = merge(100, opts.batchSize);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -55,7 +55,6 @@ History.prototype = {
 			var page = document.createElement('body');
 			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
 			
-			detailsPage.document.write("Processing URL: " + url + "<br><br>"); 
 			that.computeTfsDfs(url, page);
 			that.extractSidePartsForURL(url, function() {
 				that.computeTfidfScores(url, function(){
@@ -107,13 +106,18 @@ History.prototype = {
 		
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;
 		var url = entry.url;
+		// detailsPage.document.write(this.nrProcessed + ": " + url + "<br>");
 		if (this.filterURL(url)) { callback(); return; }	// If filtered, continue.
 
 		// Try loading the page, through an async send request.
 		try {
 			var req = new XMLHttpRequest();
 			req.open("GET", url, true);
-			var reqTimeout = setTimeout(callback, this.timeout);	// If time-outed, continue.
+			var reqTimeout = setTimeout(function(){ 
+				detailsPage.document.write(url + " timeouted!");
+				req.abort();
+				callback(); 
+			}, this.timeout);	// If time-outed, continue.
 			req.onreadystatechange = function(){
 				if (req.readyState == 4) {
 					clearTimeout(reqTimeout);
@@ -127,7 +131,7 @@ History.prototype = {
 							that.computeTfsDfs(url, page);
 							if (that.tfs.length == that.batchSize) saveToStore(callback);
 							else callback();	// If request successful, continue.
-						}
+						} else callback();		// If no body, continue.
 					} else callback();		// If request unsuccessful, continue.
 				}
 			}
@@ -269,7 +273,6 @@ History.prototype = {
 				// Intersect with all other urls, save their common parts in sideParts, and remove them their original pages.
 				for (url1 in tfss) 
 					if (url.toString() != url1.toString()) {
-						// detailsPage.document.write("Intersecting with URL: " + url1 + "<br>");
 						if (that.intersectParts(tfs, tfss[url1], sideParts)) 
 							changedTfss[url1] = tfss[url1];
 					}
@@ -291,8 +294,6 @@ History.prototype = {
 		for (var i = 0; i < parts.length; i++) {
 			for (var j = 0; j < sideParts.length; j++) {
 				if (equalArrays(parts[i], sideParts[j])) {
-					// detailsPage.document.write("Removing sidePart: " + serializeIntArray(parts[i]) + "<br><br>"); 
-					
 					// Substract the common part from the all array.
 					for (var word in parts[i]) {
 						tfs.all[word] -= parts[i][word];
@@ -313,9 +314,6 @@ History.prototype = {
 			}
 		}
 		
-		if (changed) {
-			// detailsPage.document.write("All now contains: " + serializeIntArray(tfs.all) + "<br><br>");
-		}
 		return changed;
 	},
 	
@@ -326,8 +324,6 @@ History.prototype = {
 		for (var i = 0; i < parts1.length; i++) {
 			for (var j = 0; j < parts2.length; j++) {
 				if (equalArrays(parts1[i], parts2[j])) {
-					// detailsPage.document.write("Removing common part: " + serializeIntArray(parts1[i]) + "<br><br>");
-					
 					// Copy the common part in sideParts
 					sideParts.push(parts1[i]);
 					// Eliminate the common part from parts1
@@ -360,10 +356,6 @@ History.prototype = {
 			}
 		}
 		
-		if (changed) {
-			// detailsPage.document.write("All1 now contains: " + serializeIntArray(tfs1.all) + "<br><br>");
-			// detailsPage.document.write("All2 now contains: " + serializeIntArray(tfs2.all) + "<br><br>");
-		}
 		return changed;
 	},
 	
@@ -418,10 +410,6 @@ History.prototype = {
 					if(pageL == 0) continue;
 					
 					score.push({score: s/(tfidf.l*pageL), url:pageUrl});
-					
-					detailsPage.document.write("Common words with url: " + pageUrl + "<br>");
-					detailsPage.document.write(serializeIntArray(intersectArrays(that.tfs[url].all, tfsPage[pageUrl].all)));
-					detailsPage.document.write("<br><br>");
 				}
 			}
 

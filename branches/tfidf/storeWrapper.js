@@ -188,8 +188,11 @@ StoreWrapper.prototype = {
 				function(tx, results) {
 					var parts = new Array();
 					if ((results != null) && (results.rows.length > 0)) {
-						var ps = results.rows.item(0).parts.split(";");
-						for (var i = 0; i < parts.length; i++) parts.push(parseIntArray(ps[i]));
+						var ps = results.rows.item(0).parts;
+						if (ps != "") {
+							ps = ps.split(";");
+							for (var i = 0; i < ps.length; i++) parts.push(parseIntArray(ps[i]));
+						}
 					}
 					callback(parts);
 				},
