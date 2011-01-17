@@ -8,14 +8,14 @@
 	<script>
 		var log = "";
 		var detailsPage;
-		// chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {});
+		chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {});
 		
 		var hist;
 		function run(){
 			hist = new History({});
 			// 1. Load existing state from disk.
 			hist.loadParametersFromDisk(function(){
-				// detailsPage = chrome.extension.getViews()[1];
+				detailsPage = chrome.extension.getViews()[1];
 				// 2. Load (+process&save) yet unprocessed URLs from history.
 				hist.loadUnprocessedURLs(function(){
 					hist.extractAllSideParts(function() {

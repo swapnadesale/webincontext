@@ -20,6 +20,13 @@ function equalArrays(a, b) {
 	return true;
 }
 
+function intersectArrays(a, b) {
+	var c = new Array();
+	for(var key in a)
+		if(b[key] != null) c[key] = "(" + a[key] +"," + b[key] + ")";
+	return c;
+}
+
 function parseIntArray(s){
 	var a = new Array();
 	var entries = s.match(/[a-z]+:[0-9]+/g);
