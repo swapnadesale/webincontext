@@ -44,26 +44,24 @@ History.prototype = {
 	},
 
 	registerForNewPageLoadedEvents: function(){
-//		var that = this;
-//		if (this.ready == false) return;
-//		
-//		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
-//			var url = request.url;
-//			if (that.filterURL(url)) 
-//				return;
-//			
-//			that.lastProcessedHistoryEntry = (new Date).getTime();
-//			var page = document.createElement('body');
-//			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-//			
-//			that.computeTfsDfs(url, page);
-//			
-////			that.store.storeTfs(that.tfs[url], function(){
-////				that.computeTfidfScores(url, function(){
-////					delete that.tfs[url];
-////				});
-////			});
-//		});
+		var that = this;
+		if (this.ready == false) return;
+		
+		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
+			var url = request.url;
+			if (that.filterURL(url)) return;
+			
+			that.lastProcessedHistoryEntry = (new Date).getTime();
+			var page = document.createElement('body');
+			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+			
+			that.computeTfsDfs(url, page);
+			that.extractSidePartsForURL(url, function() {
+				that.computeTfidfScores(url, function(){
+					delete that.tfs[url];
+				});				
+			});
+		});
 	},
 	
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from dis.
@@ -83,17 +81,19 @@ History.prototype = {
 		}, function(results){
 			that.unprocessed = results;
 
+			var saveToStore = function(cbk) {
+				that.store.storeAllTfss(that.tfs, function() {
+					that.store.storeParams(that, function() {
+						that.tfs = new Array();
+						cbk();
+					});
+				});
+			};
+
 			// Processes one history entry, then loops.
 			var loop = function(){
-				if (that.unprocessed.length == 0) callback();
-				else {
-					var entry = that.unprocessed.pop();
-					// Process and loop.
-					that.processHistoryEntry(entry, function(cont){
-						if(cont) loop(); 
-						else callback();
-					});
-				}
+				if (that.unprocessed.length == 0) saveToStore(callback);
+				else that.processHistoryEntry(that.unprocessed.pop(), saveToStore, loop);	// Process and loop.
 			};
 			// Start the loop.
 			loop();		
@@ -101,31 +101,18 @@ History.prototype = {
 	},
 	
 	// Calls callback(true) if the entry was valid, and callback(false) if it was null (done processing all entries)
-	processHistoryEntry: function(entry, callback){
+	processHistoryEntry: function(entry, saveToStore, callback){
 		var that = this;
-		var saveToStore = function(cbk) {
-			that.store.storeAllTfss(that.tfs, function() {
-				that.store.storeParams(that, function() {
-					that.tfs = new Array();
-					cbk();
-				});
-			});
-		};
-
-		if (entry == null) {
-			saveToStore(function(){ callback(false); });	// If done processing all history entries, stop.
-			return;
-		}
 		
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;
 		var url = entry.url;
-		if (this.filterURL(url)) { callback(true); return; }	// If filtered, continue.
+		if (this.filterURL(url)) { callback(); return; }	// If filtered, continue.
 
 		// Try loading the page, through an async send request.
 		try {
 			var req = new XMLHttpRequest();
 			req.open("GET", url, true);
-			var reqTimeout = setTimeout(function(){ callback(true); }, this.timeout);	// If time-outed, continue.
+			var reqTimeout = setTimeout(callback, this.timeout);	// If time-outed, continue.
 			req.onreadystatechange = function(){
 				if (req.readyState == 4) {
 					clearTimeout(reqTimeout);
@@ -137,16 +124,15 @@ History.prototype = {
 						
 						if (page != null) {
 							that.computeTfsDfs(url, page);
-							if (that.tfs.length == that.batchSize) {
-								saveToStore(function(){ callback(true); });
-							} else callback(true);	// If request successful, continue.
+							if (that.tfs.length == that.batchSize) saveToStore(callback);
+							else callback();	// If request successful, continue.
 						}
-					} else callback(true);		// If request unsuccessful, continue.
+					} else callback();		// If request unsuccessful, continue.
 				}
 			}
 			req.send();
 		} 
-		catch (err) { callback(true); }		// If request threw error, continue.
+		catch (err) { callback(); }		// If request threw error, continue.
 	},
 	
 	filterURL: function(url){
@@ -255,6 +241,36 @@ History.prototype = {
 				}
 				
 				if(!changed) { callback(); return; }
+				// Update sideParts on disk.
+				that.store.storeSidePartsForDomain(domain, sideParts, function(){
+					// Updated the changed urls to disk
+					that.store.storeAllTfss(changedTfss, function(){
+						callback();
+					});
+				});
+			});
+		});	
+	},
+	
+	extractSidePartsForURL: function(url, callback) {
+		var that = this;
+		
+		var domain = url.match(domainReg);
+		var tfs = this.tfs[url];
+		that.store.getTfssForDomain(domain, function(tfss){
+			that.store.getSidePartsForDomain(domain, function(sideParts){
+				var changedTfss = new Array();
+				changedTfss[url] = tfs;	// Preparing it to be saved on disk.
+				
+				// Remove existing sideParts
+				that.removeExistingSideParts(tfs, sideParts);
+				
+				// Intersect with all other urls, save their common parts in sideParts, and remove them their original pages.
+				for (url1 in tfss)
+					if (url.toString() != url1.toString())
+						if (that.intersectParts(tfs, tfss[url1], sideParts))
+							changedTfss[url1] = tfss[url1];
+				
 				// Update sideParts on disk.
 				that.store.storeSidePartsForDomain(domain, sideParts, function(){
 					// Updated the changed urls to disk
