@@ -44,22 +44,27 @@ StoreWrapper.prototype = {
 		
 		var sql = "SELECT * FROM " + this.paramTable;
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result) {
-				for(var i=0; i<result.rows.length; i++) {
-					var row = result.rows.item(i);
-					switch(row.key) {
-						case that.keyLastProcessedHistoryEntry:
-							history.lastProcessedHistoryEntry = parseFloat(row.value);
-							break;
-						case that.keyNrProcessed:
-							history.nrProcessed = parseInt(row.value);
-							break;
-						case that.keyDfs:
-							history.dfs = parseIntArray(row.value);
+			t.executeSql(sql, [], 
+				function(tx, result) {
+					for(var i=0; i<result.rows.length; i++) {
+						var row = result.rows.item(i);
+						switch(row.key) {
+							case that.keyLastProcessedHistoryEntry:
+								history.lastProcessedHistoryEntry = parseFloat(row.value);
+								break;
+							case that.keyNrProcessed:
+								history.nrProcessed = parseInt(row.value);
+								break;
+							case that.keyDfs:
+								history.dfs = parseIntArray(row.value);
+						}
 					}
+					callback();	
+				}, 
+				function(tx, error) {
+					log += error.message + "<br>";
 				}
-				callback();	
-			});
+			);
 		});
 	},
 	
@@ -69,20 +74,30 @@ StoreWrapper.prototype = {
 			" SELECT \"" + this.keyNrProcessed + "\", \"" + history.nrProcessed + "\" UNION " +
 			" SELECT \"" + this.keyDfs + "\", \"" + serializeIntArray(history.dfs) + "\"";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result) {
-				callback();
-			});
+			t.executeSql(sql, [], 
+				function(tx, result) {
+					callback();
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
 		});
 	},
 	
 	getAllURLs: function(callback) {
 		var sql = "SELECT url FROM " + this.tfsTable;
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results) {
-				var urls = new Array();
-				for (var i = 0; i < results.rows.length; i++) urls.push(results.rows.item(i).url);
-				callback(urls);
-			});
+			t.executeSql(sql, [], 
+				function(tx, results) {
+					var urls = new Array();
+					for (var i = 0; i < results.rows.length; i++) urls.push(results.rows.item(i).url);
+					callback(urls);
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
 		});
 	},
 	
@@ -91,9 +106,14 @@ StoreWrapper.prototype = {
 		var offset = that.perPage * page ;
 		var sql = "SELECT * FROM " + that.tfsTable + " ASC LIMIT ? OFFSET ?";
 		this.db.transaction(function(t) {
-		    t.executeSql(sql, [that.perPage, offset], function(tx, results) {
-				callback(that.parseTfsResults(results));
-			});
+		    t.executeSql(sql, [that.perPage, offset], 
+				function(tx, results) {
+					callback(that.parseTfsResults(results));
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
 		});
 	},
 	
@@ -101,9 +121,14 @@ StoreWrapper.prototype = {
 		var that = this;
 		var sql = "SELECT * FROM " + this.tfsTable + " WHERE url LIKE \"" + domain + "%\"";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results) {
-				callback(that.parseTfsResults(results));
-			});
+			t.executeSql(sql, [], 
+				function(tx, results) {
+					callback(that.parseTfsResults(results));
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
 		});
 	},
 	
@@ -116,9 +141,14 @@ StoreWrapper.prototype = {
 		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (\"" + url + "\", \"" + all + "\", \"" + parts + "\")";
 		
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result) {
-				callback();
-			});
+			t.executeSql(sql, [], 
+				function(tx, result) {
+					callback();
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
 		});
 	},
 		
@@ -139,9 +169,14 @@ StoreWrapper.prototype = {
 		sql = sql.substring(0, sql.length - 1 - 6);	// Take out the last UNION.
 		
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result) {
-				callback();
-			});
+			t.executeSql(sql, [], 
+				function(tx, result) {
+					callback();
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
 		});
 	},
 
@@ -149,23 +184,33 @@ StoreWrapper.prototype = {
 		var that = this;
 		var sql = "SELECT parts FROM " + this.sidePartsTable + " WHERE domain LIKE \"" + domain + "\"";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results) {
-				var parts = new Array();
-				if ((results != null) && (results.rows.length > 0)) {
-					var ps = results.rows.item(0).parts.split(";");
-					for (var i = 0; i < parts.length; i++) parts.push(parseIntArray(ps[i]));
+			t.executeSql(sql, [], 
+				function(tx, results) {
+					var parts = new Array();
+					if ((results != null) && (results.rows.length > 0)) {
+						var ps = results.rows.item(0).parts.split(";");
+						for (var i = 0; i < parts.length; i++) parts.push(parseIntArray(ps[i]));
+					}
+					callback(parts);
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
 				}
-				callback(parts);
-			});
+			);
 		});
 	},
 
 	storeSidePartsForDomain: function(domain, parts, callback) {
 		var sql = "REPLACE INTO " + this.sidePartsTable + " VALUES (\"" + domain + "\", \"" + this.serializeParts(parts) + "\")";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result) { 
-				callback(); 
-			});
+			t.executeSql(sql, [], 
+				function(tx, result) { 
+					callback(); 
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
 		});
 
 	},
@@ -193,7 +238,7 @@ StoreWrapper.prototype = {
 	serializeParts: function(parts) {
 		var s = "";
 		for(var i = 0; i<parts.length; i++) s += serializeIntArray(parts[i]) + " ; ";	
-		s = s.substring(0, s.length - 1 - 3);	// Take out the last " ; ".
+		if(s != "") s = s.substring(0, s.length - 1 - 3);	// Take out the last " ; ".
 		return s;
 	},
 };
