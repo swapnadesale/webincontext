@@ -57,9 +57,11 @@ History.prototype = {
 			
 			that.computeTfsDfs(url, page);
 			that.extractSidePartsForURL(url, function() {
-				that.computeTfidfScores(url, function(){
-					delete that.tfs[url];
-				});				
+				that.store.storeParams(that, function(){
+					that.computeTfidfScores(url, function(){
+						delete that.tfs[url];
+					});									
+				});
 			});
 		});
 	},
@@ -106,7 +108,6 @@ History.prototype = {
 		
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;
 		var url = entry.url;
-		// detailsPage.document.write(this.nrProcessed + ": " + url + "<br>");
 		if (this.filterURL(url)) { callback(); return; }	// If filtered, continue.
 
 		// Try loading the page, through an async send request.
