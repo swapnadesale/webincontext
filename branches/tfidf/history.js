@@ -31,8 +31,8 @@ History.prototype = {
 		this.unprocessed = null;
 
 		// Default properties
-		this.maxHistoryEntries = merge(1000, opts.maxHistoryEntries);
-		this.timeout = merge(5000, opts.timeout);
+		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
+		this.timeout = merge(10000, opts.timeout);
 		this.batchSize = merge(100, opts.batchSize);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
@@ -114,7 +114,6 @@ History.prototype = {
 			var req = new XMLHttpRequest();
 			req.open("GET", url, true);
 			var reqTimeout = setTimeout(function(){ 
-				detailsPage.document.write(url + " timeouted!");
 				req.abort();
 				callback(); 
 			}, this.timeout);	// If time-outed, continue.
