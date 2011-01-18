@@ -51,7 +51,8 @@ History.prototype = {
 			var url = request.url;
 			if (that.filterURL(url)) return;
 			
-			that.lastProcessedHistoryEntry = (new Date).getTime();
+			var startTime = (new Date).getTime();
+			that.lastProcessedHistoryEntry = startTime;
 			var page = document.createElement('body');
 			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
 			
@@ -59,6 +60,21 @@ History.prototype = {
 			that.extractSidePartsForURL(url, function() {
 				that.store.storeParams(that, function(){
 					that.computeTfidfScores(url, function(){
+
+						// Debug.
+						var scores = that.scores[url];
+						var duration = (new Date).getTime() - startTime;
+						var s = "";
+						s += "Suggestions for url: " + url + "<br>";
+						s += "Computed in: " + duration + "ms. <br>";
+						for(var i = 0; i<5; i++) {
+							s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+								scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+						}
+						s += "<br><br><br>"
+						detailsPage.document.body.innerHTML = s;
+
+						
 						delete that.tfs[url];
 					});									
 				});
