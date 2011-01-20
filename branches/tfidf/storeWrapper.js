@@ -36,7 +36,7 @@ StoreWrapper.prototype = {
 		});
 		this.db.transaction(function(t){
 			t.executeSql("CREATE TABLE " + that.sidePartsTable + " (domain CHAR(4098), parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (domain))");
-		});
+		});	
 	},
 
 	loadParams: function(history, callback) {
@@ -101,21 +101,6 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	getAllTfss: function(callback) {
-		var that = this;
-		var sql = "SELECT * FROM " + that.tfsTable;
-		this.db.transaction(function(t) {
-		    t.executeSql(sql, [that.perPage, offset], 
-				function(tx, results) {
-					callback(that.parseTfsResults(results));
-				},
-				function(tx, error) {
-					log += error.message + "<br>";
-				}
-			);
-		});
-	},
-
 	getTfsPage: function(page, callback) {
 		var that = this;
 		var offset = that.perPage * page ;
@@ -147,23 +132,20 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	storeTfs: function(url, tfs, callback) {
-		var that = this;
-			
-		// Add the tf-idf score.
+	storeTfs: function(url, tfs, callback){
+ 	var that = this;
+ 	
+ 	// Add the tf-idf score.
 		var all = this.serializeAll(tfs.all);
 		var parts = this.serializeParts(tfs.parts);
 		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (\"" + url + "\", \"" + escape(tfs.title) + "\", \"" + all + "\", \"" + parts + "\")";
 		
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], 
-				function(tx, result) {
-					callback();
-				},
-				function(tx, error) {
-					log += error.message + "<br>";
-				}
-			);
+			t.executeSql(sql, [], function(tx, result){
+				callback();
+			}, function(tx, error){
+				log += error.message + "<br>";
+			});
 		});
 	},
 		
@@ -189,8 +171,7 @@ StoreWrapper.prototype = {
 					callback();
 				},
 				function(tx, error) {
-					detailsPage.document.write("Store error: " + error.message + "<br>");
-					detailsPage.document.write("Sql: " + sql + "<br><br>"); 
+					log += error.message + "<br>";
 				}
 			);
 		});
@@ -211,34 +192,6 @@ StoreWrapper.prototype = {
 						}
 					}
 					callback(parts);
-				},
-				function(tx, error) {
-					log += error.message + "<br>";
-				}
-			);
-		});
-	},
-
-	getAllSideParts: function(callback) {
-		var that = this;
-		var sql = "SELECT * FROM " + this.sidePartsTable;
-		this.db.transaction(function(t){
-			t.executeSql(sql, [], 
-				function(tx, results) {
-					var sideParts = new Array();
-					for(var i=0; i<results.rows.length; i++) {
-						var row = results.rows.item(i);
-						var domain = row.domain;
-						var ps = row.parts;
-						if (ps != "") {
-							var parts = new Array();
-							ps = ps.split(";");
-							for (var j = 0; j < ps.length; j++) parts.push(parseIntArray(ps[j]));
-							sideParts[domain] = parts;
-							sideParts.length++;
-						}
-					}
-					callback(sideParts);
 				},
 				function(tx, error) {
 					log += error.message + "<br>";
