@@ -1,13 +1,13 @@
 // CONSTANTS
 // =========
-var wordlist = ["a", "a's", "able", "about", "above", "according", "accordingly", "across", "actually", "after", "afterwards", "again", "against", "ain't", "all", "allow", "allows", "almost", "alone", "along", "already", "also", "although", "always", "am", "among", "amongst", "an", "and", "another", "any", "anybody", "anyhow", "anyone", "anything", "anyway", "anyways", "anywhere", "apart", "appear", "appreciate", "appropriate", "are", "aren't", "around", "as", "aside", "ask", "asking", "associated", "at", "available", "away", "awfully", "be", "became", "because", "become", "becomes", "becoming", "been", "before", "beforehand", "behind", "being", "believe", "below", "beside", "besides", "best", "better", "between", "beyond", "both", "brief", "but", "by", "c'mon", "c's", "came", "can", "can't", "cannot", "cant", "causes", "certain", "certainly", "changes", "clearly", "com", "come", "comes", "concerning", "consequently", "consider", "considering", "contain", "containing", "contains", "corresponding", "could", "couldn't", "course", "currently", "dear", "definitely", "described", "despite", "did", "didn't", "different", "do", "does", "doesn't", "doing", "don't", "done", "down", "downwards", "during", "each", "edu", "eg", "eight", "either", "else", "elsewhere", "enough", "entirely", "especially", "etc", "even", "ever", "every", "everybody", "everyone", "everything", "everywhere", "ex", "exactly", "example", "except", "far", "few", "fifth", "first", "five", "followed", "following", "follows", "for", "former", "formerly", "forth", "four", "from", "further", "furthermore", "get", "gets", "getting", "given", "gives", "goes", "going", "gone", "got", "gotten", "greetings", "had", "hadn't", "happens", "hardly", "has", "hasn't", "have", "haven't", "having", "he", "he's", "hello", "help", "hence", "her", "here's", "hereafter", "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his", "hither", "hopefully", "how", "howbeit", "however", "i", "i'd", "i'll", "i'm", "i've", "ie", "if", "ignored", "immediate", "in", "inasmuch", "indeed", "indicate", "indicated", "indicates", "inner", "insofar", "instead", "into", "inward", "is", "isn't", "it", "it'd", "it'll", "it's", "its", "itself", "just", "keep", "keeps", "kept", "know", "known", "knows", "last", "lately", "later", "latter", "latterly", "least", "less", "lest", "let", "let's", "like", "liked", "likely", "little", "look", "looking", "looks", "ltd", "mainly", "many", "may", "maybe", "me", "mean", "meanwhile", "merely", "might", "more", "moreover", "most", "mostly", "much", "must", "my", "myself", "name", "namely", "near", "nearly", "necessary", "need", "needs", "neither", "never", "nevertheless", "new", "next", "nine", "no", "nobody", "non", "none", "noone", "nor", "normally", "not", "nothing", "novel", "now", "nowhere", "obviously", "of", "off", "often", "oh", "ok", "okay", "old", "on", "once", "one", "ones", "only", "onto", "or", "other", "others", "otherwise", "ought", "our", "ours", "ourselves", "outside", "over", "overall", "own", "p", "particular", "particularly", "per", "perhaps", "placed", "please", "plus", "possible", "presumably", "probably", "provides", "q", "que", "quite", "qv", "rather", "rd", "really", "reasonably", "regarding", "regardless", "regards", "relatively", "respectively", "right", "said", "same", "saw", "say", "saying", "says", "second", "secondly", "see", "seeing", "seem", "seemed", "seeming", "seems", "seen", "self", "selves", "sensible", "sent", "serious", "seriously", "seven", "several", "shall", "she", "should", "shouldn't", "since", "six", "so", "some", "somebody", "somehow", "someone", "something", "sometime", "sometimes", "somewhat", "somewhere", "soon", "sorry", "specified", "specify", "specifying", "still", "sub", "such", "sup", "sure", "t's", "take", "taken", "tell", "tends", "than", "thank", "thanks", "thanx", "that", "that's", "thats", "the", "their", "theirs", "them", "themselves", "then", "thence", "there", "there's", "thereafter", "thereby", "therefore", "therein", "theres", "thereupon", "these", "they", "they'd", "they'll", "they're", "they've", "think", "third", "this", "thorough", "thoroughly", "those", "though", "three", "through", "throughout", "thru", "thus", "tis", "to", "together", "too", "took", "toward", "towards", "tried", "tries", "truly", "try", "trying", "twas", "twice", "two", "un", "under", "unfortunately", "unless", "unlikely", "until", "unto", "up", "upon", "us", "used", "useful", "uses", "using", "usually", "uucp", "value", "various", "via", "viz", "vs", "wants", "was", "wasn't", "way", "we", "we'd", "we'll", "we're", "we've", "welcome", "well", "went", "were", "weren't", "what", "what's", "whatever", "when", "whence", "whenever", "where", "where's", "whereafter", "whereas", "whereby", "wherein", "whereupon", "wherever", "whether", "which", "while", "whither", "who", "who's", "whoever", "whole", "whom", "whose", "why", "will", "willing", "wish", "with", "within", "without", "won't", "wonder", "would", "wouldn't", "x", "yes", "yet", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves", "z", "zero"];
+var wordlist = ["reflow", "a", "a's", "able", "about", "above", "according", "accordingly", "across", "actually", "after", "afterwards", "again", "against", "ain't", "all", "allow", "allows", "almost", "alone", "along", "already", "also", "although", "always", "am", "among", "amongst", "an", "and", "another", "any", "anybody", "anyhow", "anyone", "anything", "anyway", "anyways", "anywhere", "apart", "appear", "appreciate", "appropriate", "are", "aren't", "around", "as", "aside", "ask", "asking", "associated", "at", "available", "away", "awfully", "be", "became", "because", "become", "becomes", "becoming", "been", "before", "beforehand", "behind", "being", "believe", "below", "beside", "besides", "best", "better", "between", "beyond", "both", "brief", "but", "by", "c'mon", "c's", "came", "can", "can't", "cannot", "cant", "causes", "certain", "certainly", "changes", "clearly", "com", "come", "comes", "concerning", "consequently", "consider", "considering", "contain", "containing", "contains", "corresponding", "could", "couldn't", "course", "currently", "dear", "definitely", "described", "despite", "did", "didn't", "different", "do", "does", "doesn't", "doing", "don't", "done", "down", "downwards", "during", "each", "edu", "eg", "eight", "either", "else", "elsewhere", "enough", "entirely", "especially", "etc", "even", "ever", "every", "everybody", "everyone", "everything", "everywhere", "ex", "exactly", "example", "except", "far", "few", "fifth", "first", "five", "followed", "following", "follows", "for", "former", "formerly", "forth", "four", "from", "further", "furthermore", "get", "gets", "getting", "given", "gives", "goes", "going", "gone", "got", "gotten", "greetings", "had", "hadn't", "happens", "hardly", "has", "hasn't", "have", "haven't", "having", "he", "he's", "hello", "help", "hence", "her", "here's", "hereafter", "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his", "hither", "hopefully", "how", "howbeit", "however", "i", "i'd", "i'll", "i'm", "i've", "ie", "if", "ignored", "immediate", "in", "inasmuch", "indeed", "indicate", "indicated", "indicates", "inner", "insofar", "instead", "into", "inward", "is", "isn't", "it", "it'd", "it'll", "it's", "its", "itself", "just", "keep", "keeps", "kept", "know", "known", "knows", "last", "lately", "later", "latter", "latterly", "least", "less", "lest", "let", "let's", "like", "liked", "likely", "little", "look", "looking", "looks", "ltd", "mainly", "many", "may", "maybe", "me", "mean", "meanwhile", "merely", "might", "more", "moreover", "most", "mostly", "much", "must", "my", "myself", "name", "namely", "near", "nearly", "necessary", "need", "needs", "neither", "never", "nevertheless", "new", "next", "nine", "no", "nobody", "non", "none", "noone", "nor", "normally", "not", "nothing", "novel", "now", "nowhere", "obviously", "of", "off", "often", "oh", "ok", "okay", "old", "on", "once", "one", "ones", "only", "onto", "or", "other", "others", "otherwise", "ought", "our", "ours", "ourselves", "outside", "over", "overall", "own", "p", "particular", "particularly", "per", "perhaps", "placed", "please", "plus", "possible", "presumably", "probably", "provides", "q", "que", "quite", "qv", "rather", "rd", "really", "reasonably", "regarding", "regardless", "regards", "relatively", "respectively", "right", "said", "same", "saw", "say", "saying", "says", "second", "secondly", "see", "seeing", "seem", "seemed", "seeming", "seems", "seen", "self", "selves", "sensible", "sent", "serious", "seriously", "seven", "several", "shall", "she", "should", "shouldn't", "since", "six", "so", "some", "somebody", "somehow", "someone", "something", "sometime", "sometimes", "somewhat", "somewhere", "soon", "sorry", "specified", "specify", "specifying", "still", "sub", "such", "sup", "sure", "t's", "take", "taken", "tell", "tends", "than", "thank", "thanks", "thanx", "that", "that's", "thats", "the", "their", "theirs", "them", "themselves", "then", "thence", "there", "there's", "thereafter", "thereby", "therefore", "therein", "theres", "thereupon", "these", "they", "they'd", "they'll", "they're", "they've", "think", "third", "this", "thorough", "thoroughly", "those", "though", "three", "through", "throughout", "thru", "thus", "tis", "to", "together", "too", "took", "toward", "towards", "tried", "tries", "truly", "try", "trying", "twas", "twice", "two", "un", "under", "unfortunately", "unless", "unlikely", "until", "unto", "up", "upon", "us", "used", "useful", "uses", "using", "usually", "uucp", "value", "various", "via", "viz", "vs", "wants", "was", "wasn't", "way", "we", "we'd", "we'll", "we're", "we've", "welcome", "well", "went", "were", "weren't", "what", "what's", "whatever", "when", "whence", "whenever", "where", "where's", "whereafter", "whereas", "whereby", "wherein", "whereupon", "wherever", "whether", "which", "while", "whither", "who", "who's", "whoever", "whole", "whom", "whose", "why", "will", "willing", "wish", "with", "within", "without", "won't", "wonder", "would", "wouldn't", "x", "yes", "yet", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves", "z", "zero"];
 var stopwords = new Array();
 for(var i=0; i<wordlist.length; i++) stopwords[wordlist[i]] = 1;
 
 var stopwebsites = [".google.", ".facebook.", ".youtube."];
 var protocol = "http://";
 
-var nodelist = ['DIV', 'TABLE', 'FORM', 'UL', 'OL', 'SPAN', 'NOSCRIPT'];
+var nodelist = ['DIV', 'TABLE', 'FORM', 'UL', 'OL', 'SPAN', 'CENTER', 'NOSCRIPT'];
 var structureNodes = new Array();
 for(var i=0; i<nodelist.length; i++) structureNodes[nodelist[i]] = 1;
 
@@ -30,10 +30,20 @@ History.prototype = {
 		this.scores = new Array();
 		this.unprocessed = null;
 
+		// <bayes>
+		this.bayes = {};
+		this.bayes.allWords = new Array();
+		this.bayes.sideWords = new Array();
+		this.bayes.totalAllWords = 0;
+		this.bayes.totalSideWords = 0;
+		this.bayes.allParts = 0;
+		this.bayes.sideParts = 0;
+		// </bayes>
+
 		// Default properties
-		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(20, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
-		this.batchSize = merge(100, opts.batchSize);
+		this.batchSize = merge(10, opts.batchSize);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -54,9 +64,50 @@ History.prototype = {
 			var startTime = (new Date).getTime();
 			that.lastProcessedHistoryEntry = startTime;
 			var page = document.createElement('body');
-			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+            page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+
+			that.computeTfsDfs(url, request.title, page);
 			
-			that.computeTfsDfs(url, page);
+			// <bayes>
+			
+			var s = "";
+//						
+//			for(word in that.tfs[url].all) {
+//				var nSide;
+//				if(typeof(that.bayes.sideWords[word]) == 'number') nSide = that.bayes.sideWords[word] + 1;
+//				else nSide = 1; 
+//				var pSide = nSide / (that.bayes.totalSideWords + that.bayes.allWords.length);
+//				var nAll = that.bayes.allWords[word];
+//				var pAll =  nAll / that.bayes.totalAllWords; 
+//				var p = (Math.log(pSide) - Math.log(pAll)) / Math.LN2;
+//				// if(p > -1.0)
+//					s += word + ":" + nSide + " / " + nAll + " / " + pSide + " / " + pAll + " / " + p.toFixed(2) + ",   ";
+//			}
+//			s += "<br><br><br>";
+			
+			s += that.bayes.sideParts + " " + that.bayes.allParts + "<br><br>";
+			for (var i = 0; i < that.tfs[url].parts.length; i++) {
+				var part = that.tfs[url].parts[i];
+				var p = 0;				
+				for (word in part) {
+					var nSide;
+					if (typeof(that.bayes.sideWords[word]) == 'number') nSide = that.bayes.sideWords[word] + 1;
+					else nSide = 1;
+					var pSide = nSide / (that.bayes.totalSideWords + that.bayes.allWords.length);
+					var nAll = that.bayes.allWords[word];
+					var pAll = nAll / that.bayes.totalAllWords;
+					var wordP = (Math.log(pSide) - Math.log(pAll)) / Math.LN2;
+					p += wordP;
+					s += word + ":" + wordP + ", ";
+				}
+				s += "<br>P:" + p.toFixed(3) + "<br><br>";
+			}
+
+			detailsPage.document.body.innerHTML = s;
+			
+			return;
+			// </bayes>
+			
 			that.extractSidePartsForURL(url, function() {
 				that.store.storeParams(that, function(){
 					that.computeTfidfScores(url, function(){
@@ -69,9 +120,25 @@ History.prototype = {
 						s += "Computed in: " + duration + "ms. <br>";
 						for(var i = 0; i<5; i++) {
 							s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-								scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+								scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
 						}
 						s += "<br><br><br>"
+						
+						
+						s += "Article parts: <br>";
+						for(var i=0; i<that.tfs[url].parts.length; i++) {
+							s += serializeIntArray(that.tfs[url].parts[i]) + "<br>";
+						}
+						s += "<br>"
+						
+						for(var i = 0; i<5; i++) {
+							s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+								scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+							s += serializeIntArray(scores[i].intersect) + "<br><br>";
+						}
+
+						
+						
 						detailsPage.document.body.innerHTML = s;
 
 						
@@ -124,6 +191,8 @@ History.prototype = {
 		
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;
 		var url = entry.url;
+		detailsPage.document.write(this.nrProcessed + ": " + url + "<br>");
+		
 		if (this.filterURL(url)) { callback(); return; }	// If filtered, continue.
 
 		// Try loading the page, through an async send request.
@@ -141,11 +210,14 @@ History.prototype = {
 						// Parse the html, eliminating <script> and <style> content.
 						var page = document.createElement('html');
 						page.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
-						page = page.getElementsByTagName('body')[0];
-						
-						if (page != null) {
-							that.computeTfsDfs(url, page);
-							if (that.tfs.length == that.batchSize) saveToStore(callback);
+						var title = page.getElementsByTagName('title')[0];
+						if(title != null) title = title.innerText; 
+						else title = url;
+						var body = page.getElementsByTagName('body')[0];
+
+						if (body != null) {
+							that.computeTfsDfs(url, title, body);
+							if (that.tfs.length >= that.batchSize) saveToStore(callback);
 							else callback();	// If request successful, continue.
 						} else callback();		// If no body, continue.
 					} else callback();		// If request unsuccessful, continue.
@@ -175,10 +247,11 @@ History.prototype = {
 		return struct;
 	},
 	
-	computeTfsDfs: function(url, page){
+	computeTfsDfs: function(url, title, page){
 		var s = this.buildPageStructure(page, new Array());
 		
 		var tfs = {};
+		tfs.title = title;
 		tfs.all = new Array();
 		tfs.parts = new Array();
 		for (var i = 0; i < s.length; i++) {
@@ -203,7 +276,7 @@ History.prototype = {
 					} else tfs.all[word]++;
 				}
 			}
-			if(part.length > 0) tfs.parts.push(part);
+			if (part.length > 0) tfs.parts.push(part);
 		}
 		
 		if (tfs.parts.length > 0) {
@@ -211,6 +284,17 @@ History.prototype = {
 			this.tfs.length++;
 			this.nrProcessed++;
 		}
+		
+		// <bayes>
+		for (var word in tfs.all) {
+			if(typeof(this.bayes.allWords[word]) != 'number') {
+				this.bayes.allWords[word] = tfs.all[word];
+				this.bayes.allWords.length++;
+			} else this.bayes.allWords[word] += tfs.all[word];
+			this.bayes.totalAllWords += tfs.all[word];						
+		}
+		this.bayes.allParts += tfs.parts.length;
+		// </bayes>
 	},
 	
 	extractAllSideParts: function(callback) {
@@ -326,6 +410,17 @@ History.prototype = {
 					// Decrease i to ensure we still treat the newly put in place part, and return from the inner loop.
 					i--;
 					break;
+					
+					// <bayes>
+					for (var word in sideParts[j]) {
+						if(typeof(this.bayes.sideWords[word]) != 'number') {
+							this.bayes.sideWords[word] = sideParts[j][word];
+							this.bayes.sideWords.length++;
+						} else this.bayes.sideWords[word] += sideParts[j][word];
+						this.bayes.totalSideWords += sideParts[j][word];						
+					}
+					this.bayes.sideParts++;
+					// </bayes>
 				}
 			}
 		}
@@ -340,6 +435,18 @@ History.prototype = {
 		for (var i = 0; i < parts1.length; i++) {
 			for (var j = 0; j < parts2.length; j++) {
 				if (equalArrays(parts1[i], parts2[j])) {
+					// <bayes>
+					for (var word in parts1[i]) {
+						if(typeof(this.bayes.sideWords[word]) != 'number') {
+							this.bayes.sideWords[word] = 2 * parts1[i][word];
+							this.bayes.sideWords.length++;
+						} else this.bayes.sideWords[word] += 2 * parts1[i][word];
+						this.bayes.totalSideWords += 2 * parts1[i][word];						
+					}
+					this.bayes.sideParts += 2;
+					// </bayes>
+
+					
 					// Copy the common part in sideParts
 					sideParts.push(parts1[i]);
 					// Eliminate the common part from parts1
@@ -425,7 +532,7 @@ History.prototype = {
 					pageL = Math.sqrt(pageL);
 					if(pageL == 0) continue;
 					
-					score.push({score: s/(tfidf.l*pageL), url:pageUrl});
+					score.push({score: s/(tfidf.l*pageL), url:pageUrl, title:tfsPage[pageUrl].title, intersect:intersectArrays(that.tfs[url].all, tfsPage[pageUrl].all)});
 				}
 			}
 

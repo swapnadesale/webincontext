@@ -31,7 +31,7 @@ StoreWrapper.prototype = {
 			t.executeSql("CREATE TABLE " + that.paramTable + " (key CHAR(20), value CHAR(" + that.maxVectorLength + "), PRIMARY KEY (key))");
 		});
 		this.db.transaction(function(t){
-			t.executeSql("CREATE TABLE " + that.tfsTable + " (url CHAR(4098), vall CHAR(" + that.maxVectorLength + "), " + 
+			t.executeSql("CREATE TABLE " + that.tfsTable + " (url CHAR(4098), title CHAR(4098), vall CHAR(" + that.maxVectorLength + "), " + 
 				"parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
 		});
 		this.db.transaction(function(t){
@@ -101,6 +101,21 @@ StoreWrapper.prototype = {
 		});
 	},
 	
+	getAllTfss: function(callback) {
+		var that = this;
+		var sql = "SELECT * FROM " + that.tfsTable;
+		this.db.transaction(function(t) {
+		    t.executeSql(sql, [that.perPage, offset], 
+				function(tx, results) {
+					callback(that.parseTfsResults(results));
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
+		});
+	},
+
 	getTfsPage: function(page, callback) {
 		var that = this;
 		var offset = that.perPage * page ;
@@ -132,13 +147,13 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	storeTfs: function(tfs, callback) {
+	storeTfs: function(url, tfs, callback) {
 		var that = this;
 			
 		// Add the tf-idf score.
 		var all = this.serializeAll(tfs.all);
 		var parts = this.serializeParts(tfs.parts);
-		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (\"" + url + "\", \"" + all + "\", \"" + parts + "\")";
+		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (\"" + url + "\", \"" + escape(tfs.title) + "\", \"" + all + "\", \"" + parts + "\")";
 		
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], 
@@ -162,7 +177,7 @@ StoreWrapper.prototype = {
 			var tfs = tfss[url];
 			var all = this.serializeAll(tfs.all);
 			var parts = this.serializeParts(tfs.parts);
-			sql += "SELECT \"" + url + "\", \"" + all + "\", \"" + parts + "\" UNION ";
+			sql += "SELECT \"" + url + "\", \"" + escape(tfs.title) + "\", \"" + all + "\", \"" + parts + "\" UNION ";
 			empty = false;
 		}
 		if(empty) { callback(); return; }
@@ -174,7 +189,8 @@ StoreWrapper.prototype = {
 					callback();
 				},
 				function(tx, error) {
-					log += error.message + "<br>";
+					detailsPage.document.write("Store error: " + error.message + "<br>");
+					detailsPage.document.write("Sql: " + sql + "<br><br>"); 
 				}
 			);
 		});
@@ -195,6 +211,34 @@ StoreWrapper.prototype = {
 						}
 					}
 					callback(parts);
+				},
+				function(tx, error) {
+					log += error.message + "<br>";
+				}
+			);
+		});
+	},
+
+	getAllSideParts: function(callback) {
+		var that = this;
+		var sql = "SELECT * FROM " + this.sidePartsTable;
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], 
+				function(tx, results) {
+					var sideParts = new Array();
+					for(var i=0; i<results.rows.length; i++) {
+						var row = results.rows.item(i);
+						var domain = row.domain;
+						var ps = row.parts;
+						if (ps != "") {
+							var parts = new Array();
+							ps = ps.split(";");
+							for (var j = 0; j < ps.length; j++) parts.push(parseIntArray(ps[j]));
+							sideParts[domain] = parts;
+							sideParts.length++;
+						}
+					}
+					callback(sideParts);
 				},
 				function(tx, error) {
 					log += error.message + "<br>";
@@ -225,6 +269,7 @@ StoreWrapper.prototype = {
 
 			tfsPage[row.url] = {};
 			tfsPage.length++;
+			tfsPage[row.url].title = unescape(row.title);
 			tfsPage[row.url].all = parseIntArray(row.vall);
 
 			tfsPage[row.url].parts = new Array();
