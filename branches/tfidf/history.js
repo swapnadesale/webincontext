@@ -33,7 +33,7 @@ History.prototype = {
 		// Default properties
 		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
-		this.batchSize = merge(100, opts.batchSize);
+		this.batchSize = merge(10, opts.batchSize);
 		this.minPartSize = merge(15, opts.minPartSize);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
@@ -157,10 +157,11 @@ History.prototype = {
 						// Parse the html, eliminating <script> and <style> content.
 						var page = document.createElement('html');
 						page.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+						var title = page.getElementsByTagName('title')[0];
+                        title = (title != null) ? title.innerText : url;
 						page = page.getElementsByTagName('body')[0];
+						
 						if (page != null) {
-							var title = page.getElementsByTagName('title')[0];
-                            title = (title != null) ? title.innerText : url;
 							that.computeTfsDfs(url, title, page);
 							if (that.tfs.length == that.batchSize) saveToStore(callback);
 							else callback();	// If request successful, continue.
@@ -168,7 +169,7 @@ History.prototype = {
 					} else callback();		// If request unsuccessful, continue.
 				}
 			}
-			// detailsPage.document.write(that.nrProcessed + ": " + url + "<br>");
+			detailsPage.document.write(that.nrProcessed + ": " + url + "<br>");
 			req.send();
 		} 
 		catch (err) { callback(); }		// If request threw error, continue.
