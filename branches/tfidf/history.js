@@ -7,7 +7,7 @@ for(var i=0; i<wordlist.length; i++) stopwords[wordlist[i]] = 1;
 var stopwebsites = [".google.", ".facebook.", ".youtube."];
 var protocol = "http://";
 
-var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TBODY', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
+var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'LAYER', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TBODY', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
 var structureNodes = new Array();
 for(var i=0; i<nodelist.length; i++) structureNodes[nodelist[i]] = 1;
 
@@ -60,7 +60,7 @@ History.prototype = {
 			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
 
 			that.computeTfsDfs(url, request.title, page);
-			// that.extractSidePartsForURL(url, function() {
+			that.extractSidePartsForURL(url, function() {
 				that.store.storeParams(that, function(){
 					that.computeTfidfScores(url, function(){
 						// <debug>
@@ -94,7 +94,7 @@ History.prototype = {
 						delete that.tfs[url];
 					});									
 				});
-			// });
+			});
 		});
 	},
 	
@@ -189,9 +189,15 @@ History.prototype = {
 			var child = node.childNodes[i];
 			if (structureNodes[child.nodeName] == 1) 
 				this.buildPageStructure(child, struct);
-			else if (child.innerText != null) rest += child.innerText + " ";
+			else {
+				// detailsPage.document.write(child.nodeName + ", ");
+				if (child.innerText != null) rest += child.innerText + " ";
+			}
 		}
-		if (rest != "") struct.push(rest);
+		if (rest != "") {
+			struct.push(rest);
+			// detailsPage.document.write(node.nodeName + ": " + rest + "<br>" + node.innerHTML + "<br><br>");
+		}
 		return struct;
 	},
 	
@@ -337,7 +343,7 @@ History.prototype = {
 		for (var i = 0; i < parts.length; i++) {
 			for (var j = 0; j < sideParts.length; j++) {
 				if (equalArrays(parts[i], sideParts[j])) {
-					// detailsPage.document.write(serializeIntArray(parts[i]) + "<br>");
+					detailsPage.document.write(serializeIntArray(parts[i]) + "<br>");
 					
 					// Substract the common part from the all array.
 					for (var word in parts[i]) {
@@ -369,7 +375,7 @@ History.prototype = {
 		for (var i = 0; i < parts1.length; i++) {
 			for (var j = 0; j < parts2.length; j++) {
 				if (equalArrays(parts1[i], parts2[j])) {
-					// detailsPage.document.write(serializeIntArray(parts1[i]) + "<br>");
+					detailsPage.document.write(serializeIntArray(parts1[i]) + "<br>");
 					
 					// Copy the common part in sideParts
 					sideParts.push(parts1[i]);
