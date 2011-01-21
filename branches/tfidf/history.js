@@ -7,7 +7,7 @@ for(var i=0; i<wordlist.length; i++) stopwords[wordlist[i]] = 1;
 var stopwebsites = [".google.", ".facebook.", ".youtube."];
 var protocol = "http://";
 
-var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'LAYER', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TBODY', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
+var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'LAYER', 'LABEL', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TBODY', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
 var structureNodes = new Array();
 for(var i=0; i<nodelist.length; i++) structureNodes[nodelist[i]] = 1;
 
@@ -190,13 +190,14 @@ History.prototype = {
 			if (structureNodes[child.nodeName] == 1) 
 				this.buildPageStructure(child, struct);
 			else {
-				// detailsPage.document.write(child.nodeName + ", ");
+				// detailsPage.document.write(child.nodeName + ": " + child.nodeValue + "<br>");
 				if (child.innerText != null) rest += child.innerText + " ";
+				else if(child.nodeName == "#text") rest += child.nodeValue + " ";
 			}
 		}
 		if (rest != "") {
 			struct.push(rest);
-			// detailsPage.document.write(node.nodeName + ": " + rest + "<br>" + node.innerHTML + "<br><br>");
+			// detailsPage.document.write(node.nodeName + ": " + rest + "<br>" /* + node.innerHTML + "<br><br>"*/);
 		}
 		return struct;
 	},
@@ -222,6 +223,8 @@ History.prototype = {
 					} else part[word]++;
 				}
 			}
+
+			// detailsPage.document.write(serializeIntArray(part) + "<br>");
 
 			if (part.length > this.minPartSize) {
 				for (word in part) {
