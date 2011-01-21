@@ -1,0 +1,35 @@
+<html>
+<head>
+	<script LANGUAGE="JavaScript" SRC="history.js"></script>
+	<script LANGUAGE="JavaScript" SRC="storeWrapper.js"></script>
+	<script LANGUAGE="JavaScript" SRC="stemmer.js"></script>
+	<script LANGUAGE="JavaScript" SRC="helperFunctions.js"></script>
+	<script LANGUAGE="JavaScript" SRC="classifier.js"></script>
+	
+	<script>
+		var log = "Starting.. <br>";
+		var detailsPage;
+		chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {});
+		
+		var hist;
+		function run(){
+			hist = new History({});
+			// 1. Load existing state from disk.
+			hist.loadParametersFromDisk(function(){
+				detailsPage = chrome.extension.getViews()[1];
+				// 2. Load (+process&save) yet unprocessed URLs from history.
+				hist.loadUnprocessedURLs(function(){
+					// hist.extractAllSideParts(function() {
+						hist.historyLoaded();
+						// 3. Register for new page loaded events.
+						// TODO: think about how to make this work even before we've started processing					
+						hist.registerForNewPageLoadedEvents();
+					// });
+				});
+			});
+		}
+	</script>
+</head>
+<body onload="run();">
+</body>
+</html>
