@@ -57,7 +57,7 @@ History.prototype = {
 			var startTime = (new Date).getTime();
 			that.lastProcessedHistoryEntry = startTime;
 			var page = document.createElement('body');
-			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>|<noscript(.|\s)*?\/noscript>/g, '');
 
 			that.computeTfsDfs(url, request.title, page);
 			that.extractSidePartsForURL(url, function() {
@@ -156,7 +156,7 @@ History.prototype = {
 					if (req.status == 200) { // Successful.
 						// Parse the html, eliminating <script> and <style> content.
 						var page = document.createElement('html');
-						page.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
+						page.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>|<noscript(.|\s)*?\/noscript>/g, '');
 						var title = page.getElementsByTagName('title')[0];
                         title = (title != null) ? title.innerText : url;
 						page = page.getElementsByTagName('body')[0];
@@ -187,16 +187,16 @@ History.prototype = {
 		var rest = "";
 		for (var i = 0, l = node.childNodes.length; i < l; i++) {
 			var child = node.childNodes[i];
-			if (structureNodes[child.nodeName] == 1) 
-				this.buildPageStructure(child, struct);
+			if (structureNodes[child.nodeName] == 1) this.buildPageStructure(child, struct);
 			else {
 				// detailsPage.document.write(child.nodeName + ": " + child.nodeValue + "<br>");
-				if (child.innerText != null) rest += child.innerText + " ";
-				else if(child.nodeName == "#text") rest += child.nodeValue + " ";
+				if(child.nodeName == "#text") rest += child.nodeValue + " "; 
+				else if (child.innerText != null) rest += child.innerText + " ";
 			}
 		}
 		if (rest != "") {
 			struct.push(rest);
+			// detailsPage.document.write(rest + "<br>");
 			// detailsPage.document.write(node.nodeName + ": " + rest + "<br>" /* + node.innerHTML + "<br><br>"*/);
 		}
 		return struct;
@@ -224,7 +224,8 @@ History.prototype = {
 				}
 			}
 
-			// detailsPage.document.write(serializeIntArray(part) + "<br>");
+			// detailsPage.document.write(s[i] + "<br>");
+			// detailsPage.document.write(part.length + ": " + serializeIntArray(part) + "<br>");
 
 			if (part.length > this.minPartSize) {
 				for (word in part) {
