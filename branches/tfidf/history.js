@@ -7,7 +7,7 @@ for(var i=0; i<wordlist.length; i++) stopwords[wordlist[i]] = 1;
 var stopwebsites = [".google.", ".facebook.", ".youtube."];
 var protocol = "http://";
 
-var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
+var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TBODY', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
 var structureNodes = new Array();
 for(var i=0; i<nodelist.length; i++) structureNodes[nodelist[i]] = 1;
 
@@ -33,7 +33,7 @@ History.prototype = {
 		// Default properties
 		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
-		this.batchSize = merge(10, opts.batchSize);
+		this.batchSize = merge(100, opts.batchSize);
 		this.minPartSize = merge(15, opts.minPartSize);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
@@ -60,7 +60,7 @@ History.prototype = {
 			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>/g, '');
 
 			that.computeTfsDfs(url, request.title, page);
-			that.extractSidePartsForURL(url, function() {
+			// that.extractSidePartsForURL(url, function() {
 				that.store.storeParams(that, function(){
 					that.computeTfidfScores(url, function(){
 						// <debug>
@@ -94,7 +94,7 @@ History.prototype = {
 						delete that.tfs[url];
 					});									
 				});
-			});
+			// });
 		});
 	},
 	
@@ -187,7 +187,8 @@ History.prototype = {
 		var rest = "";
 		for (var i = 0, l = node.childNodes.length; i < l; i++) {
 			var child = node.childNodes[i];
-			if (structureNodes[child.nodeName] == 1) this.buildPageStructure(child, struct);
+			if (structureNodes[child.nodeName] == 1) 
+				this.buildPageStructure(child, struct);
 			else if (child.innerText != null) rest += child.innerText + " ";
 		}
 		if (rest != "") struct.push(rest);
