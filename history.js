@@ -29,6 +29,8 @@ History.prototype = {
 		this.tfs = new Array();
 		this.scores = new Array();
 		this.unprocessed = null;
+		
+		this.invertedIndex = null;
 
 		// Default properties
 		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
@@ -464,6 +466,60 @@ History.prototype = {
 			delete tfsPage;
 			// LOOP
 			that.computeTfidfScoresPaged(url, tfidf, logIdfs, score, page + 1, callback);
+		});
+	},
+	
+	createInvertedIndex: function(callback) {
+		var that = this;
+		var createInvertedIndexPaged = function(page, cbk) {
+			detailsPage.document.write("Inverting page: " + page + "<br>");
+			that.store.getTfsPage(page, function(tfsPage){
+				for(url in tfsPage) {
+					var vall = tfsPage[url].all;
+					for(word in vall) 
+						if(typeof(vall[word]) == 'number') that.invertedIndex[word].push(url);
+				}
+				
+				if(tfsPage.length == 0) cbk();
+				else createInvertedIndexPaged(page+1, cbk);
+			});	
+		};
+		
+		this.invertedIndex = new Array();
+		for(word in this.dfs) this.invertedIndex[word] = new Array();
+		createInvertedIndexPaged(0, callback);
+	},
+	
+	analyzeIndexingPerformance: function(callback) {
+		var that = this;
+		var numberRelatedURLs = new Array();
+		
+		var analyzeIndexingPerformancePaged = function(page, cbk) {
+			detailsPage.document.write("Analyzing page: " + page + "<br>");
+			that.store.getTfsPage(page, function(tfsPage){
+				for(var url in tfsPage) {
+					var relatedURLs = new Array();
+					for(var word in tfsPage[url].all) {
+						for(var j=0; j<that.invertedIndex[word].length; j++) {
+							var url2 = that.invertedIndex[word][j];
+							if(relatedURLs[url2] != 1) { 
+								relatedURLs[url2] = 1;
+								relatedURLs.length++;
+							}
+						}
+					}
+					numberRelatedURLs[url] = relatedURLs.length;
+					detailsPage.document.write(serializeIntArray(relatedURLs));
+					return;
+				}
+				
+				if(tfsPage.length == 0) cbk();
+				else analyzeIndexingPerformancePaged(page+1, cbk);
+			});	
+		};
+		
+		analyzeIndexingPerformancePaged(0, function(){
+			callback(numberRelatedURLs);
 		});
 	},
 };
