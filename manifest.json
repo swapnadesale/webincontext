@@ -1,6 +1,6 @@
 {
   "name": "inContext",
-  "version": "2.0",
+  "version": "4.0",
   "description": "",
   "background_page": "bg.html",
   "browser_action": {
@@ -15,6 +15,6 @@
   ],
   "permissions": [
      "http://*/*", "https://*/*",
-     "history", "tabs"
+     "history", "tabs", "unlimitedStorage"
   ]
 }
