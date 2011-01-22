@@ -2,29 +2,29 @@
 <body>
 	<script>
 		var bg = chrome.extension.getViews()[0];
-		if(bg.history.ready == false) {
-			document.write("Not done yet, sorry! <br>");
-		} else { 
-			document.write("Done! <br>");
-			document.write("Processed: " + bg.history.tfs.length + 
-				" unnormalized and " + bg.history.normalized.length + " normalized history entries. <br><br><br>");
 		
-			chrome.tabs.getSelected(null, function(tab) {
+		if (bg.hist.ready == false) {
+			document.write("Sorry, not done yet! <br>");
+			document.write("Processed: " + bg.hist.nrProcessed + " history entries. <br>");
+			document.write("Remaining: " + bg.hist.unprocessed.length + ". <br><br>");
+			document.write(bg.log);
+		} else {
+			chrome.tabs.getSelected(null, function(tab){
 				var url = tab.url;
-				var scores = bg.history.bayes.scores[url];
+
+				var scores = bg.hist.scores[url];
 				if(scores == null) {
-					document.write("Suggestions not computed yet!");
-				} else {
-					document.write("Suggestions for url: " + url + "<br>");
-					var i = 0;
-					while(scores[++i].score > 0) {
-						document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
-							scores[i].url + "</a>: " + scores[i].score + "<br>");
-					}
+					document.write("TfIdf scores not yet computed.");
+					return;
 				}
-			});		
-			document.write("<br><br>" + bg.log);
-		}	
+	
+				document.write("Suggestions for url: " + url + "<br>");
+				for(var i = 0; i<5; i++) {
+					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+				}
+			});
+		}
 	</script>
 </body>
 </html>
