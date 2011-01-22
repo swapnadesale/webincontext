@@ -33,8 +33,9 @@ History.prototype = {
 		// Default properties
 		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
-		this.batchSize = merge(100, opts.batchSize);
-		this.minPartSize = merge(15, opts.minPartSize);
+		this.batchSize = merge(10, opts.batchSize);
+		this.shortPartSize = merge(15, opts.shortPartSize);
+		this.longPartSize = merge(50, opts.shortPartSize);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -60,39 +61,37 @@ History.prototype = {
 			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>|<noscript(.|\s)*?\/noscript>/g, '');
 
 			that.computeTfsDfs(url, request.title, page);
-			that.extractSidePartsForURL(url, function() {
-				that.store.storeParams(that, function(){
-					that.computeTfidfScores(url, function(){
-						// <debug>
-						var scores = that.scores[url];
-						var duration = (new Date).getTime() - startTime;
+			that.store.storeParams(that, function(){
+				that.computeTfidfScores(url, function(){
+					// <debug>
+					var scores = that.scores[url];
+					var duration = (new Date).getTime() - startTime;
 
-						var s = "Suggestions computed in: " + duration + "ms. <br>";
-						for(var i = 0; i<5; i++) {
-							s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-								scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
-						}
-						s += "<br><br><br>"
+					var s = "Suggestions computed in: " + duration + "ms. <br>";
+					for(var i = 0; i<5; i++) {
+						s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+							scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+					}
+					s += "<br><br><br>"
 						
-						s += "Page parts: ";
-						for(var i=0; i<that.tfs[url].parts.length; i++) {
-							s += serializeIntArray(that.tfs[url].parts[i]) + "<br>";
-						}
-						s += "<br><br><br>"
+					s += "Page parts: ";
+					for(var i=0; i<that.tfs[url].parts.length; i++) {
+						s += serializeIntArray(that.tfs[url].parts[i]) + "<br>";
+					}
+					s += "<br><br><br>"
 
-						s += "Detailed suggestions: ";
-                        for (var i = 0; i < 5; i++) {
-							s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-								scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
-							s += serializeIntArray(scores[i].intersect) + "<br><br>";
-						}
-						s += "<br><br><br>"					
+					s += "Detailed suggestions: ";
+                    for (var i = 0; i < 5; i++) {
+						s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+							scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+						s += serializeIntArray(scores[i].intersect) + "<br><br>";
+					}
+					s += "<br><br><br>"					
 						
-						detailsPage.document.write(s);
-						// </debug>
+					detailsPage.document.write(s);
+					// </debug>
 						
-						delete that.tfs[url];
-					});									
+					delete that.tfs[url];
 				});
 			});
 		});
@@ -205,10 +204,13 @@ History.prototype = {
 	computeTfsDfs: function(url, title, page){
 		var s = this.buildPageStructure(page, new Array());
 		
-		var tfs = {};
-		tfs.title = title;
-		tfs.all = new Array();
-		tfs.parts = new Array();
+		var all = new Array();
+		var allParts = new Array();
+		var allMediumAndLong = new Array();
+		var mediumAndLongParts = new Array();
+		var nrLongParts = 0;
+		
+		// Compute the parts.
 		for (var i = 0; i < s.length; i++) {
 			var words = s[i].toLowerCase().match(/[a-z]+/g);
 			if ((words == null) || (words.length == 0)) continue;
@@ -221,168 +223,57 @@ History.prototype = {
 						part[word] = 1;
 						part.length++;
 					} else part[word]++;
-				}
-			}
-
-			// detailsPage.document.write(s[i] + "<br>");
-			// detailsPage.document.write(part.length + ": " + serializeIntArray(part) + "<br>");
-
-			if (part.length > this.minPartSize) {
-				for (word in part) {
-					if (typeof(tfs.all[word]) != 'number') {
-						tfs.all[word] = part[word];
-						tfs.all.length++;
+					
+					if (typeof(all[word]) != 'number') {
+						all[word] = 1;
+						all.length++;
 						// Only add to dfs the first time a word is encoutered.
 						if (typeof(this.dfs[word]) != 'number') this.dfs[word] = 1;
 						else this.dfs[word]++;
-					} else tfs.all[word]+= part[word];
+					} else all[word] += 1;
 				}
-				tfs.parts.push(part);
+			}
+			allParts.push(part);
+
+			if (part.length > this.shortPartSize) {
+				mediumAndLongParts.push(part);
+				if(part.length >= this.longPartSize) nrLongParts++;
+				
+				for (word in part)
+					if (typeof(allMediumAndLong[word]) != 'number') {
+						allMediumAndLong[word] = part[word];
+						allMediumAndLong.length++;
+					} else allMediumAndLong[word]+= part[word];
 			}
 		}
-		
+
+		// Determine, based on the page profile, what parts to save.
+		var tfs = {};
+		tfs.title = title;
+		if(nrLongParts == 0) {
+			tfs.all = all;
+			tfs.parts = allParts;		
+		} else {
+			tfs.all = allMediumAndLong;
+			tfs.parts = mediumAndLongParts;
+		}
+
 		if (tfs.parts.length > 0) {
 			this.tfs[url] = tfs;
 			this.tfs.length++;
-			this.nrProcessed++;
 		}
+		this.nrProcessed++;
 	},
 	
-	extractAllSideParts: function(callback) {
-		var that = this;
-		this.store.getAllURLs(function(urls){
-			var processedDomains = new Array();
-			
-			// Extracts common side parts for one domain, and then loops.
-			var loop = function(){
-				if (urls.length == 0) callback();
-				else {
-					var domain = urls.pop().match(domainReg);
-					// Check if domain already processed.
-					if (processedDomains[domain] == 1) { loop(); return; }
-					else processedDomains[domain] = 1;
-					// Process and loop.
-					that.extractSidePartsForDomain(domain, loop);
-				}
-			};
-			// Start the loop.
-			loop();		
-		});
-	},
-	
-	extractSidePartsForDomain: function(domain, callback) {
-		var that = this;
-		that.store.getTfssForDomain(domain, function(tfss){
-			that.store.getSidePartsForDomain(domain, function(sideParts){
-				var changedTfss = new Array();
-				var changed = false;
-				
-				// Process the tfss.
-				for (url1 in tfss) {
-					// Remove existing sideParts from url1
-					if (that.removeExistingSideParts(tfss[url1], sideParts)) {
-						changedTfss[url1] = tfss[url1];
-						changed = true;
-					}
-					// Intersect url1 and url2, save their common parts in sideParts, and remove them their original pages.
-					for (url2 in tfss) {
-						if (url2.toString() == url1.toString()) break;
-						else 
-							if (that.intersectParts(tfss[url1], tfss[url2], sideParts)) {
-								changedTfss[url1] = tfss[url1];
-								changedTfss[url2] = tfss[url2];
-								changed = true;
-							}
-					}
-				}
-				
-				if(!changed) { callback(); return; }
-				// Update sideParts on disk.
-				that.store.storeSidePartsForDomain(domain, sideParts, function(){
-					// Updated the changed urls to disk
-					that.store.storeAllTfss(changedTfss, function(){
-						callback();
-					});
-				});
-			});
-		});	
-	},
-	
-	extractSidePartsForURL: function(url, callback) {
-		var that = this;
-		
-		detailsPage.document.write("Side parts eliminated: <br>");
-		
-		var domain = url.match(domainReg);
-		var tfs = this.tfs[url];
-		that.store.getTfssForDomain(domain, function(tfss){
-			that.store.getSidePartsForDomain(domain, function(sideParts){
-				var changedTfss = new Array();
-				changedTfss[url] = tfs;	// Preparing it to be saved on disk.
-				
-				// Remove existing sideParts
-				that.removeExistingSideParts(tfs, sideParts);
-				
-				// Intersect with all other urls, save their common parts in sideParts, and remove them their original pages.
-				for (url1 in tfss) 
-					if (url.toString() != url1.toString()) {
-						if (that.intersectParts(tfs, tfss[url1], sideParts)) 
-							changedTfss[url1] = tfss[url1];
-					}
-				
-				// Update sideParts on disk.
-				that.store.storeSidePartsForDomain(domain, sideParts, function(){
-					// Updated the changed urls to disk
-					that.store.storeAllTfss(changedTfss, function(){
-						callback();
-					});
-				});
-			});
-		});	
-	},
-	
-	removeExistingSideParts: function(tfs, sideParts) {
-		var changed = false;
-		var parts = tfs.parts;
-		for (var i = 0; i < parts.length; i++) {
-			for (var j = 0; j < sideParts.length; j++) {
-				if (equalArrays(parts[i], sideParts[j])) {
-					detailsPage.document.write(serializeIntArray(parts[i]) + "<br>");
-					
-					// Substract the common part from the all array.
-					for (var word in parts[i]) {
-						tfs.all[word] -= parts[i][word];
-						if (tfs.all[word] == 0) {
-							delete tfs.all[word];
-							tfs.all.length--;
-						}
-					}
-					// Eliminate the common part, and stick the last one of the array in its place.
-					parts[i] = parts[parts.length - 1];
-					delete parts[parts.length - 1];
-					parts.length--;
-					changed = true;
-					// Decrease i to ensure we still treat the newly put in place part, and return from the inner loop.
-					i--;
-					break;
-				}
-			}
-		}
-		
-		return changed;
-	},
-	
+	// Eliminates the common parts from tfs1. 
 	intersectParts: function(tfs1, tfs2, sideParts){
-		var changed = false;
 		var parts1 = tfs1.parts;
 		var parts2 = tfs2.parts;
 		for (var i = 0; i < parts1.length; i++) {
 			for (var j = 0; j < parts2.length; j++) {
 				if (equalArrays(parts1[i], parts2[j])) {
-					detailsPage.document.write(serializeIntArray(parts1[i]) + "<br>");
+					// detailsPage.document.write(serializeIntArray(parts1[i]) + "<br>");
 					
-					// Copy the common part in sideParts
-					sideParts.push(parts1[i]);
 					// Eliminate the common part from parts1
 					for (var word in parts1[i]) {
 						tfs1.all[word] -= parts1[i][word];
@@ -394,18 +285,7 @@ History.prototype = {
 					parts1[i] = parts1[parts1.length - 1];
 					delete parts1[parts1.length - 1];
 					parts1.length--;
-					// Eliminate the common part from parts2
-					for (var word in parts2[j]) {
-						tfs2.all[word] -= parts2[j][word];
-						if (tfs2.all[word] == 0) {
-							delete tfs2.all[word];
-							tfs2.all.length--;
-						}
-					}
-					parts2[j] = parts2[parts2.length - 1];
-					delete parts2[parts2.length - 1];
-					parts2.length--;
-					changed = true;
+
 					// Decrease i to ensure we still treat the newly put in place part, and return from the inner loop.
 					i--;
 					break;
@@ -452,22 +332,66 @@ History.prototype = {
 		this.store.getTfsPage(page, function(tfsPage){
 			if (tfsPage.length == 0) { callback(); return; }
 			
+			var domain = url.match(domainReg);
 			for (var pageUrl in tfsPage) {
 				if (pageUrl != url) {
+					var tfidf1 = tfidf;
+					var all2 = tfsPage[pageUrl].all;
+
+					var pageDomain = pageUrl.match(domainReg); 
+					// detailsPage.document.write(pageDomain + "<br>");
+					if(domain.toString() == pageDomain.toString()) {
+						// Eliminate common parts.
+						var parts1 = that.tfs[url].parts;
+						var parts2 = tfsPage[pageUrl].parts;
+						var changed = false;
+						
+						detailsPage.document.write("Eliminating common parts with: " + pageUrl + "<br>");
+						for (var i = 0; i < parts1.length; i++) {
+							for (var j = 0; j < parts2.length; j++) {
+								if (equalArrays(parts1[i], parts2[j])) {
+									detailsPage.document.write(pageUrl + ": " + serializeIntArray(parts1[i]) + "<br>");
+									
+									if(changed == false) {
+										tfidf1 = { v: copyArray(tfidf1.v), l: tfidf1.l };
+										all2 = copyArray(all2);
+										changed = true;
+									}									
+									
+									// Update tfidf1 and all2.
+									var l1 = tfidf1.l * tfidf1.l;
+									for (var word in parts1[i]) {
+										var t = parts1[i][word] * logIdfs[word];
+										tfidf1.v[word] -= t;
+										l1 -= t * t;
+
+										all2[word] -= parts1[i][word];
+                                        if (all2[word] == 0) {
+											delete all2[word];
+                                            all2.length--;
+										}
+									}
+									tfidf1.l = Math.sqrt(l1);
+									break;
+								}
+							}
+						}
+					}
+
 
 					var pageL = 0, s = 0;
-					for(var word in tfsPage[pageUrl].all) {
-						var pageT = tfsPage[pageUrl].all[word] * logIdfs[word];
+					for(var word in all2) {
+						var pageT = all2[word] * logIdfs[word];
 						pageL += pageT * pageT;
-						if (typeof(tfidf.v[word]) == 'number') {
-							s += tfidf.v[word] * pageT;
+						if (typeof(tfidf1.v[word]) == 'number') {
+							s += tfidf1.v[word] * pageT;
 						}
 					}
 					pageL = Math.sqrt(pageL);
 					if(pageL == 0) continue;
-					
-//					score.push({score: s/(tfidf.l*pageL), url:pageUrl});
-					score.push({score: s/(tfidf.l*pageL), url:pageUrl, title:tfsPage[pageUrl].title, intersect:intersectArrays(that.tfs[url].all, tfsPage[pageUrl].all)});
+
+//					score.push({score: s/(tfidf1.l*pageL), url:pageUrl});
+					score.push({score: s/(tfidf1.l*pageL), url:pageUrl, title:tfsPage[pageUrl].title, intersect:intersectArrays(tfidf1.v, all2)});
 				}
 			}
 

@@ -19,12 +19,10 @@
 				detailsPage = chrome.extension.getViews()[1];
 				// 2. Load (+process&save) yet unprocessed URLs from history.
 				hist.loadUnprocessedURLs(function(){
-					// hist.extractAllSideParts(function() {
-						hist.historyLoaded();
-						// 3. Register for new page loaded events.
-						// TODO: think about how to make this work even before we've started processing					
-						hist.registerForNewPageLoadedEvents();
-					// });
+					hist.historyLoaded();
+					// 3. Register for new page loaded events.
+					// TODO: think about how to make this work even before we've started processing					
+					hist.registerForNewPageLoadedEvents();
 				});
 			});
 		}
