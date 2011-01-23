@@ -121,6 +121,23 @@ StoreWrapper.prototype = {
 		});
 	},
 	
+	getTfssForURLs: function(urls, callback) {
+		var that = this;
+		var sql = "";
+		for(var i=0; i<urls.length; i++) {
+			sql += "SELECT * FROM " + this.tfsTable + " WHERE url LIKE \"" + urls[i] + "\" UNION ";	
+		}
+		sql = sql.substring(0, sql.length - 1 - 6); // Take out the last UNION.
+		
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, results){
+				callback(that.parseTfsResults(results));
+			}, function(tx, error){
+				log += error.message + "<br>";
+			});
+		});
+	},
+	
 	storeTfs: function(url, tfs, callback){
 		var that = this;
 		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (" + this.serializeTfs(url, tfs) + ")";

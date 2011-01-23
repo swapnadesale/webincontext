@@ -54,7 +54,7 @@ History.prototype = {
 			var url = request.url;
 			if (that.filterURL(url)) return;
 			
-			detailsPage.document.write("Processing url: " + url + "<br><br>");
+			detailsPage.document.body.innerHTML = "Processing url: " + url + "<br><br>";
 			
 			var startTime = (new Date).getTime();
 			that.lastProcessedHistoryEntry = startTime;
@@ -258,12 +258,10 @@ History.prototype = {
 			}
 		}
 		
-		if (parts.length > 0) {
-			var type = (nrLongParts > 0) ? "filtered" : "full";
-			this.tfs[url] = {url: url, title: title, type: type, full: full, filtered: filtered, parts: parts};
-			this.tfs.length++;
-		}
-
+		var type = (nrLongParts > 0) ? "filtered" : "full";
+		this.tfs[url] = {url: url, title: title, type: type, full: full, filtered: filtered, parts: parts};
+		this.tfs.length++;
+		
 		this.nrProcessed++;
 	},
 	
@@ -530,4 +528,22 @@ History.prototype = {
         	that.computeTfidfScoresPaged(url, tfidfFull, tfidfFiltered, logIdfs, score, page + 1, callback);
 		});
 	},
+	
+	computeTfidfAndNormalize: function(tfs, logIdfs) {
+		// Get the default representation.
+		var tfs = (tfs.type == 'full') ? tfs.full : tfs.filtered;
+		
+		// Compute tfidf.
+		var v = new Array();
+		var l = 0;
+		for(var word in tfs) {
+			v[word] = tfs[word] * logIdfs[word];
+			l += v[word] * v[word];
+		}
+		if(l == 0) return null;
+		
+		// Normalize the vector.
+		for (var word in v) v[word] /= l;
+		return v;
+	}
 };
