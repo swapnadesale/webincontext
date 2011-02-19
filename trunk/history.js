@@ -31,9 +31,9 @@ History.prototype = {
 		this.unprocessed = null;
 		
 		// Default properties
-		this.maxHistoryEntries = merge(200, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
-		this.batchSize = merge(10, opts.batchSize);
+		this.batchSize = merge(100, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.shortPartSize);
 		
@@ -160,6 +160,7 @@ History.prototype = {
 			req.open("GET", url, true);
 			var reqTimeout = setTimeout(function(){
 				req.abort();
+				log += "Timeouted:" + url + " <br>";
 				callback();
 			}, this.timeout); // If time-outed, continue.
 			req.onreadystatechange = function(){
@@ -168,7 +169,7 @@ History.prototype = {
 					if (req.status == 200) { // Successful.
 						// Parse the html, eliminating <script> and <style> content.
 						var page = document.createElement('html');
-						page.innerHTML = req.responseText.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>|<noscript(.|\s)*?\/noscript>/g, '');
+						page.innerHTML = req.responseText.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
 						var title = page.getElementsByTagName('title')[0];
 						title = (title != null) ? title.innerText : url;
 						page = page.getElementsByTagName('body')[0];
@@ -181,6 +182,7 @@ History.prototype = {
 			req.send();
 		} 
 		catch (err) { 
+			clearTimeout(reqTimeout);
 			log += err.message + "<br>";
 			callback(); 
 		}
@@ -209,6 +211,9 @@ History.prototype = {
 	},
 	
 	computeTfsDfs: function(url, title, page){
+//		if(url.toString() == "http://www.expedia.co.uk/pub/agent.dll?qscr=itcf&ckos=EX018D3E367FJGDC$11$D8$D7$B2$10$D8$D7$B21000$1A0001$FFJGDC$11$D8$D7$B2$10$D8$D7$B21000$D6$FAh13!70JGDC$11$D8$D7$B2$10$D8$D7$B22!7070001!70!4$FF00001000$1A000M$30!H0&ctxt=EX0172073EBDJGDC$11$D8$D7$B2$10$D8$D7$B210001000$1A!A0$1A0001000$1A000!4$FF!C0&itid=24836822&dism=0&ckos=EX018D3E367FJGDC$11$D8$D7$B2$10$D8$D7$B21000$1A0001$FFJGDC$11$D8$D7$B2$10$D8$D7$B21000$D6$FAh13!70JGDC$11$D8$D7$B2$10$D8$D7$B22!7070001!70!4$FF00001000$1A000M$30!H0&ctxt=EX0172073EBDJGDC$11$D8$D7$B2$10$D8$D7$B210001000$1A!A0$1A0001000$1A000!4$FF!C0&tpos=&rfrr=-54355&feml=1&dlye=0&cerp=adona.iosif@gmail.com&smst=1&zz=1295966020162&&chms=13329&zz=1298134774228") {
+//			alert("computing tfsdfs");			
+//		}
 		var s = this.buildPageStructure(page, new Array());
 		
 		var wholeGeneral = new Array();

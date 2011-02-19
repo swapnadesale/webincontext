@@ -7,7 +7,7 @@ StoreWrapper.prototype = {
 		var that = this;
 		
 		// Default properties.
-		this.name = merge('Store', opts.name);
+		this.name = merge('MyStore', opts.name);
 		this.version = merge('1.0', opts.version);
 		this.display = merge('Store', opts.display);
 		this.max = merge(512 * 1024 * 1024, opts.max);
