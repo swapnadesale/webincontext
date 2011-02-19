@@ -7,8 +7,8 @@ StoreWrapper.prototype = {
 		var that = this;
 		
 		// Default properties.
-		this.name = merge('MyStoreParts', opts.name);
-		this.version = merge('2.0', opts.version);
+		this.name = merge('Store', opts.name);
+		this.version = merge('1.0', opts.version);
 		this.display = merge('Store', opts.display);
 		this.max = merge(512 * 1024 * 1024, opts.max);
 		
@@ -143,14 +143,13 @@ StoreWrapper.prototype = {
 			empty = false;
 		}
 		if (empty) { callback(); return; }
-		sql = sql.substring(0, sql.length - 1 - 6); // Take out the last UNION.
+		sql = sql.substring(0, sql.length - 6); // Take out the last UNION.
 
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result){
 				callback();
 			}, function(tx, error){
 				log += error.message + "<br>";
-				detailsPage.document.write(sql);
 			});
 		});
 	},
@@ -190,13 +189,13 @@ StoreWrapper.prototype = {
 	
 	serializeParts: function(parts){
 		var s = "";
-		for (var i = 0; i < parts.length; i++) s += serializeIntArray(parts[i]) + " ; ";
-		if (s != "") s = s.substring(0, s.length - 1 - 3); // Take out the last " ; ".
+		for (var i = 0; i < parts.length; i++) s += serializeIntArray(parts[i]) + ";";
+		if (s != "") s = s.substring(0, s.length - 1); // Take out the last ";".
 		return s;
 	},
 
 	serializeTfs: function(url, tfs) {
-		var full = (tfs.type == "full") ? serializeIntArray(tfs.full) : "";
+		var full = serializeIntArray(tfs.full);
 		var filtered = serializeIntArray(tfs.filtered);
 		var parts = this.serializeParts(tfs.parts);
 		return "\"" + url + "\", \"" + escape(tfs.title) + "\", \"" + tfs.type + "\", \"" 
@@ -207,15 +206,12 @@ StoreWrapper.prototype = {
 		var tfsPage = new Array();
 		for (var i = 0; i < results.rows.length; i++) {
 			var row = results.rows.item(i);
-			
 			tfsPage[row.url] = {};
 			tfsPage.length++;
 			tfsPage[row.url].title = unescape(row.title);
 			tfsPage[row.url].type = row.type;
-			
-			if(row.type == "full") tfsPage[row.url].full = parseIntArray(row.full);
+			tfsPage[row.url].full = parseIntArray(row.full);
 			tfsPage[row.url].filtered = parseIntArray(row.filtered);
-			
 			tfsPage[row.url].parts = new Array();
 			var parts = row.parts.split(";");
 			for (var j = 0; j < parts.length; j++) 
