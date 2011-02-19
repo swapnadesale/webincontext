@@ -29,11 +29,11 @@ function intersectArrays(a, b) {
 
 function parseIntArray(s){
 	var a = new Array();
-	var entries = s.match(/[a-z]+:[0-9]+/g);
-	if (entries == null) return a;
+	if(s == "") return a;
+	var entries = s.split(",");
 	for (var i = 0; i < entries.length; i++) {
-		var entry = entries[i];
-		a[entry.match(/[a-z]+/g)] = parseInt(entry.match(/[0-9]+/g));
+		var parts = entries[i].split(":");
+		a[parts[0]] = parseInt(parts[1]);
 		a.length++;
 	}
 	return a;
@@ -41,19 +41,18 @@ function parseIntArray(s){
 
 function serializeIntArray(a){
 	var s = "";
-	for (entry in a) {
-		s += entry + ":" + a[entry] + ", ";
-	}
+	for (entry in a) s += entry + ":" + a[entry] + ",";
+	if (s != "") s = s.substring(0, s.length - 1); // Take out the last ",".
 	return s;
 }
 
 function parseFloatArray(s){
 	var a = new Array();
-	var entries = s.match(/[a-z]+:[0-9]+.[0-9]+/g);
-	if (entries == null) return a;
+	if(s == "") return a;
+	var entries = s.split(",");
 	for (var i = 0; i < entries.length; i++) {
-		var entry = entries[i];
-		a[entry.match(/[a-z]+/g)] = parseFloat(entry.match(/[0-9]+.[0-9]+/g));
+		var parts = entries[i].split(":");
+		a[parts[0]] = parseFloat(parts[1]);
 		a.length++;
 	}
 	return a;
@@ -61,8 +60,7 @@ function parseFloatArray(s){
 		
 function serializeFloatArray(a, dec){
 	var s = "";
-	for (entry in a) {
-		s += entry + ":" + a[entry].toFixed(dec) + ", ";
-	}
+	for (entry in a) s += entry + ":" + a[entry].toFixed(dec) + ",";
+	if (s != "") s = s.substring(0, s.length - 1); // Take out the last ",".
 	return s;
 }

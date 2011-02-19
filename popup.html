@@ -21,7 +21,7 @@
 				document.write("Suggestions for url: " + url + "<br>");
 				for(var i = 0; i<5; i++) {
 					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
-						scores[i].url + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+						scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
 				}
 			});
 		}
