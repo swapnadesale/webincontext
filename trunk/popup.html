@@ -20,8 +20,11 @@
 	
 				document.write("Suggestions for url: " + url + "<br>");
 				for(var i = 0; i<5; i++) {
-					document.write("<a href=" + scores[i].url + " target=\"_blank\">" +
-						scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>");
+					document.write("<a href=\"" + scores[i].url + "\" " +
+						"target=\"_blank\" " +
+						"onclick=\"bg.hist.suggestionClicked('" + url + "', " + i + ");\">" +  
+						scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + 
+						"  <button type=\"button\" onclick=\"bg.hist.suggestionDismissed('" + url + "', " + i + ");\" >X</button> <br>");
 				}
 			});
 		}
