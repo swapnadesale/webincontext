@@ -31,11 +31,13 @@ History.prototype = {
 		this.unprocessed = null;
 		
 		// Default properties
-		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(25000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
 		this.batchSize = merge(100, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.shortPartSize);
+		this.paramClick = merge(0.1, opts.paramClick);
+		this.paramRemove = merge(-0.1, opts.paramRemove);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -52,57 +54,64 @@ History.prototype = {
 		
 		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
 			var url = request.url;
+			detailsPage.document.write("Processing url: " + url + "<br><br>");
 			if (that.filterURL(url)) return;
 			
-			detailsPage.document.write("Processing url: " + url + "<br><br>");
-			
 			var startTime = (new Date).getTime();
-			that.lastProcessedHistoryEntry = startTime;
-			var page = document.createElement('body');
-			page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>|<noscript(.|\s)*?\/noscript>/g, '');
-			
-			if (that.computeTfsDfs(url, request.title, page))
-				that.extractSidePartsForURL(url, function(){
-					that.store.storeParams(that, function(){
-						that.computeTfidfScores(url, function(){
-							// <debug>
-							var scores = that.scores[url];
-							var duration = (new Date).getTime() - startTime;
+			var computeScoreAndDetailResults = function() {
+				that.computeTfidfScores(url, function(){
+					// <debug>
+					var scores = that.scores[url];
+					var duration = (new Date).getTime() - startTime;
 						
-							var s = "Suggestions computed in: " + duration + "ms. <br>";
-							for (var i = 0; i < 5; i++) {
-								s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-								scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
-							}
-							s += "<br><br><br>"
+					var s = "Suggestions computed in: " + duration + "ms. <br>";
+					for (var i = 0; i < 5; i++) {
+						s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+					}
+					s += "<br><br><br>"
 						
-							s += "Full: <br>";
-							s += serializeIntArray(that.tfs[url].full) + "<br><br>";
-							s += "Filtered: <br>";
-							s += serializeIntArray(that.tfs[url].filtered) + "<br><br>";
+					s += "Full: <br>";
+					s += serializeIntArray(that.tfs[url].full) + "<br><br>";
+					s += "Filtered: <br>";
+					s += serializeIntArray(that.tfs[url].filtered) + "<br><br>";
 					
-							s += "Page parts: <br>";
-							for (var i = 0; i < that.tfs[url].parts.length; i++) {
-								s += serializeIntArray(that.tfs[url].parts[i]) + "<br>";
-							}
-							s += "<br><br><br>"
+					s += "Page parts: <br>";
+					for (var i = 0; i < that.tfs[url].parts.length; i++) {
+						s += serializeIntArray(that.tfs[url].parts[i]) + "<br>";
+					}
+					s += "<br><br><br>"
 							
-							s += "Detailed suggestions: ";
-							for (var i = 0; i < 5; i++) {
-								s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-								scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
-								s += serializeIntArray(scores[i].intersect) + "<br><br>";
-							}
-							s += "<br><br><br>"
+					s += "Detailed suggestions: ";
+					for (var i = 0; i < 5; i++) {
+						s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+						s += serializeIntArray(scores[i].intersect) + "<br><br>";
+					}
+					s += "<br><br><br>"
 					
-							detailsPage.document.write(s);
-							// </debug>
-						
-							delete that.tfs[url];
+					detailsPage.document.write(s);
+					// </debug>
+				});
+			};
+			
+			that.store.getTfs(url, function(tfs) {
+				if (tfs) {
+					that.tfs[url] = tfs;
+					computeScoreAndDetailResults();
+				} else {
+					that.lastProcessedHistoryEntry = startTime;
+					var page = document.createElement('body');
+					page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>|<noscript(.|\s)*?\/noscript>/g, '');
+					that.computeTfsDfs(url, request.title, page);
+					that.extractSidePartsForURL(url, function(){
+						that.store.storeParams(that, function(){
+							computeScoreAndDetailResults();
 						});
 					});
-				});
+				}
 			});
+		})
 	},
 	
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from dis.
@@ -487,6 +496,7 @@ History.prototype = {
         else tfidfFiltered = {v:v, l:Math.sqrt(l)};
 
 		// Compute the actual scores, are return the sorted results.
+		delete that.scores[url];
         var score = new Array();
         this.computeTfidfScoresPaged(url, tfidfFull, tfidfFiltered, logIdfs, score, 0, function(){
         	that.scores[url] = score.sort(function(a, b){
@@ -532,7 +542,7 @@ History.prototype = {
 					// <debug>
 					var tfs1;
 					if(domain.toString() == pageDomain.toString()) tfs1 = that.tfs[url].filtered;
-					else tfs1 = (that.tfs[url].type == "full") ? that.tfs[url].full : that.tfs[url].filtered;
+					else tfs1 = (that.tfs[url].type == "general") ? that.tfs[url].full : that.tfs[url].filtered;
 					score.push({score: s/(tfidf1.l*l2), url:pageUrl, title:tfsPage[pageUrl].title, intersect:intersectArrays(tfs1, tfs2)});
 					// </debug>
 				}
@@ -543,4 +553,46 @@ History.prototype = {
         	that.computeTfidfScoresPaged(url, tfidfFull, tfidfFiltered, logIdfs, score, page + 1, callback);
 		});
 	},
+	
+	suggestionClicked: function(url, idx) {
+		var that = this;
+		// TODO: store click data.
+		
+		// Update tfs vectors.
+		var tfs1 = this.tfs[url];
+		var url2 = this.scores[url][idx].url;
+		this.store.getTfs(url2, function(tfs2) {
+			// Choose correct vectors to use - same which were used for computing scores.
+			if(url.match(domainReg)[0].toString() == url2.match(domainReg)[0].toString()) {
+				v1 = tfs1.filtered;
+				v2 = tfs2.filtered;
+			} else {
+				v1 = (tfs1.type == "general") ? tfs1.full : tfs1.filtered;
+				v2 = (tfs2.type == "general") ? tfs2.full : tfs2.filtered;
+			}
+			
+			// Update tfs1
+			if (tfs1.type == "general") addScaledArray(tfs1.full, v2, that.paramClick);
+			addScaledArray(tfs1.filtered, v2, that.paramClick);
+			detailsPage.document.write("Tfs1 filtered: " + serializeFloatArray(tfs1.filtered, 2) + "<br>");
+			// Update tfs2
+			if (tfs2.type == "general") addScaledArray(tfs2.full, v1, that.paramClick);
+			addScaledArray(tfs2.filtered, v1, that.paramClick);
+			detailsPage.document.write("Tfs2 filtered: " + serializeFloatArray(tfs2.filtered, 2) + "<br>");
+			
+			that.store.storeTfs(url, tfs1, function() {
+				that.store.storeTfs(url2, tfs2, function() {
+					that.computeTfidfScores(url, function() {
+						detailsPage.document.write("Scores updated. <br>");
+					}); 
+				});
+			});			
+
+		});
+		
+	},
+	
+	suggestionDismissed: function(url, idx) {
+		detailsPage.document.write("Suggestion " + idx + " dismissed for URL: " + url);
+	}
 };

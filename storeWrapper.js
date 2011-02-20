@@ -7,7 +7,7 @@ StoreWrapper.prototype = {
 		var that = this;
 		
 		// Default properties.
-		this.name = merge('MyStore', opts.name);
+		this.name = merge('MyStore2', opts.name);
 		this.version = merge('1.0', opts.version);
 		this.display = merge('Store', opts.display);
 		this.max = merge(512 * 1024 * 1024, opts.max);
@@ -96,6 +96,20 @@ StoreWrapper.prototype = {
 		});
 	},
 	
+	getTfs: function(url, callback) {
+		var that = this;
+		var sql = "SELECT * FROM " + that.tfsTable + " WHERE url=\"" + url + "\"";
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, results){
+				callback(that.parseTfsResults(results)[url]);
+			}, function(tx, error){
+				log += error.message + "<br>";
+				alert("there");
+			});
+		});
+
+	},
+	
 	getTfsPage: function(page, callback){
 		var that = this;
 		var offset = that.perPage * page;
@@ -156,7 +170,7 @@ StoreWrapper.prototype = {
 	
 	getSidePartsForDomain: function(domain, callback){
 		var that = this;
-		var sql = "SELECT parts FROM " + this.sidePartsTable + " WHERE domain LIKE \"" + domain + "\"";
+		var sql = "SELECT parts FROM " + this.sidePartsTable + " WHERE domain=\"" + domain + "\"";
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, results){
 				var parts = new Array();
@@ -195,8 +209,8 @@ StoreWrapper.prototype = {
 	},
 
 	serializeTfs: function(url, tfs) {
-		var full = serializeIntArray(tfs.full);
-		var filtered = serializeIntArray(tfs.filtered);
+		var full = serializeFloatArray(tfs.full, 2);
+		var filtered = serializeFloatArray(tfs.filtered, 2);
 		var parts = this.serializeParts(tfs.parts);
 		return "\"" + url + "\", \"" + escape(tfs.title) + "\", \"" + tfs.type + "\", \"" 
 			+ full + "\", \"" + filtered + "\", \"" + parts + "\"";
@@ -210,8 +224,8 @@ StoreWrapper.prototype = {
 			tfsPage.length++;
 			tfsPage[row.url].title = unescape(row.title);
 			tfsPage[row.url].type = row.type;
-			tfsPage[row.url].full = parseIntArray(row.full);
-			tfsPage[row.url].filtered = parseIntArray(row.filtered);
+			tfsPage[row.url].full = parseFloatArray(row.full);
+			tfsPage[row.url].filtered = parseFloatArray(row.filtered);
 			tfsPage[row.url].parts = new Array();
 			var parts = row.parts.split(";");
 			for (var j = 0; j < parts.length; j++) 
