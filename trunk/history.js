@@ -30,7 +30,7 @@ History.prototype = {
 		this.scores = new Array();
 		
 		// Default properties
-		this.maxHistoryEntries = merge(100, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
 		this.batchSize = merge(100, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
@@ -56,7 +56,7 @@ History.prototype = {
 			
 			detailsPage.document.write("Processing url: " + url + "<br><br>");
 			var startTime = (new Date).getTime();
-			var detailScores = function(scores) {
+			var detailScores = function(scores, tfs) {
 				var duration = (new Date).getTime() - startTime;
 						
 				var s = "Suggestions computed in: " + duration + "ms. <br>";
