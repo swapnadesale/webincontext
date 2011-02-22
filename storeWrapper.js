@@ -7,14 +7,13 @@ StoreWrapper.prototype = {
 		var that = this;
 		
 		// Default properties.
-		this.name = merge('MyStore2', opts.name);
+		this.name = merge('MyStore', opts.name);
 		this.version = merge('1.0', opts.version);
 		this.display = merge('Store', opts.display);
 		this.max = merge(512 * 1024 * 1024, opts.max);
 		
 		this.paramTable = merge('paramTable', opts.paramTable);
 		this.tfsTable = merge('tfsTable', opts.mainTable);
-		this.sidePartsTable = merge('sidePartsTable', opts.sidePartsTable)
 		this.perPage = merge(500, opts.perPage);
 		this.maxVectorLength = merge(2500000, opts.maxVectorLength);
 		
@@ -32,13 +31,7 @@ StoreWrapper.prototype = {
 		});
 		this.db.transaction(function(t){
 			t.executeSql("CREATE TABLE " + that.tfsTable + " (url CHAR(4098), title CHAR(4098), " + 
-			"type CHAR(8), " + 
-			"full CHAR(" + that.maxVectorLength + "), " +
-			"filtered CHAR(" + that.maxVectorLength + "), " +
-			"parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
-		});
-		this.db.transaction(function(t){
-			t.executeSql("CREATE TABLE " + that.sidePartsTable + " (domain CHAR(4098), parts CHAR(" + that.maxVectorLength + "), PRIMARY KEY (domain))");
+			"tfs CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
 		});
 	},
 	
@@ -101,10 +94,9 @@ StoreWrapper.prototype = {
 		var sql = "SELECT * FROM " + that.tfsTable + " WHERE url=\"" + url + "\"";
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, results){
-				callback(that.parseTfsResults(results)[url]);
+				callback(that.parseTfsResults(results)[0]);
 			}, function(tx, error){
 				log += error.message + "<br>";
-				alert("there");
 			});
 		});
 
@@ -135,9 +127,8 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	storeTfs: function(url, tfs, callback){
-		var that = this;
-		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (" + this.serializeTfs(url, tfs) + ")";
+	storeTfs: function(tfs, callback){
+		var sql = "REPLACE INTO " + this.tfsTable + " VALUES (" + this.serializeTfs(tfs) + ")";
 		this.db.transaction(function(t){
 			t.executeSql(sql, [], function(tx, result){
 				callback();
@@ -148,12 +139,10 @@ StoreWrapper.prototype = {
 	},
 	
 	storeAllTfss: function(tfss, callback){
-		var that = this;
-		
 		var sql = "REPLACE INTO " + this.tfsTable + " ";
 		var empty = true;
-		for (var url in tfss) {
-			sql += "SELECT " + this.serializeTfs(url, tfss[url]) + " UNION ";
+		for (var i=0; i<tfss.length; i++) {
+			sql += "SELECT " + this.serializeTfs(tfss[i]) + " UNION ";
 			empty = false;
 		}
 		if (empty) { callback(); return; }
@@ -168,68 +157,16 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	getSidePartsForDomain: function(domain, callback){
-		var that = this;
-		var sql = "SELECT parts FROM " + this.sidePartsTable + " WHERE domain=\"" + domain + "\"";
-		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results){
-				var parts = new Array();
-				if ((results != null) && (results.rows.length > 0)) {
-					var ps = results.rows.item(0).parts;
-					if (ps != "") {
-						ps = ps.split(";");
-						for (var i = 0; i < ps.length; i++) 
-							parts.push(parseIntArray(ps[i]));
-					}
-				}
-				callback(parts);
-			}, function(tx, error){
-				log += error.message + "<br>";
-			});
-		});
-	},
-	
-	storeSidePartsForDomain: function(domain, parts, callback){
-		var sql = "REPLACE INTO " + this.sidePartsTable + " VALUES (\"" + domain + "\", \"" + this.serializeParts(parts) + "\")";
-		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result){
-				callback();
-			}, function(tx, error){
-				log += error.message + "<br>";
-			});
-		});
-		
-	},
-	
-	serializeParts: function(parts){
-		var s = "";
-		for (var i = 0; i < parts.length; i++) s += serializeIntArray(parts[i]) + ";";
-		if (s != "") s = s.substring(0, s.length - 1); // Take out the last ";".
-		return s;
-	},
-
-	serializeTfs: function(url, tfs) {
-		var full = serializeFloatArray(tfs.full, 2);
-		var filtered = serializeFloatArray(tfs.filtered, 2);
-		var parts = this.serializeParts(tfs.parts);
-		return "\"" + url + "\", \"" + escape(tfs.title) + "\", \"" + tfs.type + "\", \"" 
-			+ full + "\", \"" + filtered + "\", \"" + parts + "\"";
+	serializeTfs: function(tfs) {
+		return "\"" + tfs.url + "\", \"" + escape(tfs.title) + "\", \"" + 
+			serializeFloatArray(tfs.tfs, 2) + "\"";
 	},
 
 	parseTfsResults: function(results){
 		var tfsPage = new Array();
 		for (var i = 0; i < results.rows.length; i++) {
 			var row = results.rows.item(i);
-			tfsPage[row.url] = {};
-			tfsPage.length++;
-			tfsPage[row.url].title = unescape(row.title);
-			tfsPage[row.url].type = row.type;
-			tfsPage[row.url].full = parseFloatArray(row.full);
-			tfsPage[row.url].filtered = parseFloatArray(row.filtered);
-			tfsPage[row.url].parts = new Array();
-			var parts = row.parts.split(";");
-			for (var j = 0; j < parts.length; j++) 
-				tfsPage[row.url].parts.push(parseIntArray(parts[j]));
+			tfsPage.push({url:row.url, title:unescape(row.title), tfs:parseFloatArray(row.tfs)});
 		}
 		return tfsPage;
 	},
