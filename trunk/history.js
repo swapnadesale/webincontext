@@ -90,6 +90,12 @@ History.prototype = {
 					}
 					s += "<br><br><br>"
 					
+					for (var i = 0; i < scores.length; i++) {
+						s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+						scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
+					}
+					s += "<br><br><br>"
+					
 					detailsPage.document.write(s);
 					// </debug>
 				});
@@ -102,7 +108,7 @@ History.prototype = {
 				} else {
 					that.lastProcessedHistoryEntry = startTime;
 					var page = document.createElement('body');
-					page.innerHTML = request.body.replace(/<script(.|\s)*?\/script>|<style(.|\s)*?\/style>|<noscript(.|\s)*?\/noscript>/g, '');
+					page.innerHTML = request.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
 					that.computeTfsDfs(url, request.title, page);
 					that.extractSidePartsForURL(url, function(){
 						that.store.storeParams(that, function(){
