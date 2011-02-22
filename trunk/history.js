@@ -29,6 +29,8 @@ History.prototype = {
 		this.dfs = new Array();
 		this.scores = new Array();
 		
+		this.threads = 0;
+		
 		// Default properties
 		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
@@ -143,20 +145,23 @@ History.prototype = {
 	},
 
 	processHistoryEntry: function(entry, tfss, callback){
+		this.threads++;
+		if(this.threads != 1) {
+			detailsPage.document.write("Threads: " + this.threads + "<br>");
+			return;			
+		}
+		
 		var that = this;
 
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;		
 		var url = entry.url;
-		if (this.filterURL(url)) { callback(); return; } // If filtered, continue.
+		if (this.filterURL(url)) { this.threads--; callback(); return; } // If filtered, continue.
 
 		// Try loading the page, through an async send request.
 		try {
 			var req = new XMLHttpRequest();
 			req.open("GET", url, true);
-			var reqTimeout = setTimeout(function(){
-				req.abort();
-				callback();
-			}, this.timeout); // If time-outed, continue.
+			var reqTimeout = setTimeout(function(){ req.abort(); }, this.timeout);
 			req.onreadystatechange = function(){
 				if (req.readyState == 4) {
 					clearTimeout(reqTimeout);
@@ -172,6 +177,7 @@ History.prototype = {
 							if (tfs != null) tfss.push(tfs);
 						}
 					}
+					that.threads--;
 					callback();
 				}
 			}
@@ -181,6 +187,7 @@ History.prototype = {
 		catch (err) { 
 			clearTimeout(reqTimeout);
 			log += err.message + "<br>";
+			this.threads--;
 			callback(); 
 		}
 	},
