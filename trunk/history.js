@@ -38,7 +38,7 @@ History.prototype = {
 		this.batchSize = merge(100, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.shortPartSize);
-		this.paramClick = merge(0.75, opts.paramClick);
+		this.paramClick = merge(0.85, opts.paramClick);
 //		this.paramRemove = merge(-0.1, opts.paramRemove);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
@@ -87,22 +87,13 @@ History.prototype = {
 		var duration = (new Date).getTime() - startTime;
 		
 		var s = "Suggestions computed in: " + duration + "ms. <br>";
-		for (var i = 0; i < 5; i++) {
+		for (var i = 0; i < 20; i++) {
 			s += "<a href=" + scores[i].url + " target=\"_blank\">" +
 			scores[i].title + "</a>: " +
 			scores[i].score.toPrecision(2) + "<br>";
 		}
 		s += "<br><br><br>"
-		
 		s += "Tfs: <br>" + serializeFloatArray(tfs.tfs, 2) + "<br><br><br>";
-		
-		for (var i = 0; i < scores.length; i++) {
-			s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-			scores[i].title + "</a>: " +
-			scores[i].score.toPrecision(2) + "<br>";
-		}
-		s += "<br><br><br>"
-		
 		detailsPage.document.write(s);
 	},
 
@@ -293,8 +284,7 @@ History.prototype = {
 		// Compute the actual scores, are return the sorted results.
         var score = new Array();
         this.computeTfidfScoresPaged(tfidf, score, 0, function(){
-			delete that.scores[tfs.url];
-        	that.scores[tfs.url] = score.sort(function(a, b){
+			that.scores[tfs.url] = score.sort(function(a, b){
             	return b.score - a.score
 			});
             callback();
@@ -335,13 +325,14 @@ History.prototype = {
 	suggestionClicked: function(url, idx, callback) {
 		var that = this;
 		
+		detailsPage.document.write("Detected click! <br><br>");
 		var startTime = (new Date).getTime();
 		var url2 = this.scores[url][idx].url;
-		var s = this.scores[url][idx].score;
+		var sc = this.scores[url][idx].score;
 		this.store.getTfs(url, function(tfs) {
 			that.store.getTfs(url2, function(tfs2) {
 				// The angle between the vectors is acos(s)
-				var teta = Math.acos(s);
+				var teta = Math.acos(sc);
 				
 				// Adjusting the angle between the vectors to be paramClick * teta. (each of the vectors by half of it).
 				// The new vector A' will be in the direction of P = (1-x)A + xB, where x is derived
@@ -350,45 +341,61 @@ History.prototype = {
 				// Similarly for B'.
 				var x = Math.sin(1/2*(1-that.paramClick)*teta) / Math.sin((Math.PI+that.paramClick*teta)/2);
 				
-				// The new vector A' will be the normalized OP, so we need to first compute OP: 
-				// va = A + x*(B-A) = (1-x)A + xB, and its length.
-				// We will actually cheat, and directly save the tfs space version of va, whilst simultaneously 
-				// computing la.
-				// Similarly for vb:
-				// vb = A + (1-x)(B-A) = xA + (1-x)B.
-				// NOTE: The two vectors will have the same length, so we only compute la.
+				// Compute tfidfs
+				var tfidf = that.computeTfIdf(tfs);
+				var tfidf2 = that.computeTfIdf(tfs2);
 				
-				var va = new Array(), l=0;
-				for(word in tfs.tfs) {	// Add all elements in A.
-					var ta = (1-x)*tfs.tfs[word];
-					var tb = x*tfs.tfs[word]; 
-					if (typeof(tfs2.tfs[word]) == 'number') {
-						ta += x*tfs2.tfs[word];
-						tb += (1-x)*tfs2.tfs[word];
+				// Compute A' as va = A + x(B-A) = (1-x)A + xB normalized, where A and B have been first normalized too.
+				// Similarly for B'.
+				var va = new Array(), vb = new Array(), l = 0;
+				for(word in tfidf.v) {	// Add all elements in A.
+					var ta = (1-x)*tfidf.v[word]/tfidf.l;
+					var tb = x*tfidf.v[word]/tfidf.l; 
+					if (typeof(tfidf2.v[word]) == 'number') {
+						ta += x*tfidf2.v[word]/tfidf2.l;
+						tb += (1-x)*tfidf2.v[word]/tfidf2.l;
 					}
 					va[word] = ta;
 					vb[word] = tb;
-					ta /= that.logIdfs[word];
 					l += ta*ta;
 				}
-				for (word in tfs2.tfs) { // Add elements in B not in A.
-					if (typeof(tfs.tfs[word]) != 'number') {
-						var ta = x*tfs2.tfs[word];
-						var tb = (1-x)*tf2.tfs[word];
+				for (word in tfidf2.v) { // Add elements in B not in A.
+					if (typeof(tfidf.v[word]) != 'number') {
+						var ta = x*tfidf2.v[word]/tfidf2.l;
+						var tb = (1-x)*tfidf2.v[word]/tfidf2.l;
 						va[word] = ta;
 						vb[word] = tb;
-						ta /= that.logIdfs[word];
 						l += ta*ta;
 					}
 				}
 				l = Math.sqrt(l);
-				
-				// Finally normalize.				
+	
+				// Normalize, scale A' like A and B' like B, and switch back to tfs space.				
 				for (word in va) 
-					if (typeof(va[word]) == 'number') {
-						va[word] /= l;
-						vb[word] /= l;
-					} 
+					if (typeof(va[word]) == 'number') va[word] = va[word] * (tfidf.l / l) / that.logIdfs[word];
+				for (word in vb) 
+					if (typeof(vb[word]) == 'number') vb[word] = vb[word] * (tfidf2.l / l) / that.logIdfs[word];
+
+		
+				// <debug>
+				var diff = new Array();
+				for(word in va) {
+					if(typeof(va[word]) == 'number') 
+						if(typeof(tfs.tfs[word]) == 'number') diff[word] = va[word] - tfs.tfs[word];
+						else diff[word] = va[word];
+				}
+				var sdiff = new Array();
+				for(word in diff) {
+					if(typeof(diff[word]) == 'number') sdiff.push({word:word, value:diff[word]});
+				}
+				sdiff = sdiff.sort(function(a, b){
+            		return b.value - a.value
+				});
+				var s = "";
+				for(var i=0; i<sdiff.length; i++) s+= sdiff[i].word + ":" + sdiff[i].value + ", ";
+				detailsPage.document.write("Sorted diff : <br>");
+				detailsPage.document.write(s+ "<br><br>");
+				// </debug>
 				 
 				// Save the new vectors.
 				tfs.tfs = va;

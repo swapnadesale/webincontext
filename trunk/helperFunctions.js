@@ -27,12 +27,12 @@ function intersectArrays(a, b) {
 	return c;
 }
 
-function addScaledArray(a, b, s) {
-	for (var word in b) 
-		if (typeof(a[word]) == 'number') a[word] += s * b[word];
-		else { a[word] = s * b[word]; a.length++; }
-}
-
+//function addScaledArray(a, b, s) {
+//	for (var word in b) 
+//		if (typeof(a[word]) == 'number') a[word] += s * b[word];
+//		else { a[word] = s * b[word]; a.length++; }
+//}
+//
 function parseIntArray(s){
 	var a = new Array();
 	if(s == "") return a;
