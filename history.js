@@ -27,6 +27,7 @@ History.prototype = {
 		this.nrProcessed = 0;
 		this.unprocessed = new Array();
 		this.dfs = new Array();
+		this.logIdfs = new Array();
 		this.scores = new Array();
 		
 		this.threads = 0;
@@ -37,7 +38,7 @@ History.prototype = {
 		this.batchSize = merge(100, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.shortPartSize);
-//		this.paramClick = merge(0.1, opts.paramClick);
+		this.paramClick = merge(0.75, opts.paramClick);
 //		this.paramRemove = merge(-0.1, opts.paramRemove);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
@@ -58,31 +59,10 @@ History.prototype = {
 			
 			detailsPage.document.write("Processing url: " + url + "<br><br>");
 			var startTime = (new Date).getTime();
-			var detailScores = function(scores, tfs) {
-				var duration = (new Date).getTime() - startTime;
-						
-				var s = "Suggestions computed in: " + duration + "ms. <br>";
-				for (var i = 0; i < 5; i++) {
-					s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-					scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
-				}
-				s += "<br><br><br>"
-
-				s += "Tfs: <br>" + serializeFloatArray(tfs.tfs, 2) + "<br><br><br>";
-				
-				for (var i = 0; i < scores.length; i++) {
-					s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-					scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + "<br>";
-				}
-				s += "<br><br><br>"
-					
-				detailsPage.document.write(s);
-			};
-			
 			that.store.getTfs(url, function(tfs) {
 				if (tfs) {
 					that.computeTfidfScores(tfs, function(){
-						detailScores(that.scores[url], tfs);
+						that.detailScores(that.scores[url], tfs, startTime);
 					});
 				}
 				else {
@@ -93,7 +73,7 @@ History.prototype = {
 					var tfs = that.computeTfsDfs(url, request.title, page);
 					if (!tfs) return;
 					that.computeTfidfScores(tfs, function(){
-						detailScores(that.scores[url], tfs);
+						that.detailScores(that.scores[url], tfs, startTime);
 						that.store.storeTfs(tfs, function(){
 							that.store.storeParams(that, function(){});
 						});
@@ -101,6 +81,29 @@ History.prototype = {
 				}
 			});
 		})
+	},
+	
+	detailScores: function(scores, tfs, startTime){
+		var duration = (new Date).getTime() - startTime;
+		
+		var s = "Suggestions computed in: " + duration + "ms. <br>";
+		for (var i = 0; i < 5; i++) {
+			s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+			scores[i].title + "</a>: " +
+			scores[i].score.toPrecision(2) + "<br>";
+		}
+		s += "<br><br><br>"
+		
+		s += "Tfs: <br>" + serializeFloatArray(tfs.tfs, 2) + "<br><br><br>";
+		
+		for (var i = 0; i < scores.length; i++) {
+			s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+			scores[i].title + "</a>: " +
+			scores[i].score.toPrecision(2) + "<br>";
+		}
+		s += "<br><br><br>"
+		
+		detailsPage.document.write(s);
 	},
 
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from dis.
@@ -262,6 +265,17 @@ History.prototype = {
 		} else return null;
 	},
 	
+	computeTfIdf: function(tfs) {
+		var v = new Array();
+		var l = 0;
+		for (var word in tfs.tfs) {
+			v[word] = tfs.tfs[word] * this.logIdfs[word];
+			l += v[word] * v[word];
+		}
+		if(l == 0) return null;
+        else return {url:tfs.url, v:v, l:Math.sqrt(l)};
+	},
+	
     computeTfidfScores: function(tfs, callback){
 		var that = this;
                 
@@ -269,21 +283,16 @@ History.prototype = {
         var logIdfs = new Array();
         for(word in this.dfs) 
         	logIdfs[word] = Math.log(this.nrProcessed / this.dfs[word]) / Math.LN2;
+		delete this.logIdfs;
+		this.logIdfs = logIdfs;
                 
 		// Compute tf-idf for the current url
-		var tfidf;
-		var v = new Array();
-		var l = 0;
-		for (var word in tfs.tfs) {
-			v[word] = tfs.tfs[word] * logIdfs[word];
-			l += v[word] * v[word];
-		}
-		if(l == 0) { callback(); return; }
-        else tfidf = {url:tfs.url, v:v, l:Math.sqrt(l)};
+		var tfidf = this.computeTfIdf(tfs);
+		if(tfidf == null) { callback(); return; }
 		 
 		// Compute the actual scores, are return the sorted results.
         var score = new Array();
-        this.computeTfidfScoresPaged(tfidf, logIdfs, score, 0, function(){
+        this.computeTfidfScoresPaged(tfidf, score, 0, function(){
 			delete that.scores[tfs.url];
         	that.scores[tfs.url] = score.sort(function(a, b){
             	return b.score - a.score
@@ -292,7 +301,7 @@ History.prototype = {
 		});
 	},
         
-	computeTfidfScoresPaged: function(tfidf, logIdfs, score, page, callback){
+	computeTfidfScoresPaged: function(tfidf, score, page, callback){
 		var that = this;
 
         // Compute tfidf scores for the current page
@@ -304,7 +313,7 @@ History.prototype = {
 					var tfs2 = tfsPage[i].tfs;
                 	var l2 = 0, s = 0;
                 	for(var word in tfs2) {
-                		var t2 = tfs2[word] * logIdfs[word];
+                		var t2 = tfs2[word] * that.logIdfs[word];
                     	l2 += t2 * t2;
                     	if (typeof(tfidf.v[word]) == 'number') {
                     		s += tfidf.v[word] * t2;
@@ -319,48 +328,83 @@ History.prototype = {
 
         	delete tfsPage;
         	// LOOP
-        	that.computeTfidfScoresPaged(tfidf, logIdfs, score, page + 1, callback);
+        	that.computeTfidfScoresPaged(tfidf, score, page + 1, callback);
+		});
+	},
+	
+	suggestionClicked: function(url, idx, callback) {
+		var that = this;
+		
+		var startTime = (new Date).getTime();
+		var url2 = this.scores[url][idx].url;
+		var s = this.scores[url][idx].score;
+		this.store.getTfs(url, function(tfs) {
+			that.store.getTfs(url2, function(tfs2) {
+				// The angle between the vectors is acos(s)
+				var teta = Math.acos(s);
+				
+				// Adjusting the angle between the vectors to be paramClick * teta. (each of the vectors by half of it).
+				// The new vector A' will be in the direction of P = (1-x)A + xB, where x is derived
+				// from geometry, using the sine rule, as: 
+				// x = sin[1/2*(1-paramClick)*teta] / sin[(pi+paramClick*teta)/2];
+				// Similarly for B'.
+				var x = Math.sin(1/2*(1-that.paramClick)*teta) / Math.sin((Math.PI+that.paramClick*teta)/2);
+				
+				// The new vector A' will be the normalized OP, so we need to first compute OP: 
+				// va = A + x*(B-A) = (1-x)A + xB, and its length.
+				// We will actually cheat, and directly save the tfs space version of va, whilst simultaneously 
+				// computing la.
+				// Similarly for vb:
+				// vb = A + (1-x)(B-A) = xA + (1-x)B.
+				// NOTE: The two vectors will have the same length, so we only compute la.
+				
+				var va = new Array(), l=0;
+				for(word in tfs.tfs) {	// Add all elements in A.
+					var ta = (1-x)*tfs.tfs[word];
+					var tb = x*tfs.tfs[word]; 
+					if (typeof(tfs2.tfs[word]) == 'number') {
+						ta += x*tfs2.tfs[word];
+						tb += (1-x)*tfs2.tfs[word];
+					}
+					va[word] = ta;
+					vb[word] = tb;
+					ta /= that.logIdfs[word];
+					l += ta*ta;
+				}
+				for (word in tfs2.tfs) { // Add elements in B not in A.
+					if (typeof(tfs.tfs[word]) != 'number') {
+						var ta = x*tfs2.tfs[word];
+						var tb = (1-x)*tf2.tfs[word];
+						va[word] = ta;
+						vb[word] = tb;
+						ta /= that.logIdfs[word];
+						l += ta*ta;
+					}
+				}
+				l = Math.sqrt(l);
+				
+				// Finally normalize.				
+				for (word in va) 
+					if (typeof(va[word]) == 'number') {
+						va[word] /= l;
+						vb[word] /= l;
+					} 
+				 
+				// Save the new vectors.
+				tfs.tfs = va;
+				tfs2.tfs = vb;
+				that.store.storeTfs(tfs, function(){
+					that.store.storeTfs(tfs2, function() {
+						// Recompute suggestions
+						that.computeTfidfScores(tfs, function(){
+							that.detailScores(that.scores[url], tfs, startTime);
+						});
+					});
+				});
+			});
 		});
 	},
 /*
-	suggestionClicked: function(url, idx) {
-		var that = this;
-		// TODO: store click data.
-		
-		// Update tfs vectors.
-		var tfs1 = this.tfs[url];
-		var url2 = this.scores[url][idx].url;
-		this.store.getTfs(url2, function(tfs2) {
-			// Choose correct vectors to use - same which were used for computing scores.
-			if(url.match(domainReg)[0].toString() == url2.match(domainReg)[0].toString()) {
-				v1 = tfs1.filtered;
-				v2 = tfs2.filtered;
-			} else {
-				v1 = (tfs1.type == "general") ? tfs1.full : tfs1.filtered;
-				v2 = (tfs2.type == "general") ? tfs2.full : tfs2.filtered;
-			}
-			
-			// Update tfs1
-			if (tfs1.type == "general") addScaledArray(tfs1.full, v2, that.paramClick);
-			addScaledArray(tfs1.filtered, v2, that.paramClick);
-			detailsPage.document.write("Tfs1 filtered: " + serializeFloatArray(tfs1.filtered, 2) + "<br>");
-			// Update tfs2
-			if (tfs2.type == "general") addScaledArray(tfs2.full, v1, that.paramClick);
-			addScaledArray(tfs2.filtered, v1, that.paramClick);
-			detailsPage.document.write("Tfs2 filtered: " + serializeFloatArray(tfs2.filtered, 2) + "<br>");
-			
-			that.store.storeTfs(url, tfs1, function() {
-				that.store.storeTfs(url2, tfs2, function() {
-					that.computeTfidfScores(url, function() {
-						detailsPage.document.write("Scores updated. <br>");
-					}); 
-				});
-			});			
-
-		});
-		
-	},
-	
 	suggestionDismissed: function(url, idx) {
 		detailsPage.document.write("Suggestion " + idx + " dismissed for URL: " + url);
 	}
