@@ -1,0 +1,33 @@
+<html>
+<body>
+	<script>
+		var bg = chrome.extension.getViews()[0];
+		
+		if (bg.hist.ready == false) {
+			document.write("Sorry, not done yet! <br>");
+			document.write("Processed: " + bg.hist.nrProcessed + " history entries. <br>");
+			document.write("Remaining: " + bg.hist.unprocessed.length + ". <br><br>");
+			document.write(bg.log);
+		} else {
+			chrome.tabs.getSelected(null, function(tab){
+				var url = tab.url;
+
+				var scores = bg.hist.scores[url];
+				if(scores == null) {
+					document.write("TfIdf scores not yet computed.");
+					return;
+				}
+	
+				document.write("Suggestions for url: " + url + "<br>");
+				for(var i = 0; i<5; i++) {
+					document.write("<a href=\"" + scores[i].url + "\" " +
+						"target=\"_blank\" " +
+						"onclick=\"bg.hist.suggestionClicked('" + url + "', " + i + ");\">" +  
+						scores[i].title + "</a>: " + scores[i].score.toPrecision(2) + 
+						"  <button type=\"button\" onclick=\"bg.hist.suggestionDismissed('" + url + "', " + i + ");\" >X</button> <br>");
+				}
+			});
+		}
+	</script>
+</body>
+</html>
