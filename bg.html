@@ -19,20 +19,6 @@
 				// 2. Load (+process&save) yet unprocessed URLs from history.
 				hist.loadUnprocessedHistoryEntries(function(){
 					hist.historyLoaded();
-//					
-//					hist.createInvertedIndex(function() {
-//						hist.analyzeIndexingPerformance(function(numberRelatedURLs){
-//							detailsPage.document.write("Finished analyzing indexing performance. <br><br>");
-//							var n = 0, avg = 0;
-//                            for (url in numberRelatedURLs) {
-//								if(n < 50)
-//									detailsPage.document.write(numberRelatedURLs[url] + ": " + url + "<br>");
-//								avg += numberRelatedURLs[url]; n++;
-//							} 
-//							avg /= n;
-//							detailsPage.document.write("<br><br><br>Average number of links: " + avg);
-//						});
-//					});
 				});
 			});
 		}
