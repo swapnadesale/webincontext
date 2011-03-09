@@ -38,6 +38,8 @@ History.prototype = {
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
+		
+		Math.seedrandom('random');
 	},
 	
 	historyLoaded: function(){
@@ -362,21 +364,67 @@ History.prototype = {
 				var v = tfidfs[i].tfidf;
 				for(word in v) v[word] /= l;
 			}
-			// Tag elements with score.
+			// Tag tfidfs with score, and sort by score. 
 			var s = new Array();
 			for(var i=0; i<urls.length; i++) s[scores[i].url] = scores[i].score;
 			for(var i=0; i<tfidfs.length; i++) tfidfs[i].score = s[tfidfs[i].url];
+			tfidfs = tfidfs.sort(function(a,b) {
+				return b.score - a.score; 
+			});
 			delete s; 
 			
-			
-			// Try clustering with between 2 and 6 classes
 			var bestClustering = new Array();
-			for(var nClasses = 2; nClasses <= 5; nClasses++) {
-				detailsPage.document.write("Clustering with " + nClasses + " classes. <br>");
+			nClassesMax = 5;
+			nTrials = 10;
+			nIterations = 100;
+			
+			// A. First compute RSS for no clustering.
+			// =======================================
+			// Compute the centroid.
+			var centroid = new Array();
+			for (var j = 0; j < tfidfs.length; j++) { // For each vector 
+				var v = tfidfs[j].tfidf;
+				for (var word in v) {
+					if (typeof(centroid[word]) != 'number') centroid[word] = v[word];
+						else centroid[word] += v[word];
+				}
+			}
+			for (var word in centroid) 
+				centroid[word] /= tfidfs.length;
 
+			// Compute the RSS
+			var elements = new Array();
+			totalRSS = 0;
+			for (var j = 0; j < tfidfs.length; j++) { // For each vector
+				var v = tfidfs[j].tfidf;
+				var vc = centroid;
+				var rss = 0;
+				// Add all terms in v.
+				for (var word in v) {
+					if (typeof(v[word]) == 'number') 
+						if (typeof(vc[word]) == 'number') rss += (v[word] - vc[word]) * (v[word] - vc[word]);
+							else rss += v[word] * v[word];
+				}
+				// Also add all terms in vc not in v.
+				for (var word in vc[word]) 
+					if (typeof(vc[word]) == 'number') 
+						if (typeof(v[word]) != 'number') 
+							rss += vc[word] * vc[word];
+				elements[j] = {element:j, rss:rss};				
+				totalRSS += rss;
+			}
+			bestClustering[1] = {
+				classes:[{centroid:centroid, elements:elements, rss:totalRSS}], 
+				rss:totalRSS
+			};
+			
+			
+			// B. Try clustering with between 2 and 6 classes
+			// ==============================================
+			for(var nClasses = 2; nClasses <= nClassesMax; nClasses++) {
 				// For each number of clusters, cluster repeatedly with new centroids, to find best clustering
 				bestClustering[nClasses] = { rss:Number.MAX_VALUE };
-				for(var t = 0; t < 10; t++) {
+				for(var t = 0; t < nTrials; t++) {
 					var clustering = {classes:new Array(), rss:0};
 					// 1. Choose initial seeds.
 					// ============================
@@ -426,9 +474,7 @@ History.prototype = {
 						}
 						
 						// Test stopping condition.
-						i++;
-						if (i == 100) 
-							break;
+						if (++i == nIterations) break;
 						
 						// 2.2 Recomputing centroids.
 						// ==========================
@@ -456,28 +502,83 @@ History.prototype = {
 					if(clustering.rss < bestClustering[nClasses].rss)
 						bestClustering[nClasses] = clustering;
 				}
-				
-				// Print best clustering.
-				detailsPage.document.write("Best clustering: (RSS: " + bestClustering[nClasses].rss.toFixed(3) + "). <br>");
-				for(var c=0; c<nClasses; c++) {
-					detailsPage.document.write("Class: " + c + "<br>");
-					// Order by score descendingly.
-					var elements = bestClustering[nClasses].classes[c].elements.sort(function(a, b){
-						var sa = 2*(1-tfidfs[a.element].score) + 0.75*a.rss;
-						var sb = 2*(1-tfidfs[b.element].score) + 0.75*b.rss;
-            			return sa - sb;
-					});
-					// Print
-					for (var j = 0; j < elements.length; j++) {
-						var page = tfidfs[elements[j].element];
-						detailsPage.document.write("<a href=" + page.url + " target=\"_blank\">" +
-							page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
-					}
-					detailsPage.document.write("<br>");
-				}
-				detailsPage.document.write("<br><br>");
 			}
+
+			// C. Choose best clustering (optimal number of classes).
+			// ======================================================
+			var maxDiff = 0;
+			var nClasses = 1;
+			for(var i=2; i<=nClassesMax; i++) {
+				var diff = bestClustering[i-1].rss - bestClustering[i].rss;
+				if(diff > maxDiff) { maxDiff = diff; nClasses = i; }
+			};
+			var clustering = bestClustering[nClasses];
+			detailsPage.document.write("Best clustering: " + nClasses + " (RSS: " + clustering.rss.toFixed(3) + "). <br>");
+
+			for (var c = 0; c < nClasses; c++) {
+				detailsPage.document.write("Class: " + c + "<br>");
+				// Order by score descendingly.
+				var elements = clustering.classes[c].elements.sort(function(a, b){
+					var sa = 2 * (1 - tfidfs[a.element].score) + 0.75 * a.rss;
+					var sb = 2 * (1 - tfidfs[b.element].score) + 0.75 * b.rss;
+					return sa - sb;
+				});
+				// Print
+				for (var j = 0; j < elements.length; j++) {
+					var page = tfidfs[elements[j].element];
+						detailsPage.document.write("<a href=" + page.url + " target=\"_blank\">" +
+						page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
+				}
+				detailsPage.document.write("<br>");
+			}
+			detailsPage.document.write("<br><br>");
+
 			
+			// D. Choose suggestions to show.
+			// =============================
+			// TODO: Deal with classes having 0 suggestions!
+			// Pick up the heads from each cluster.
+			var toShow = new Array();
+			for (var i = 0; i < nClasses; i++)
+				toShow.push({
+					element: clustering.classes[i].elements[0].element,
+					c: i
+				});
+			toShow = toShow.sort(function(a,b) {
+				return tfidfs[b.element].score - tfidfs[a.element].score; 
+			});
+
+			// Complete with top suggestions, attached to their respective clusters.
+			for(var i=0; (i<tfidfs.length) && (toShow.length < 5); i++) {
+				// Check that the suggestion isn't already in toShow.
+				var found = false;
+				for(var j=0; j<toShow.length; j++)
+					if(toShow[j].element == i) { found = true; break; }
+				if(found) continue;
+				
+				// If not, figure out what class it belongs to.
+				var found = false; 
+				var c;
+				for(var j=0; (j<nClasses) && (!found); j++) {
+					var elements = clustering.classes[j].elements;
+					for(var k=0; k<elements.length; k++) 
+						if(elements[k].element == i) { c = j; found = true; break; }
+				}
+				
+				// Insert in the right position.
+				toShow.length++;
+				for(var j=toShow.length-2; j>=0; j--)
+					if (toShow[j].c != c) toShow[j + 1] = toShow[j];
+					else { toShow[j+1] = {element:i, c:c}; break; }
+			}
+
+			// Print the suggestions.
+			for(var j=0; j<toShow.length; j++) {
+				var page = tfidfs[toShow[j].element];
+				detailsPage.document.write(toShow[j].c + ": " + "<a href=" + page.url + " target=\"_blank\">" +
+					page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
+			}
+			detailsPage.document.write("<br><br>");
 			var duration = (new Date).getTime() - startTime;
 			detailsPage.document.write("Time taken to compute clusterings: " + duration + "<br><br><br>");
 			
