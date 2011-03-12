@@ -44,12 +44,12 @@ History.prototype = {
 	
 	historyLoaded: function(){
 		var that = this;
-		this.updateTfidfs(function() {
+		// this.updateTfidfs(function() {
 			// Register for new page loaded events.
 			// TODO: think about how to make this work even before we've started processing					
 			that.registerForNewPageLoadedEvents();
 			that.ready = true;
-		});
+		// });
 	},
 
 	registerForNewPageLoadedEvents: function(){
@@ -76,13 +76,15 @@ History.prototype = {
 				page = that.computeShortTfidf(page);
 				that.computeTfidfScores(page, function(){
 					that.detailScores(that.scores[url], page, startTime);
-					that.clusterTopSuggestions(that.scores[url], page, function() {
-						that.store.storePage(page, function(){
-							that.store.storeParams(that, function(){
-								if(that.nrProcessed - that.lastComputedTfidfs > that.batchSize)
-									that.updateTfidfs(function(){});
+					that.computeMMROrder(that.scores[url], page, function() {
+						// that.clusterTopSuggestions(that.scores[url], page, function() {
+							that.store.storePage(page, function(){
+								that.store.storeParams(that, function(){
+									if(that.nrProcessed - that.lastComputedTfidfs > that.batchSize)
+										that.updateTfidfs(function(){});
+								});
 							});
-						});						
+						// });						
 					});
 				});
 			}
@@ -93,7 +95,7 @@ History.prototype = {
 		var duration = (new Date).getTime() - startTime;
 		
 		var s = "Suggestions for " + page.url + " computed in: " + duration + "ms. <br>";
-		for (var i = 0; i < 20; i++) {
+		for (var i = 0; i < 5; i++) {
 			s += "<a href=" + scores[i].url + " target=\"_blank\">" +
 			scores[i].title + "</a>: " +
 			scores[i].score.toPrecision(2) + "<br>";
@@ -348,6 +350,75 @@ History.prototype = {
 		});
 	},
 	
+	/*
+	 * Computes the Maximal Marginal Relevance ordering given by:
+	 * MMR = max for Di in R\S of [l * Sim(Di,Q) - (1-l) * max for Dj in S of Sim(Di,Dj)];
+	 * where R - retrieved, S - selected.
+	 */
+	computeMMROrder: function(scores, page, callback) {
+		var that = this;
+		
+		var startTime =(new Date).getTime();
+
+		var nToShow = 5;
+		var toShow = new Array();
+		var lambda = 1 - 2/3 * scores[nToShow-1].score;
+		
+		var urls = new Array();
+		// TODO: deal with <50 pages in history.
+		for(var i=0; i<50; i++) urls.push(scores[i].url);
+		this.store.getTfidfForURLs(urls, function(tfidfs) {
+			// Tag tfidfs with score. 
+			var s = new Array();
+			for(var i=0; i<urls.length; i++) s[scores[i].url] = scores[i].score;
+			for(var i=0; i<tfidfs.length; i++) tfidfs[i].score = s[tfidfs[i].url];
+			delete s; 
+			
+			
+			for(var i=0; i<nToShow; i++) {
+				var mmrMax = - Number.MAX_VALUE, mmr;
+				var mmrMaxPage;
+				for(var j=0; j<tfidfs.length; j++)	// For Dj in R\S
+					if(!tfidfs[j].inS) {
+						mmr = lambda * tfidfs[j].score;
+						
+						var simMax = 0;
+						var v1 = tfidfs[j].tfidf;
+						for(var k=0; k<i; k++) {	// For Dk in S
+							var v2 = toShow[k].tfidf, s = 0;
+                			for(var word in v1)
+                    			if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
+							s /= (tfidfs[j].tfidfl * toShow[k].tfidfl);
+							if(s > simMax) simMax = s;
+						}
+						
+						mmr -= (1 - lambda) * simMax;
+						if(mmr > mmrMax) {
+							mmrMax = mmr;
+							mmrMaxPage = j;
+						}
+					}
+				toShow.push(tfidfs[mmrMaxPage]);
+				tfidfs[mmrMaxPage].inS = true;
+			}
+			
+			// Print
+			toShow = toShow.sort(function(a,b) {
+				return b.score - a.score; 
+			});
+			for(var i=0; i<nToShow; i++) {
+				var page = toShow[i]; 
+				detailsPage.document.write("<a href=" + page.url + " target=\"_blank\">" +
+					page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
+			}
+			detailsPage.document.write("<br>");
+			var duration = (new Date).getTime() - startTime;
+			// detailsPage.document.write("Time taken to compute mmr: " + duration + "<br><br><br>");
+			
+			callback();	
+		});
+	},
+	
 	clusterTopSuggestions: function(scores, page, callback) {
 		var that = this;
 		
@@ -513,25 +584,25 @@ History.prototype = {
 				if(diff > maxDiff) { maxDiff = diff; nClasses = i; }
 			};
 			var clustering = bestClustering[nClasses];
-			detailsPage.document.write("Best clustering: " + nClasses + " (RSS: " + clustering.rss.toFixed(3) + "). <br>");
+//			detailsPage.document.write("Best clustering: " + nClasses + " (RSS: " + clustering.rss.toFixed(3) + "). <br>");
 
 			for (var c = 0; c < nClasses; c++) {
-				detailsPage.document.write("Class: " + c + "<br>");
+				// detailsPage.document.write("Class: " + c + "<br>");
 				// Order by score descendingly.
 				var elements = clustering.classes[c].elements.sort(function(a, b){
-					var sa = 2 * (1 - tfidfs[a.element].score) + 0.75 * a.rss;
-					var sb = 2 * (1 - tfidfs[b.element].score) + 0.75 * b.rss;
+					var sa = 2 * (1 - tfidfs[a.element].score) + 0.5 * a.rss;
+					var sb = 2 * (1 - tfidfs[b.element].score) + 0.5 * b.rss;
 					return sa - sb;
 				});
 				// Print
-				for (var j = 0; j < elements.length; j++) {
-					var page = tfidfs[elements[j].element];
-						detailsPage.document.write("<a href=" + page.url + " target=\"_blank\">" +
-						page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
-				}
-				detailsPage.document.write("<br>");
+//				for (var j = 0; j < elements.length; j++) {
+//					var page = tfidfs[elements[j].element];
+//						detailsPage.document.write("<a href=" + page.url + " target=\"_blank\">" +
+//						page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
+//				}
+//				detailsPage.document.write("<br>");
 			}
-			detailsPage.document.write("<br><br>");
+//			detailsPage.document.write("<br><br>");
 
 			
 			// D. Choose suggestions to show.
