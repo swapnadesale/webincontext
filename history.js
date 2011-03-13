@@ -35,9 +35,9 @@ History.prototype = {
 		this.longPartSize = merge(50, opts.longPartSize);
 		this.nTopResultsShown = merge(5, opts.nTopResultsShown);
 		this.nMoreResultsShown = merge(50, opts.nMoreResultsShown);
-		this.clickAlpha = merge(0.0, opts.clickAlpha);
-		this.clickBetta = merge(0.1, opts.clickBetta);
-		this.clickGamma = merge(0.0, opts.clickGamma);
+		this.clickAlpha = merge(0.25, opts.clickAlpha);
+		this.clickBetta = merge(1.0, opts.clickBetta);
+		this.clickGamma = merge(0.75, opts.clickGamma);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -50,7 +50,6 @@ History.prototype = {
 		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
 			var url = request.url;
 			if (that.filterURL(url)) return;
-			detailsPage.document.write("Processing url: " + url + "<br><br>");
 			
 			var startTime = (new Date).getTime();
 			that.lastProcessedHistoryEntry = startTime;
@@ -82,7 +81,6 @@ History.prototype = {
 	computeSuggestions: function(page, callback) {
 		var that = this;
 		that.computeTfidfScores(page, function(tfidfScores){
-			that.printScores(tfidfScores, page);
 			that.computeMMRScores(tfidfScores, function(mmrScores) {
 				that.printScores(mmrScores, page);
 				callback();
@@ -92,18 +90,19 @@ History.prototype = {
 	
 	printScores: function(scores, page){
 		var s = "Suggestions for " + page.url + ". <br>";
-		for (var i = 0; i < 5; i++) {
-			var otherURLs = "[";
-			for(var j = 0; j < 5; j++) 
-				if(j!=i) otherURLs += "'" + scores[j].url + "', ";
-			otherURLs = otherURLs.substring(0, otherURLs.length - 2) + "]";  
+		for (var i = 0; i < 5; i++) 
+			if(scores[i].score >= 0.1) {
+				var otherURLs = "[";
+				for(var j = 0; j < 5; j++) 
+					if(j!=i) otherURLs += "'" + scores[j].url + "', ";
+				otherURLs = otherURLs.substring(0, otherURLs.length - 2) + "]";  
 			
-        	s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-            	scores[i].title + "</a>: " + 
-				scores[i].score.toPrecision(2) + 
-				"  <button type=\"button\" onclick=\"bg.hist.moreButtonClicked('" + page.url + "', '" + scores[i].url + "', " + otherURLs + ");\" >+</button> <br>";
+        		s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+            		scores[i].title + "</a>: " + 
+					scores[i].score.toPrecision(2) + 
+					"  <button type=\"button\" onclick=\"bg.hist.moreButtonClicked('" + page.url + "', '" + scores[i].url + "', " + otherURLs + ");\" >+</button> <br>";
 			}
-		s += "<br><br><br>"
+		s += "<br>"
         detailsPage.document.write(s);
 	},
 	
@@ -331,9 +330,6 @@ History.prototype = {
     computeTfidfScores: function(page, callback){
 		var that = this;
 		var tfidfScores = new Array();
-		detailsPage.document.write(serializeIntArray(page.tfs) + "<br>");
-		detailsPage.document.write(serializeFloatArray(page.tfidf, 3) + "<br>");
-		
         this.computeTfidfScoresBatched(page, tfidfScores, 0, function(){
 			tfidfScores = tfidfScores.sort(function(a, b){
             	return b.score - a.score
@@ -473,7 +469,7 @@ History.prototype = {
 	moreButtonClicked: function(url1, url2, otherURLs) {
 		var that = this;
 		
-		detailsPage.document.write("Detected click! <br><br>");
+		detailsPage.document.write("Detected click! <br>");
 		this.store.getTfidf(url1, function(tfidf1) {
 			that.store.getTfidf(url2, function(tfidf2) {
 				var ou = new Array();
@@ -486,7 +482,7 @@ History.prototype = {
 					var v3 = new Array();
 					for(var i=0; i<otherTfidfs.length; i++)
 						v3 = addArrays(v3, otherTfidfs[i].tfidf);
-					v3 = scaleArray(v3, otherTfidfs.length);
+					v3 = scaleArray(v3, 1/otherTfidfs.length);
 					
 					// Compute a*v1 + b*v2 - c*v3.
 					v1 = scaleArray(v1, that.clickAlpha);
@@ -494,17 +490,22 @@ History.prototype = {
 					v3 = scaleArray(v3, - that.clickGamma);
 					var v = addArrays(addArrays(v1, v2), v3);
 					
-//					// Apply feature seletion to obtain short tfidf 
-//					var l = 0;
-//					for (var word in v) {
-//						if(v[word] >= 1.5 * avg) l += v[word]*v[word];	// Only keep words with tfidf value larger than twice the average. 
-//						else delete v[word];
-//					}
-//					l = Math.sqrt(l);
+					// Apply feature seletion to obtain short tfidf - we treat positive and negative values differently.
+					var avgP = 0, avgM = 0, nP = 0, nM = 0;
+					for(var word in v) 
+						if(v[word] > 0) { avgP += v[word]; nP++; }
+						else { avgM += v[word]; nM++; }
+					avgP /= nP; avgM /= nM;
+
+					var l = 0;
+					for (var word in v) {
+						if((v[word] >= 1.5 * avgP) || (v[word] <= 1.5 * avgM)) 
+							l += v[word]*v[word];	// Only keep words with significant tfidf value 
+						else delete v[word];
+					}
+					l = Math.sqrt(l);
 		
 					// Normalize
-					var l = 0;
-					for(var word in v) l+=v[word];
 					for(var word in v) v[word] /= l;
 				
 					var page = {url: url1+" -> "+url2, tfidf:v};
