@@ -27,6 +27,28 @@ function intersectArrays(a, b) {
 	return c;
 }
 
+function addArrays(a, b) {
+	var s = new Array();
+	for(var word in a) {
+		if(typeof(b[word]) == 'number') s[word] = a[word] + b[word];
+		else s[word] = a[word]; 
+		s.length++;
+	}
+	for(var word in b)
+		if(typeof(a[word]) != 'number') {
+			s[word] = b[word];
+			s.length++;
+		}
+	return s;
+}
+
+function scaleArray(a,x) {
+	var b = new Array();
+	for(var word in a) b[word] = x*a[word];
+	length.b = length.a;
+	return b;
+}
+
 function parseIntArray(s){
 	var a = new Array();
 	if(s == "") return a;
