@@ -33,7 +33,7 @@ StoreWrapper.prototype = {
 		this.db.transaction(function(t){
 			t.executeSql("CREATE TABLE " + that.pagesTable + " (url CHAR(4098), title CHAR(4098), " + 
 			"tfs CHAR(" + that.maxVectorLength + "), " +
-			"tfidf CHAR(" + that.maxVectorLength + "), tfidfl FLOAT, PRIMARY KEY (url))");
+			"tfidf CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
 		});
 	},
 	
@@ -107,6 +107,19 @@ StoreWrapper.prototype = {
 
 	},
 	
+	getTfidf: function(url, callback) {
+		var that = this;
+		var sql = "SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url=\"" + url + "\"";
+		this.db.transaction(function(t){
+			t.executeSql(sql, [], function(tx, results){
+				callback(that.parseTfidfResults(results)[0]);
+			}, function(tx, error){
+				log += error.message + "<br>";
+			});
+		});
+
+	},
+	
 	getPagesBatch: function(batch, callback){
 		var that = this;
 		var offset = that.batchSize * batch;
@@ -123,7 +136,7 @@ StoreWrapper.prototype = {
 	getTfidfBatch: function(batch, callback){
 		var that = this;
 		var offset = that.batchSize * batch;
-		var sql = "SELECT url, title, tfidf, tfidfl FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?";
+		var sql = "SELECT url, title, tfidf FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?";
 		this.db.transaction(function(t){
 			t.executeSql(sql, [that.batchSize, offset], function(tx, results){
 				callback(that.parseTfidfResults(results));
@@ -137,7 +150,7 @@ StoreWrapper.prototype = {
 		var that = this;
 		var sql = "";
 		for(var i=0; i<urls.length; i++)
-			sql += "SELECT url, title, tfidf, tfidfl FROM " + that.pagesTable + 
+			sql += "SELECT url, title, tfidf FROM " + that.pagesTable + 
 				" WHERE url=\"" + urls[i] + "\" UNION ";
 		sql = sql.substring(0, sql.length - 6); // Take out the last UNION.
 		this.db.transaction(function(t){
@@ -181,7 +194,7 @@ StoreWrapper.prototype = {
 	serializePage: function(page) {
 		return "\"" + page.url + "\", \"" + escape(page.title) + "\", \"" + 
 			serializeIntArray(page.tfs) + "\", \"" + 
-			serializeFloatArray(page.tfidf, 3) + "\", \"" + page.tfidfl + "\"";
+			serializeFloatArray(page.tfidf, 3) + "\"";
 	},
 
 	parsePageResults: function(results){
@@ -189,7 +202,7 @@ StoreWrapper.prototype = {
 		for (var i = 0; i < results.rows.length; i++) {
 			var row = results.rows.item(i);
 			pageBatch.push({url:row.url, title:unescape(row.title), tfs:parseIntArray(row.tfs), 
-				tfidf:parseFloatArray(row.tfidf), tfidfl:parseFloat(row.tfidfl)});
+				tfidf:parseFloatArray(row.tfidf)});
 		}
 		return pageBatch;
 	},
@@ -199,7 +212,7 @@ StoreWrapper.prototype = {
 		for (var i = 0; i < results.rows.length; i++) {
 			var row = results.rows.item(i);
 			pageBatch.push({url:row.url, title:unescape(row.title), 
-				tfidf:parseFloatArray(row.tfidf), tfidfl:parseFloat(row.tfidfl)});
+				tfidf:parseFloatArray(row.tfidf)});
 		}
 		return pageBatch;
 	},
