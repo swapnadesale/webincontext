@@ -26,15 +26,16 @@ History.prototype = {
 		this.unprocessed = new Array();
 		this.dfs = new Array();
 		this.lastComputedTfidfs = 0;
-		this.scores = new Array();
 		
 		// Default properties
 		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
 		this.batchSize = merge(500, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
-		this.longPartSize = merge(50, opts.shortPartSize);
-		this.paramClick = merge(0.85, opts.paramClick);
+		this.longPartSize = merge(50, opts.longPartSize);
+		this.nTopResultsShown = merge(5, opts.nTopResultsShown);
+		this.nMoreResultsShown = merge(50, opts.nMoreResultsShown);
+		this.clickParameter = merge(0.5, opts.clickParameter);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -42,16 +43,6 @@ History.prototype = {
 		Math.seedrandom('random');
 	},
 	
-	historyLoaded: function(){
-		var that = this;
-		// this.updateTfidfs(function() {
-			// Register for new page loaded events.
-			// TODO: think about how to make this work even before we've started processing					
-			that.registerForNewPageLoadedEvents();
-			that.ready = true;
-		// });
-	},
-
 	registerForNewPageLoadedEvents: function(){
 		var that = this;
 		chrome.extension.onRequest.addListener(function(request, sender, sendResponse){
@@ -74,36 +65,41 @@ History.prototype = {
 				that.logIdfs = logIdfs;
 				
 				page = that.computeShortTfidf(page);
-				that.computeTfidfScores(page, function(){
-					that.detailScores(that.scores[url], page, startTime);
-					that.computeMMROrder(that.scores[url], page, function() {
-						// that.clusterTopSuggestions(that.scores[url], page, function() {
-							that.store.storePage(page, function(){
-								that.store.storeParams(that, function(){
-									if(that.nrProcessed - that.lastComputedTfidfs > that.batchSize)
-										that.updateTfidfs(function(){});
-								});
-							});
-						// });						
+				that.computeSuggestions(page, function(){
+					that.store.storePage(page, function(){
+						that.store.storeParams(that, function(){
+							if(that.nrProcessed - that.lastComputedTfidfs > that.batchSize)
+								that.updateTfidfs(function(){});
+						});
 					});
 				});
 			}
 		});
 	},
 	
-	detailScores: function(scores, page, startTime){
-		var duration = (new Date).getTime() - startTime;
-		
-		var s = "Suggestions for " + page.url + " computed in: " + duration + "ms. <br>";
-		for (var i = 0; i < 5; i++) {
-			s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-			scores[i].title + "</a>: " +
-			scores[i].score.toPrecision(2) + "<br>";
-		}
-		s += "<br><br><br>"
-		detailsPage.document.write(s);
+	computeSuggestions: function(page, callback) {
+		var that = this;
+		that.computeTfidfScores(page, function(tfidfScores){
+			that.printScores(tfidfScores, page);
+			that.computeMMRScores(tfidfScores, function(mmrScores) {
+				that.printScores(mmrScores, page);
+				callback();
+			});
+		});
 	},
-
+	
+	printScores: function(scores, page){
+		var s = "Suggestions for " + page.url + ". <br>";
+		for (var i = 0; i < 5; i++) {
+        	s += "<a href=" + scores[i].url + " target=\"_blank\">" +
+            	scores[i].title + "</a>: " + 
+				scores[i].score.toPrecision(2) + 
+				"  <button type=\"button\" onclick=\"bg.hist.moreButtonClicked('" + page.url + "', '" + scores[i].url + "');\" >+</button> <br>";
+			}
+		s += "<br><br><br>"
+        detailsPage.document.write(s);
+	},
+	
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from disk.
 	loadParametersFromDisk: function(callback){
 		this.store.loadParams(this, function(){
@@ -184,6 +180,17 @@ History.prototype = {
 			log += err.message + "<br>";
 			callback(); 
 		}
+	},
+	
+	historyLoaded: function(){
+		var that = this;
+		// this.updateTfidfs(function() {
+			// Register for new page loaded events.
+			// TODO: think about how to make this work even before we've started processing					
+			that.registerForNewPageLoadedEvents();
+			that.ready = true;
+			detailsPage.document.write("Ready! <br><br>");
+		// });
 	},
 	
 	filterURL: function(url){
@@ -273,8 +280,10 @@ History.prototype = {
 		}
 		l = Math.sqrt(l);
 		
+		// Normalize
+		for (var word in v) v[word] /= l;
+		
 		page.tfidf = v; 
-		page.tfidfl = l;
 		return page;		
 	},
 
@@ -314,19 +323,19 @@ History.prototype = {
 
     computeTfidfScores: function(page, callback){
 		var that = this;
-		var score = new Array();
+		var tfidfScores = new Array();
 		detailsPage.document.write(serializeIntArray(page.tfs) + "<br>");
 		detailsPage.document.write(serializeFloatArray(page.tfidf, 3) + "<br>");
 		
-        this.computeTfidfScoresBatched(page, score, 0, function(){
-			that.scores[page.url] = score.sort(function(a, b){
+        this.computeTfidfScoresBatched(page, tfidfScores, 0, function(){
+			tfidfScores = tfidfScores.sort(function(a, b){
             	return b.score - a.score
 			});
-            callback();
+            callback(tfidfScores);
 		});
 	},
         
-	computeTfidfScoresBatched: function(page, score, batch, callback){
+	computeTfidfScoresBatched: function(page, tfidfScores, batch, callback){
 		var that = this;
 
         // Compute tfidf scores for the current page
@@ -339,14 +348,13 @@ History.prototype = {
                 	var v2 = pageBatch[i].tfidf, s = 0;
                 	for(var word in v1)
                     	if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
-					s /= (page.tfidfl*pageBatch[i].tfidfl);
-					score.push({score: s, url:pageBatch[i].url, title:pageBatch[i].title});
+					tfidfScores.push({score: s, url:pageBatch[i].url, title:pageBatch[i].title});
 				}
 			}
 
         	delete pageBatch;
         	// LOOP
-        	that.computeTfidfScoresBatched(page, score, batch + 1, callback);
+        	that.computeTfidfScoresBatched(page, tfidfScores, batch + 1, callback);
 		});
 	},
 	
@@ -355,18 +363,15 @@ History.prototype = {
 	 * MMR = max for Di in R\S of [l * Sim(Di,Q) - (1-l) * max for Dj in S of Sim(Di,Dj)];
 	 * where R - retrieved, S - selected.
 	 */
-	computeMMROrder: function(scores, page, callback) {
+	computeMMRScores: function(scores, callback) {
 		var that = this;
 		
-		var startTime =(new Date).getTime();
+		mmrScores = new Array();
+		var lambda = 1 - scores[this.nTopResultsShown-1].score;
 
-		var nToShow = 5;
-		var toShow = new Array();
-		var lambda = 1 - 2/3 * scores[nToShow-1].score;
-		
 		var urls = new Array();
-		// TODO: deal with <50 pages in history.
-		for(var i=0; i<50; i++) urls.push(scores[i].url);
+		for(var i=0; (i<this.nMoreResultsShown) && (i<scores.length); i++) 
+			urls.push(scores[i].url);	
 		this.store.getTfidfForURLs(urls, function(tfidfs) {
 			// Tag tfidfs with score. 
 			var s = new Array();
@@ -374,8 +379,7 @@ History.prototype = {
 			for(var i=0; i<tfidfs.length; i++) tfidfs[i].score = s[tfidfs[i].url];
 			delete s; 
 			
-			
-			for(var i=0; i<nToShow; i++) {
+			for(var i=0; i<tfidfs.length; i++) {
 				var mmrMax = - Number.MAX_VALUE, mmr;
 				var mmrMaxPage;
 				for(var j=0; j<tfidfs.length; j++)	// For Dj in R\S
@@ -385,10 +389,9 @@ History.prototype = {
 						var simMax = 0;
 						var v1 = tfidfs[j].tfidf;
 						for(var k=0; k<i; k++) {	// For Dk in S
-							var v2 = toShow[k].tfidf, s = 0;
+							var v2 = tfidfs[mmrScores[k].pageIdx].tfidf, s = 0;
                 			for(var word in v1)
                     			if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
-							s /= (tfidfs[j].tfidfl * toShow[k].tfidfl);
 							if(s > simMax) simMax = s;
 						}
 						
@@ -398,361 +401,98 @@ History.prototype = {
 							mmrMaxPage = j;
 						}
 					}
-				toShow.push(tfidfs[mmrMaxPage]);
+				mmrScores.push({score: tfidfs[mmrMaxPage].score, url:tfidfs[mmrMaxPage].url, title:tfidfs[mmrMaxPage].title, pageIdx:mmrMaxPage});;
 				tfidfs[mmrMaxPage].inS = true;
 			}
 			
-			// Print
-			toShow = toShow.sort(function(a,b) {
-				return b.score - a.score; 
-			});
-			for(var i=0; i<nToShow; i++) {
-				var page = toShow[i]; 
-				detailsPage.document.write("<a href=" + page.url + " target=\"_blank\">" +
-					page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
-			}
-			detailsPage.document.write("<br>");
-			var duration = (new Date).getTime() - startTime;
-			// detailsPage.document.write("Time taken to compute mmr: " + duration + "<br><br><br>");
-			
-			callback();	
+			callback(mmrScores);	
 		});
 	},
 	
-	clusterTopSuggestions: function(scores, page, callback) {
+	computeWordsMMRScores: function(page, scores, callback) {
 		var that = this;
 		
-		var startTime = (new Date).getTime();
-		
+		var lambda = 0.3;
 		var urls = new Array();
-		// TODO: deal with <50 pages in history.
-		for(var i=0; i<50; i++) urls.push(scores[i].url);
+		for(var i=0; (i<this.nMoreResultsShown) && (i<scores.length); i++) 
+			urls.push(scores[i].url);	
 		this.store.getTfidfForURLs(urls, function(tfidfs) {
-			// Normalize all vectors.
-			// TODO: move this at top level!
+			// Compute word representations.
+			var words = new Array();
+			for(var word in page.tfidf) {
+				var v = new Array(tfidfs.length);
+				var l = 0;
+				for(var i=0; i<tfidfs.length; i++) {
+					v[i] = (typeof(tfidfs[i].tfidf[word]) == 'number') ? tfidfs[i].tfidf[word] : 0;
+					l += v[i] * v[i]; 
+				}
+				// Normalize.
+				for(var i=0; i<v.length; i++) v /= l;			
+				words[word] = {v:v, s:page.tfidf[word]}; 
+			}
+			
+			var mmrScores = new Array();
+			var inS = new Array();
 			for(var i=0; i<tfidfs.length; i++) {
-				var l = tfidfs[i].tfidfl;
-				var v = tfidfs[i].tfidf;
-				for(word in v) v[word] /= l;
-			}
-			// Tag tfidfs with score, and sort by score. 
-			var s = new Array();
-			for(var i=0; i<urls.length; i++) s[scores[i].url] = scores[i].score;
-			for(var i=0; i<tfidfs.length; i++) tfidfs[i].score = s[tfidfs[i].url];
-			tfidfs = tfidfs.sort(function(a,b) {
-				return b.score - a.score; 
-			});
-			delete s; 
-			
-			var bestClustering = new Array();
-			nClassesMax = 5;
-			nTrials = 10;
-			nIterations = 100;
-			
-			// A. First compute RSS for no clustering.
-			// =======================================
-			// Compute the centroid.
-			var centroid = new Array();
-			for (var j = 0; j < tfidfs.length; j++) { // For each vector 
-				var v = tfidfs[j].tfidf;
-				for (var word in v) {
-					if (typeof(centroid[word]) != 'number') centroid[word] = v[word];
-						else centroid[word] += v[word];
-				}
-			}
-			for (var word in centroid) 
-				centroid[word] /= tfidfs.length;
-
-			// Compute the RSS
-			var elements = new Array();
-			totalRSS = 0;
-			for (var j = 0; j < tfidfs.length; j++) { // For each vector
-				var v = tfidfs[j].tfidf;
-				var vc = centroid;
-				var rss = 0;
-				// Add all terms in v.
-				for (var word in v) {
-					if (typeof(v[word]) == 'number') 
-						if (typeof(vc[word]) == 'number') rss += (v[word] - vc[word]) * (v[word] - vc[word]);
-							else rss += v[word] * v[word];
-				}
-				// Also add all terms in vc not in v.
-				for (var word in vc[word]) 
-					if (typeof(vc[word]) == 'number') 
-						if (typeof(v[word]) != 'number') 
-							rss += vc[word] * vc[word];
-				elements[j] = {element:j, rss:rss};				
-				totalRSS += rss;
-			}
-			bestClustering[1] = {
-				classes:[{centroid:centroid, elements:elements, rss:totalRSS}], 
-				rss:totalRSS
-			};
-			
-			
-			// B. Try clustering with between 2 and 6 classes
-			// ==============================================
-			for(var nClasses = 2; nClasses <= nClassesMax; nClasses++) {
-				// For each number of clusters, cluster repeatedly with new centroids, to find best clustering
-				bestClustering[nClasses] = { rss:Number.MAX_VALUE };
-				for(var t = 0; t < nTrials; t++) {
-					var clustering = {classes:new Array(), rss:0};
-					// 1. Choose initial seeds.
-					// ============================
-					for(var c = 0; c<nClasses; c++) {
-						clustering.classes[c] = {
-							centroid: copyArray(tfidfs[Math.floor(Math.random() * tfidfs.length)].tfidf),
-							elements: new Array(),
-							rss: 0,
-						};
-					}
-					
-					// 2. Iterate between reassignment - recomputation of centroids
-					// ============================================================
-					var i=0;
-					while (true) {
-						// 2.1 Reassignment
-						// ================
-						for (var j = 0; j < tfidfs.length; j++) { // For each vector
-							v = tfidfs[j].tfidf;
-							
-							// Compute distance to each centroid.
-							var rssMin = Number.MAX_VALUE;
-							var cMin;
-							for (var c = 0; c < nClasses; c++) {
-								var vc = clustering.classes[c].centroid;
-								var rss = 0;
-								// Add all terms in v.
-								for (var word in v) {
-									if (typeof(v[word]) == 'number') 
-										if (typeof(vc[word]) == 'number') rss += (v[word] - vc[word]) * (v[word] - vc[word]);
-										else rss += v[word] * v[word];
-								}
-								// Also add all terms in vc not in v.
-								for (var word in vc[word]) 
-									if (typeof(vc[word]) == 'number') 
-										if (typeof(v[word]) != 'number') 
-											rss += vc[word] * vc[word];
-								// Update rssMin
-								if (rss < rssMin) {
-									rssMin = rss;
-									cMin = c;
-								}
-							}
-							// Assign vector to closest class.
-							clustering.classes[cMin].elements.push({element:j, rss:rssMin});
-							clustering.classes[cMin].rss += rssMin;
+				var mmrMax = - Number.MAX_VALUE, mmr;
+				var mmrMaxWord;
+				for(var w1 in words)	// For Dj in R\S
+					if(!inS[w1]) {
+						mmr = lambda * tfidfs[i].s;
+						
+						var simMax = 0;
+						var v1 = words[w1].v;
+						for(var k=0; k<i; k++) {	// For Dk in S
+							var v2 = words[mmrScores[k].word].v, s = 0;
+                			for(var word in v1)
+                    			if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
+							if(s > simMax) simMax = s;
 						}
 						
-						// Test stopping condition.
-						if (++i == nIterations) break;
-						
-						// 2.2 Recomputing centroids.
-						// ==========================
-						for (var c = 0; c < nClasses; c++) { // For each class
-							var centroid = new Array();
-							for (var j = 0; j < clustering.classes[c].elements.length; j++) { // For each vector of the class
-								var v = tfidfs[clustering.classes[c].elements[j].element].tfidf;
-								for (var word in v) {
-									if (typeof(centroid[word]) != 'number') centroid[word] = v[word];
-									else centroid[word] += v[word];
-								}
-							}
-							for (var word in centroid) 
-								centroid[word] /= clustering.classes[c].elements.length;
-							// Reset class elements.
-							delete clustering.classes[c].elements;
-							clustering.classes[c].elements = new Array();
-							clustering.classes[c].rss = 0;
+						mmr -= (1 - lambda) * simMax;
+						if(mmr > mmrMax) {
+							mmrMax = mmr;
+							mmrMaxWord = w1;
 						}
 					}
-					
-					// 3. Compute total RSS and store best clustering.
-					for(var c=0; c < nClasses; c++) 
-						clustering.rss += clustering.classes[c].rss;
-					if(clustering.rss < bestClustering[nClasses].rss)
-						bestClustering[nClasses] = clustering;
-				}
+				mmrScores.push({score: mmrMax, word:mmrMaxWord});;
+				inS[mmrMaxWord] = true;
 			}
-
-			// C. Choose best clustering (optimal number of classes).
-			// ======================================================
-			var maxDiff = 0;
-			var nClasses = 1;
-			for(var i=2; i<=nClassesMax; i++) {
-				var diff = bestClustering[i-1].rss - bestClustering[i].rss;
-				if(diff > maxDiff) { maxDiff = diff; nClasses = i; }
-			};
-			var clustering = bestClustering[nClasses];
-//			detailsPage.document.write("Best clustering: " + nClasses + " (RSS: " + clustering.rss.toFixed(3) + "). <br>");
-
-			for (var c = 0; c < nClasses; c++) {
-				// detailsPage.document.write("Class: " + c + "<br>");
-				// Order by score descendingly.
-				var elements = clustering.classes[c].elements.sort(function(a, b){
-					var sa = 2 * (1 - tfidfs[a.element].score) + 0.5 * a.rss;
-					var sb = 2 * (1 - tfidfs[b.element].score) + 0.5 * b.rss;
-					return sa - sb;
-				});
-				// Print
-//				for (var j = 0; j < elements.length; j++) {
-//					var page = tfidfs[elements[j].element];
-//						detailsPage.document.write("<a href=" + page.url + " target=\"_blank\">" +
-//						page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
-//				}
-//				detailsPage.document.write("<br>");
-			}
-//			detailsPage.document.write("<br><br>");
-
 			
-			// D. Choose suggestions to show.
-			// =============================
-			// TODO: Deal with classes having 0 suggestions!
-			// Pick up the heads from each cluster.
-			var toShow = new Array();
-			for (var i = 0; i < nClasses; i++)
-				toShow.push({
-					element: clustering.classes[i].elements[0].element,
-					c: i
-				});
-			toShow = toShow.sort(function(a,b) {
-				return tfidfs[b.element].score - tfidfs[a.element].score; 
-			});
-
-			// Complete with top suggestions, attached to their respective clusters.
-			for(var i=0; (i<tfidfs.length) && (toShow.length < 5); i++) {
-				// Check that the suggestion isn't already in toShow.
-				var found = false;
-				for(var j=0; j<toShow.length; j++)
-					if(toShow[j].element == i) { found = true; break; }
-				if(found) continue;
-				
-				// If not, figure out what class it belongs to.
-				var found = false; 
-				var c;
-				for(var j=0; (j<nClasses) && (!found); j++) {
-					var elements = clustering.classes[j].elements;
-					for(var k=0; k<elements.length; k++) 
-						if(elements[k].element == i) { c = j; found = true; break; }
-				}
-				
-				// Insert in the right position.
-				toShow.length++;
-				for(var j=toShow.length-2; j>=0; j--)
-					if (toShow[j].c != c) toShow[j + 1] = toShow[j];
-					else { toShow[j+1] = {element:i, c:c}; break; }
-			}
-
-			// Print the suggestions.
-			for(var j=0; j<toShow.length; j++) {
-				var page = tfidfs[toShow[j].element];
-				detailsPage.document.write(toShow[j].c + ": " + "<a href=" + page.url + " target=\"_blank\">" +
-					page.title + "</a>: " + page.score.toPrecision(2) + "<br>");
-			}
-			detailsPage.document.write("<br><br>");
-			var duration = (new Date).getTime() - startTime;
-			detailsPage.document.write("Time taken to compute clusterings: " + duration + "<br><br><br>");
-			
-			callback();
+			callback(mmrScores);	
 		});
-	},
+	}, 
 	
-	
-	
-/*
-	suggestionClicked: function(url, idx, callback) {
+	moreButtonClicked: function(url1, url2) {
 		var that = this;
 		
 		detailsPage.document.write("Detected click! <br><br>");
-		var startTime = (new Date).getTime();
-		var url2 = this.scores[url][idx].url;
-		var sc = this.scores[url][idx].score;
-		this.store.getTfs(url, function(tfs) {
-			that.store.getTfs(url2, function(tfs2) {
-				// The angle between the vectors is acos(s)
-				var teta = Math.acos(sc);
-				
-				// Adjusting the angle between the vectors to be paramClick * teta. (each of the vectors by half of it).
-				// The new vector A' will be in the direction of P = (1-x)A + xB, where x is derived
-				// from geometry, using the sine rule, as: 
-				// x = sin[1/2*(1-paramClick)*teta] / sin[(pi+paramClick*teta)/2];
-				// Similarly for B'.
-				var x = Math.sin(1/2*(1-that.paramClick)*teta) / Math.sin((Math.PI+that.paramClick*teta)/2);
-				
-				// Compute tfidfs
-				var tfidf = that.computeTfIdf(tfs);
-				var tfidf2 = that.computeTfIdf(tfs2);
-				
-				// Compute A' as va = A + x(B-A) = (1-x)A + xB normalized, where A and B have been first normalized too.
-				// Similarly for B'.
-				var va = new Array(), vb = new Array(), l = 0;
-				for(word in tfidf.v) {	// Add all elements in A.
-					var ta = (1-x)*tfidf.v[word]/tfidf.l;
-					var tb = x*tfidf.v[word]/tfidf.l; 
-					if (typeof(tfidf2.v[word]) == 'number') {
-						ta += x*tfidf2.v[word]/tfidf2.l;
-						tb += (1-x)*tfidf2.v[word]/tfidf2.l;
-					}
-					va[word] = ta;
-					vb[word] = tb;
-					l += ta*ta;
+		this.store.getTfidf(url1, function(tfidf1) {
+			that.store.getTfidf(url2, function(tfidf2) {
+				// Compute (1-a)*v1 + a*v2.
+				var v1 = tfidf1.tfidf;
+				var v2 = tfidf2.tfidf;
+				var v = new Array();
+				var l = 0;
+				for(var word in v1) {
+					if (typeof(v2[word]) == 'number') 
+						v[word] = (1 - that.clickParameter) * v1[word] + that.clickParameter * v2[word];
+					else v[word] = (1 - that.clickParameter) * v1[word];
+					l += v[word] * v[word];
 				}
-				for (word in tfidf2.v) { // Add elements in B not in A.
-					if (typeof(tfidf.v[word]) != 'number') {
-						var ta = x*tfidf2.v[word]/tfidf2.l;
-						var tb = (1-x)*tfidf2.v[word]/tfidf2.l;
-						va[word] = ta;
-						vb[word] = tb;
-						l += ta*ta;
+				for(var word in v2)
+					if (typeof(v1[word]) != 'number') { 
+						v[word] = that.clickParameter * v2[word];
+						l += v[word] * v[word];
 					}
-				}
 				l = Math.sqrt(l);
-	
-				// Normalize, scale A' like A and B' like B, and switch back to tfs space.				
-				for (word in va) 
-					if (typeof(va[word]) == 'number') va[word] = va[word] * (tfidf.l / l) / that.logIdfs[word];
-				for (word in vb) 
-					if (typeof(vb[word]) == 'number') vb[word] = vb[word] * (tfidf2.l / l) / that.logIdfs[word];
-
-		
-				// <debug>
-				var diff = new Array();
-				for(word in va) {
-					if(typeof(va[word]) == 'number') 
-						if(typeof(tfs.tfs[word]) == 'number') diff[word] = va[word] - tfs.tfs[word];
-						else diff[word] = va[word];
-				}
-				var sdiff = new Array();
-				for(word in diff) {
-					if(typeof(diff[word]) == 'number') sdiff.push({word:word, value:diff[word]});
-				}
-				sdiff = sdiff.sort(function(a, b){
-            		return b.value - a.value
-				});
-				var s = "";
-				for(var i=0; i<sdiff.length; i++) s+= sdiff[i].word + ":" + sdiff[i].value + ", ";
-				detailsPage.document.write("Sorted diff : <br>");
-				detailsPage.document.write(s+ "<br><br>");
-				// </debug>
-				 
-				// Save the new vectors.
-				tfs.tfs = va;
-				tfs2.tfs = vb;
-				that.store.storeTfs(tfs, function(){
-					that.store.storeTfs(tfs2, function() {
-						// Recompute suggestions
-						that.computeTfidfScores(tfs, function(){
-							that.detailScores(that.scores[url], tfs, startTime);
-						});
-					});
-				});
+					
+				// Normalize
+				for(var word in v) v[word] /= l;
+				
+				var page = {url: url1+" -> "+url2, tfidf:v };
+				that.computeSuggestions(page, function(){});
 			});
 		});
 	},
-*/
-/*
-	suggestionDismissed: function(url, idx) {
-		detailsPage.document.write("Suggestion " + idx + " dismissed for URL: " + url);
-	}
-*/
 };
