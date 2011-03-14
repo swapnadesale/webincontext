@@ -43,6 +43,8 @@ function addArrays(a, b) {
 }
 
 function scaleArray(a,x) {
+	if(x == 0) return new Array();
+	
 	var b = new Array();
 	for(var word in a) b[word] = x*a[word];
 	length.b = length.a;
