@@ -31,14 +31,19 @@ History.prototype = {
 		// Default properties
 		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
+		
 		this.batchSize = merge(500, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.longPartSize);
+		
 		this.nTopResultsShown = merge(5, opts.nTopResultsShown);
 		this.nMoreResultsShown = merge(50, opts.nMoreResultsShown);
-		this.clickAlpha = merge(0.25, opts.clickAlpha);
-		this.clickBetta = merge(1.0, opts.clickBetta);
-		this.clickGamma = merge(-0.75, opts.clickGamma);
+		this.treshholdResultsShown = merge(0.075, opts.treshholdResultsShown);
+		this.nTopWordsShown = merge(5, opts.nTopWordsShown);
+		this.nMoreWordsShown = merge(20, opts.nMoreWordsShown);
+		
+		this.feedbackParamsSimilarSuggestions = merge([0.25, 1.0, -0.75], opts.feedbackParamsSimilarSuggestions);
+		this.feedbackParamsTopicWord = merge([0.75, 0.25, -0.25], opts.feedbackParamsTopicWord);
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
 		else this.store = opts.store;
@@ -87,25 +92,37 @@ History.prototype = {
 			s.tfidfScores = tfidfScores;
 			that.computeMMRScores(tfidfScores, function(mmrScores) {
 				s.mmrScores = mmrScores;
-				that.scores[page.url] = s;	// TODO: maybe move all these in another place?
-				
-				that.printSuggestions(page);
-				callback();
+				that.computeWordsMMRScores(page, tfidfScores, function(wordMMRScores) {
+					s.wordMMRScores = wordMMRScores;
+					
+					that.scores[page.url] = s;	// TODO: maybe move all these in another place?
+					that.printSuggestions(page);
+					callback();	
+				});
 			});
 		});
 	},
 	
 	printSuggestions: function(page){
 		var s = "Suggestions for " + page.url + ". <br>";
+		
 		var scores = this.scores[page.url].mmrScores; 
-		for (var i = 0; i < 5; i++) 
-			if(scores[i].score >= 0.1) {
+		for (var i = 0; i < this.nTopResultsShown; i++) 
+			if(scores[i].score >= this.treshholdResultsShown) {
         		s += "<a href=" + scores[i].url + " target=\"_blank\">" +
             		scores[i].title + "</a>: " + 
 					scores[i].score.toPrecision(2) + 
-					"  <button type=\"button\" onclick=\"bg.hist.moreButtonClicked('" + page.url + "', " + i + ");\" >+</button> <br>";
+					"  <button type=\"button\" onclick=\"bg.hist.similarSuggestionsButtonClicked('" + page.url + "', " + i + ");\" >+</button> <br>";
 			}
 		s += "<br>"
+		
+		var wordScores = this.scores[page.url].wordMMRScores;
+		for (var i = 0; i < this.nTopWordsShown; i++) {
+			s += "<a onclick=\"bg.hist.topicWordClicked('" + page.url + "', " + i + ");\"><u>" +
+            		wordScores[i].word + "</u></a>,  ";		
+		}
+		s += "<br><br>";
+		
         detailsPage.document.write(s);
 	},
 	
@@ -337,6 +354,7 @@ History.prototype = {
 			tfidfScores = tfidfScores.sort(function(a, b){
             	return b.score - a.score
 			});
+			tfidfScores.splice(that.nMoreResultsShown, tfidfScores.length - that.nMoreResultsShown);	// Only keep top results.
             callback(tfidfScores);
 		});
 	},
@@ -354,7 +372,8 @@ History.prototype = {
                 	var v2 = pageBatch[i].tfidf, s = 0;
                 	for(var word in v1)
                     	if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
-					tfidfScores.push({score: s, url:pageBatch[i].url, title:pageBatch[i].title});
+					if (s > that.treshholdResultsShown)	// Only keep results with high enough score.
+						tfidfScores.push({score: s, url:pageBatch[i].url, title:pageBatch[i].title});
 				}
 			}
 
@@ -373,11 +392,11 @@ History.prototype = {
 		var that = this;
 		
 		var mmrScores = new Array();
-		var lambda = 1 - 2/3 * scores[this.nTopResultsShown-1].score;
+		if(scores.length == 0) return mmrScores;
+		var lambda = 1 - 2/3 * scores[Math.min(scores.length, this.nTopResultsShown)-1].score;
 
 		var urls = new Array();
-		for(var i=0; (i<this.nMoreResultsShown) && (i<scores.length); i++) 
-			urls.push(scores[i].url);	
+		for(var i=0; i<scores.length; i++) urls.push(scores[i].url);	
 		this.store.getTfidfForURLs(urls, function(tfidfs) {
 			// Tag tfidfs with score. 
 			var s = new Array();
@@ -385,6 +404,7 @@ History.prototype = {
 			for(var i=0; i<tfidfs.length; i++) tfidfs[i].score = s[tfidfs[i].url];
 			delete s; 
 			
+			// Compute MMR ordering.
 			for(var i=0; i<tfidfs.length; i++) {
 				var mmrMax = - Number.MAX_VALUE, mmr;
 				var mmrMaxPage;
@@ -424,13 +444,25 @@ History.prototype = {
 		var that = this;
 		
 		var lambda = 0.3;
+		
 		var urls = new Array();
-		for(var i=0; (i<this.nMoreResultsShown) && (i<scores.length); i++) 
-			urls.push(scores[i].url);	
+		for(var i=0; i<scores.length; i++) urls.push(scores[i].url);	
 		this.store.getTfidfForURLs(urls, function(tfidfs) {
+			// Compute tfidf sum vector over all suggestions.
+			var s = new Array();
+			for(var i=0; i<tfidfs.length; i++) s = addArrays(s, tfidfs[i].tfidf);
+			// Sort result by tfidf value.
+			var ss = new Array();
+			for(var word in s) ss.push({word:word, score:s[word]});
+			ss.sort(function(a,b) { return b.score - a.score; });
+			// Keep only top nMoreWordsShown results.
+			var sumTfidf = new Array();
+			for(var i=0; i<that.nMoreWordsShown; i++) sumTfidf[ss[i].word] = ss[i].score;
+			// detailsPage.document.write(serializeFloatArray(sumTfidf, 2) + "<br>");
+
 			// Compute word representations.
 			var words = new Array();
-			for(var word in page.tfidf) {
+			for(word in sumTfidf) {
 				var v = new Array(tfidfs.length);
 				var l = 0;
 				for(var i=0; i<tfidfs.length; i++) {
@@ -438,18 +470,22 @@ History.prototype = {
 					l += v[i] * v[i]; 
 				}
 				// Normalize.
-				for(var i=0; i<v.length; i++) v /= l;			
-				words[word] = {v:v, s:page.tfidf[word]}; 
+				if(l!= 0) for(var i=0; i<v.length; i++) v[i] /= l;
+				// detailsPage.document.write(word + "  -  " + v + "<br>");
+				
+				words[word] = {v:v, s:page.tfidf[word]};
+				words.length++;
 			}
 			
+			// Compute MMR ordering.
 			var mmrScores = new Array();
 			var inS = new Array();
-			for(var i=0; i<tfidfs.length; i++) {
+			for(var i=0; i<words.length; i++) {
 				var mmrMax = - Number.MAX_VALUE, mmr;
 				var mmrMaxWord;
 				for(var w1 in words)	// For Dj in R\S
 					if(!inS[w1]) {
-						mmr = lambda * tfidfs[i].s;
+						mmr = lambda * sumTfidf[w1];
 						
 						var simMax = 0;
 						var v1 = words[w1].v;
@@ -466,58 +502,75 @@ History.prototype = {
 							mmrMaxWord = w1;
 						}
 					}
-				mmrScores.push({score: mmrMax, word:mmrMaxWord});;
+				// detailsPage.document.write(mmrMaxWord + ": " + mmrMax + "<br>");
+				mmrScores.push({score: mmrMax, word:mmrMaxWord});
 				inS[mmrMaxWord] = true;
 			}
-			
+
+			// detailsPage.document.write(mmrScores.length + "<br><br>");
 			callback(mmrScores);	
 		});
 	}, 
 	
-	moreButtonClicked: function(url, idx) {
-		var that = this;
+	adjustQuery: function(query, positive, negative, feedbackParams){
+		var v1 = query;
+		var v2 = positive;
+		// Compute the centroid of the negative feedback vectors.
+		var v3 = new Array();
+		if (negative.length != 0) {
+			for (var i = 0; i < negative.length; i++) 
+				v3 = addArrays(v3, negative[i]);
+			v3 = scaleArray(v3, 1 / negative.length);
+		}
 		
-		detailsPage.document.write("Detected click! <br>");
-		var pg = this.scores[url].page;
+		// Compute a*v1 + b*v2 - c*v3.
+		v1 = scaleArray(v1, feedbackParams[0]);
+		v2 = scaleArray(v2, feedbackParams[1]);
+		v3 = scaleArray(v3, feedbackParams[2]);
+		var v = addArrays(addArrays(v1, v2), v3);
+		detailsPage.document.write(serializeFloatArray(v, 2) + "<br>");
+		
+		// Apply feature seletion to obtain short vector - we treat positive and negative values differently.
+		var avgP = 0, avgM = 0, nP = 0, nM = 0;
+		for (var word in v) 
+			if (v[word] > 0) { avgP += v[word]; nP++; }
+			else { avgM += v[word]; nM++; }
+		avgP /= nP; avgM /= nM;
+		detailsPage.document.write(avgP + ", " + nP + ", " + avgM + ", " + nM + "<br>");
+		
+		var l = 0;
+		for (var word in v) {
+			if ((v[word] >= 1.5 * avgP) || (v[word] <= 1.5 * avgM)) 
+				l += v[word] * v[word]; // Only keep words with significant value 
+			else delete v[word];
+		}
+		l = Math.sqrt(l);
+		
+		// Normalize
+		if(l > 0) for (var word in v) v[word] /= l;
+		
+		return v;
+	},
+	
+	similarSuggestionsButtonClicked: function(url, idx) {
+		var that = this;
+		detailsPage.document.write("Suggestion clicked! <br>");
+		
+		var pg = that.scores[url].page;
 		var clickedURL = this.scores[url].mmrScores[idx].url;
 		var otherSeenURLs	= new Array();		// TODO: This is UI dependent, maybe move somewhere else.
-		for(var i=0; i<5; i++)
+		for(var i=0; i<this.nTopResultsShown; i++)
 			if(i != idx) otherSeenURLs.push(this.scores[url].mmrScores[i].url);
 		
 		that.store.getTfidf(clickedURL, function(clickedTfidf) {
 			that.store.getTfidfForURLs(otherSeenURLs, function(otherSeenTfidfs) {
-				var v1 = pg.tfidf;
-				var v2 = clickedTfidf.tfidf;
-				// Compute the centroid of the other suggestions.
-				var v3 = new Array();
+				var query = pg.tfidf;
+				var positive = clickedTfidf.tfidf;
+				var negative = new Array();
 				for (var i = 0; i < otherSeenTfidfs.length; i++) 
-					v3 = addArrays(v3, otherSeenTfidfs[i].tfidf);
-				v3 = scaleArray(v3, 1 / otherSeenTfidfs.length);
-					
-				// Compute a*v1 + b*v2 - c*v3.
-				v1 = scaleArray(v1, that.clickAlpha);
-				v2 = scaleArray(v2, that.clickBetta);
-				v3 = scaleArray(v3, that.clickGamma);
-				var v = addArrays(addArrays(v1, v2), v3);
-					
-				// Apply feature seletion to obtain short tfidf - we treat positive and negative values differently.
-				var avgP = 0, avgM = 0, nP = 0, nM = 0;
-				for (var word in v) 
-					if (v[word] > 0) { avgP += v[word]; nP++; }
-					else { avgM += v[word]; nM++; }
-				avgP /= nP; avgM /= nM;
-					
-				var l = 0;
-				for (var word in v) {
-					if ((v[word] >= 1.5 * avgP) || (v[word] <= 1.5 * avgM)) 
-						l += v[word] * v[word]; // Only keep words with significant tfidf value 
-					else delete v[word];
-				}
-				l = Math.sqrt(l);
-					
-				// Normalize
-				for (var word in v) v[word] /= l;
-					
+					negative.push(otherSeenTfidfs[i].tfidf);
+				var v = that.adjustQuery(query, positive, negative, that.feedbackParamsSimilarSuggestions);
+				
 				var page = {
 					url: pg.url + " -> " + clickedURL,
 					title: pg.title + " -> " + clickedTfidf.title,
@@ -526,5 +579,35 @@ History.prototype = {
 				that.computeSuggestions(page, function(){ });
 			});
 		});
+	},
+	
+	topicWordClicked: function(url, idx) {
+		detailsPage.document.write("Word clicked! <br>");
+		
+		var pg = this.scores[url].page;
+		var wordScores = this.scores[url].wordMMRScores;
+		var clickedWord = wordScores[idx].word;
+		
+		detailsPage.document.write(clickedWord + "<br>");
+		
+		var query = pg.tfidf;
+		var positive = new Array();
+		positive[clickedWord] = 1.0;
+		var negative = new Array();
+		for (var i = 0; i < this.nTopWordsShown; i++) 
+			if(i != idx) {
+				var n = new Array();
+				n[wordScores[i].word] = 1.0;
+				negative.push(n);
+			}
+		var v = this.adjustQuery(query, positive, negative, this.feedbackParamsTopicWord);
+		detailsPage.document.write(serializeFloatArray(v, 2) + "<br>");
+		
+		var page = {
+			url: pg.url + " -> " + clickedWord,
+			title: pg.title + " -> " + clickedWord,
+			tfidf: v
+		};
+		this.computeSuggestions(page, function(){ });
 	},
 };
