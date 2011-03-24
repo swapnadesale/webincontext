@@ -1,0 +1,16 @@
+{
+  "name": "inContext",
+  "version": "1.0",
+  "description": "",
+  "background_page": "bg.html",
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["gettext.js"]
+    }
+  ],
+  "permissions": [
+     "http://*/*", "https://*/*",
+     "history", "tabs", "unlimitedStorage"
+  ]
+}
