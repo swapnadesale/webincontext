@@ -5,8 +5,8 @@
   "background_page": "bg.html",
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["gettext.js"]
+      "matches": ["http://*/*"],
+      "js": ["gettext.js", "injectWindow.js"]
     }
   ],
   "permissions": [
