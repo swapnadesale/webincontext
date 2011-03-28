@@ -1,0 +1,147 @@
+.inContextWindow {
+	width:260; 
+	height:290; 
+	position:fixed; 
+	bottom:10; 
+	background-color:rgb(250, 249, 244);
+	border-style:solid;
+	border-color:rgb(47, 78, 84);
+	border-width: 2 2 5 2;
+	border-radius: 7 7 2 2; 
+}
+
+.suggestion {
+	margin: 7 0;
+	padding: 0;
+	height:30;
+	overflow: hidden;
+}
+
+.suggestion:hover {
+	background-color:rgb(245, 243, 229);
+}
+
+.suggestionTitle {
+	display: inline-block;
+	font-family: Arial;
+	font-size: 12;
+	font-weight: bold;
+	text-decoration:none;
+	color: rgb(23, 31, 32);
+}
+
+.suggestionMore {
+	display: inline-block;
+	width: 16;
+	height: 16;
+	vertical-align:top;
+}
+
+.helperText {
+	font-family: Arial;
+	font-size: 12;
+	color: rgb(23, 31, 32);
+} 
+
+.helperText.ht_evenMore {
+	position:absolute;
+	right:0;
+	margin:0;
+	
+}
+
+.inContextWindow ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* 
+ * Primary Window
+ * ==============
+ * Total height: 290 = 20 (titleBar) + 30 (searchBar) + [2*15 (helperText) + 5*30 + 6*10 (suggestions + padding))]
+ */
+
+#primaryWindow {
+	left:30;
+}
+
+#pw_titleBar {
+	height:20;
+	background-color:rgb(47, 78, 84);
+	border-radius: 4 4 0 0;
+	padding: 0 0 0 10;
+	color:rgb(250, 249, 244);
+}
+
+#pw_searchBar {
+	height:30;
+	border-style:solid;
+	border-color:rgb(47, 78, 84);
+	border-width: 2 0 0 0;
+	padding:0 20;
+}
+
+#pw_searchBar input {
+	color: rgb(100, 120, 125);
+}
+
+#pw_mainArea {
+	height: 240;	
+	overflow: hidden; 
+}
+
+#pw_mainArea .suggestion {
+	padding: 0 10 0 15;
+}
+
+#pw_mainArea .suggestionTitle {
+	width: 215;
+}
+
+#pw_mainArea .ht_initial {
+	margin: 5 0 0 3;
+}
+
+/*
+ * Secondary window
+ * ================
+ * Total height: 290 ~ 95 (detailedPage + padding) + 2*15 (helperText) + 4*30 + 5*10 (suggestions + padding))
+ */
+
+#secondaryWindow {
+	left:290;
+}
+
+#sw_detailedPage {
+	margin: 10;
+	height: 75;
+}
+
+#sw_detailedPage .detailedPageTitle {
+	font-family: Arial;
+	font-size: 12;
+	font-weight: bold;
+	text-decoration:none;
+	color: rgb(23, 31, 32);
+}
+
+#sw_detailedPage .detailedPageSummary {
+	margin:0;
+	padding: 2 0 0 10;
+	font-family: Arial;
+	font-size: 12;
+	color: rgb(23, 31, 32);
+}
+
+#sw_similarPages .ht_morePagesLikeThis {
+	margin: 15 0 0 10;
+}
+
+#sw_similarPages .suggestion {
+	padding: 0 10 0 25;
+}
+
+#sw_similarPages .suggestionTitle {
+	width: 205;
+}
