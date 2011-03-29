@@ -4,7 +4,7 @@ var wordlist = ["a", "a's", "able", "about", "above", "according", "accordingly"
 var stopwords = new Array();
 for(var i=0; i<wordlist.length; i++) stopwords[wordlist[i]] = 1;
 
-var stopwebsites = ["google", "facebook", "youtube", "yahoo", "okcupid"];
+var stopwebsites = ["google", "youtube", "facebook", "twitter", "yahoo", "okcupid"];
 var protocol = "http://";
 
 var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'LAYER', 'LABEL', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TBODY', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
