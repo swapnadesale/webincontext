@@ -1,8 +1,9 @@
 if (document.body != null) {
 	var port = chrome.extension.connect();
-
-	trace = new Array();
-	trace.push({ url: document.URL, type:'initial' });
+	
+	var title = (document.title != null) ? document.title : document.URL;
+	var trace = new Array();
+	trace.push({ url: document.URL, title:title, type:'initial' });
 	var primaryWindow, secondaryWindow;
 	var primaryWindowVisible = true, secondaryWindowVisible = false;
 	
@@ -11,7 +12,6 @@ if (document.body != null) {
 	 * Send the body of the page to the extension to compute suggestions.
 	 * ==================================================================
 	 */
-	var title = (document.title != null) ? document.title : document.URL;
 	port.postMessage({
 		action: 'pageLoaded',
 		url: document.URL,
@@ -21,8 +21,8 @@ if (document.body != null) {
 
 
 	/*
-	 * Create the UI
-	 * =============
+	 * Create the inContext Windows
+	 * ==============================
 	 */
 	$('body').append('<div id="primaryWindow" class="inContextWindow"></div>');
 	primaryWindow = $('primaryWindow');
@@ -43,7 +43,7 @@ if (document.body != null) {
 	$('#secondaryWindow').append('<div id="sw_similarPages"></div>');
 	$('#secondaryWindow').remove();		// Hide for now.
 	
-	
+
 	/*
 	 * Listen for moreLikeThis requests.
 	 * ================================= 
@@ -54,11 +54,14 @@ if (document.body != null) {
 		var w = id.slice(0,2);
 		var source = ((w == 'pw') && (secondaryWindowVisible)) ?  
 			trace[trace.length-2] : trace[trace.length-1];
-		var sourceURL = source.url;
 		var idx = parseInt(id.slice(7));
-		var suggestionURL = source.scores[idx].url;
+		var suggestion = source.scores[idx];
 		
-		trace.push({url:sourceURL + " -> " + suggestionURL, type:'more'});
+		trace.push({
+			url:source.url + " -> " + suggestion.url,
+			title:source.title + " -> " + suggestion.title, 
+			type:'more'
+		});
 		
 		// First update the UI
 		if (w == 'pw') {
@@ -66,22 +69,34 @@ if (document.body != null) {
 				$('body').append(secondaryWindow);
 				secondaryWindowVisible = true;
 			}
-		} else {
-			// TODO: Recreate in left window.
 		}
-		// Reset the contents of the secondary window.
-		// TODO: Already add here the contents of detailedPage.
-		$('#sw_detailedPage').empty();
-		$('#sw_similarPages').empty();
+		else createMorePagesLikePage(source);
+		createDetailedPage(suggestion);
 		
-		// Send the request for data.
+		// Then send the request for data.
 		port.postMessage({
 			action: 'moreLikeThisRequested',
-			sourceURL: sourceURL,
-			suggestionURL: suggestionURL,
+			sourceURL: source.url,
+			suggestionURL: suggestion.url,
 		});
 	});
+
+	$('.ht_goBack').live('click', function(event) {
+		if(secondaryWindowVisible) {
+			$('#secondaryWindow').remove();
+			secondaryWindowVisible = false;
+			trace.pop();
+		}
+		
+		trace.pop();
+		if(trace.length == 1) createInitialPage(trace[0]);
+		else createMorePagesLikePage(trace[trace.length-1]);
+	});
 	
+	$('.ht_evenMore').live('click', function(event) {
+	});
+
+
 	/*
 	 * Listen for suggestions computed.
 	 * ================================
@@ -91,41 +106,80 @@ if (document.body != null) {
 			var type = trace[trace.length-1].type;
 			trace[trace.length-1].scores = msg.scores;
 			
-			if (type == 'initial') { 
-				$('#pw_mainArea').append('<p class = "helperText ht_initial"> Similar pages: </p>');
-				$('#pw_mainArea').append('<ul></ul>');
-				
-				for (var i = 0; (i < msg.scores.length) && (i < 5); i++) {
-					$('#pw_mainArea ul').append(
-						'<li class = "suggestion">' +
-							'<a class="suggestionTitle" href="' + msg.scores[i].url + '" target="_blank">' +
-								msg.scores[i].title +
-							'</a>' +
-							'<img id="pw_more' + i + '" class="suggestionMore" src="chrome-extension://hkkggmcdiaknkkhajaafmlgmnfcohnck/arrow2.gif"></img>' +
-						'</li>');
-				}
-				
-				$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
-				
-			} else if (type == 'search'){
-				// TODO
-				
-			} else {
-				$('#sw_similarPages').append('<p class = "helperText ht_morePagesLikeThis"> More pages like this: </p>');
-				$('#sw_similarPages').append('<ul></ul>');
-				
-				for (var i = 0; (i < msg.scores.length) && (i < 4); i++) {
-					$('#sw_similarPages ul').append(
-						'<li class = "suggestion">' +
-							'<a class="suggestionTitle" href="' + msg.scores[i].url + '" target="_blank">' +
-								msg.scores[i].title +
-							'</a>' +
-							'<img id="sw_more' + i + '" class="suggestionMore" src="chrome-extension://hkkggmcdiaknkkhajaafmlgmnfcohnck/arrow2.gif"></img>' +
-						'</li>');
-				}
-				
-				$('#sw_similarPages').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
-			}
+			switch(type) {
+				case 'initial':
+					createInitialPage(msg);
+					break;
+				case 'search':
+					// TODO
+					break;
+				case 'more':
+					addSuggestions(msg, 4, 'sw');
+					$('#sw_similarPages').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+					break;
+ 			};
 		}
 	});
 }
+
+
+function createInitialPage(source) {
+	$('#pw_mainArea').empty();
+	$('#pw_mainArea').append('<p class = "helperText ht_initial"> Similar pages: </p>');
+	addSuggestions(source, 5, 'pw');
+	$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+}
+
+function createMorePagesLikePage(source) {
+	var titleSequence = source.title.split(" -> ");
+	var sourceTitle = titleSequence[titleSequence.length - 1];
+	
+	$('#pw_mainArea').empty();
+	$('#pw_mainArea').append(
+		'<div class="ht_morePagesLikeDiv">' +
+			'<div class="helperText ht_morePagesLikeHelperText">' +
+				'More pages like:' + 
+			'</div>' +
+			'<div class="helperText ht_morePagesLikeTitle">' +
+				sourceTitle +
+			'</div><br>' +
+			'<div class="helperText ht_goBack">' +
+				'<-- Go back' +
+			'</div>' +
+		'</div>'
+	);
+	addSuggestions(source, 4, 'pw');
+	$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+}
+
+function createDetailedPage(suggestion) {
+	$('#sw_detailedPage').empty();
+	$('#sw_detailedPage').append(
+		'<a class="detailedPageTitle" href="' + suggestion.url + '">' +
+			suggestion.title +
+		'</a>');
+	$('#sw_detailedPage').append(			
+		'<p class="detailedPageSummary">' +
+			'Page summary here.. Page summary here.. Page summary here.. Page summary here.. Page summary here.. Page summary here..' +	// TODO 
+		'</p>'
+	);
+	
+	$('#sw_similarPages').empty();
+	$('#sw_similarPages').append('<p class = "helperText ht_morePagesLikeThis"> More pages like this: </p>');
+}
+
+function addSuggestions(source, nMax, w){
+	var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
+	
+	$(wDiv).append('<ul></ul>');
+	for (var i = 0; (i < source.scores.length) && (i < nMax); i++) {
+		$(wDiv + ' ul').append(
+			'<li class = "suggestion">' +
+				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
+					source.scores[i].title +
+				'</a>' +
+				'<img id="'+w+'_more'+i+'" class="suggestionMore" src="chrome-extension://hkkggmcdiaknkkhajaafmlgmnfcohnck/arrow2.gif"></img>' +
+			'</li>'
+		);
+	}
+};

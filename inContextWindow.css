@@ -52,7 +52,10 @@
 	position:absolute;
 	right:0px;
 	margin:0px;
-	
+}
+
+.helperText.ht_evenMore:hover {
+	text-decoration:underline;
 }
 
 .inContextWindow ul {
@@ -118,10 +121,35 @@
 	margin:5px 0px 0px 3px;
 }
 
+#pw_mainArea .ht_morePagesLikeDiv {
+	margin:5px 5px 15px 5px;
+	height:45px;
+}
+
+#pw_mainArea .ht_morePagesLikeHelperText {
+	display:inline-block;
+	width:75px;
+	height:30px;
+}
+
+#pw_mainArea .ht_morePagesLikeTitle {
+	display:inline-block;
+	width:175px;
+	height:30px;
+	overflow:hidden;
+	text-decoration:none;
+	font-weight:bold;
+}
+
+.helperText.ht_goBack:hover {
+	text-decoration:underline;
+}
+
 /*
  * Secondary window
  * ================
- * Total height: 290 ~ 95 (detailedPage + padding) + 2*15 (helperText) + 4*30 + 5*10 (suggestions + padding))
+ * Total height: 280 = 95px (detailedPage + margins) + 4 * 37px (suggestions + margins) + 
+ * 		2*15 (helperText) + 3+4 (extraPadding) 
  */
 
 #secondaryWindow {
@@ -134,6 +162,9 @@
 }
 
 #sw_detailedPage .detailedPageTitle {
+	display:inline-block;
+	height:30px;
+	overflow:hidden;
 	font-family:Arial;
 	font-size:12px;
 	font-weight:bold;
@@ -142,6 +173,8 @@
 }
 
 #sw_detailedPage .detailedPageSummary {
+	height:45px;
+	overflow:hidden;
 	margin:0px;
 	padding:2px 0px 0px 10px;
 	font-family:Arial;
