@@ -45,18 +45,52 @@ if (document.body != null) {
 	
 
 	/*
-	 * Listen for moreLikeThis requests.
-	 * ================================= 
+	 * Listen to search events.
+	 * =======================
+	 */
+	
+	$('#pw_searchBar input').live('keydown', function(event){
+    	if(event.keyCode == 13) {
+			event.preventDefault();
+
+			var query = event.target.value;
+			for(var i=trace.length-1; i>0; i--) trace.pop();	// Only keep the original suggestions.
+			trace.push({
+				url:trace[0].url + " -> " + query,
+				title:trace[0].title + " -> " + query, 
+				type:'search'
+			});
+			
+			// First update the UI			
+			if(secondaryWindowVisible) {
+				$('#secondaryWindow').remove();
+				secondaryWindowVisible = false;
+			}
+			createSearchPage(trace[1]);			
+
+			// Then send the request for data.
+			port.postMessage({
+				action: 'searchRequested',
+				url: trace[0].url,
+				query: query,
+			});
+    	}
+  	});
+
+	/*
+	 * Listen to MoreLikeThis events.
+	 * ============================= 
 	 */
 	$('.suggestionMore').live('click', function(event) {
 		// Determine what suggestion was clicked
 		var id = event.target.id;
 		var w = id.slice(0,2);
-		var source = ((w == 'pw') && (secondaryWindowVisible)) ?  
-			trace[trace.length-2] : trace[trace.length-1];
+		var sourceIsTop = ((w == 'sw') || (!secondaryWindowVisible)); 
+		var source =  sourceIsTop ? trace[trace.length-1] : trace[trace.length-2];
 		var idx = parseInt(id.slice(7));
 		var suggestion = source.scores[idx];
 		
+		if(!sourceIsTop) trace.pop();
 		trace.push({
 			url:source.url + " -> " + suggestion.url,
 			title:source.title + " -> " + suggestion.title, 
@@ -81,37 +115,54 @@ if (document.body != null) {
 		});
 	});
 
+	/*
+	 * Listen to goBack events.
+	 * ========================
+	 */
 	$('.ht_goBack').live('click', function(event) {
 		if(secondaryWindowVisible) {
 			$('#secondaryWindow').remove();
 			secondaryWindowVisible = false;
 			trace.pop();
 		}
-		
 		trace.pop();
-		if(trace.length == 1) createInitialPage(trace[0]);
-		else createMorePagesLikePage(trace[trace.length-1]);
+		
+		var source = trace[trace.length-1];
+		switch(source.type) {
+			case 'initial': 
+				createInitialPage(source);
+				break;
+			case 'search':
+				createSearchPage(source);
+				addSuggestions(source, 4, 'pw');
+				$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+				break;
+			case 'more':
+				createMorePagesLikePage(source);	
+				break;
+		}
 	});
-	
+
 	$('.ht_evenMore').live('click', function(event) {
 	});
 
 
 	/*
-	 * Listen for suggestions computed.
-	 * ================================
+	 * Listen for suggestions computed events from the background page.
+	 * ================================================================
 	 */
 	port.onMessage.addListener(function(msg) {
 		if(msg.url == trace[trace.length-1].url) {	// If I obtained the last thing I requested.
-			var type = trace[trace.length-1].type;
 			trace[trace.length-1].scores = msg.scores;
 			
+			var type = trace[trace.length-1].type;
 			switch(type) {
 				case 'initial':
 					createInitialPage(msg);
 					break;
 				case 'search':
-					// TODO
+					addSuggestions(msg, 4, 'pw');
+					$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 					break;
 				case 'more':
 					addSuggestions(msg, 4, 'sw');
@@ -150,6 +201,26 @@ function createMorePagesLikePage(source) {
 	);
 	addSuggestions(source, 4, 'pw');
 	$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+}
+
+function createSearchPage(source) {
+	var titleSequence = source.title.split(" -> ");
+	var query = titleSequence[titleSequence.length - 1];
+	
+	$('#pw_mainArea').empty();
+	$('#pw_mainArea').append(
+		'<div class="ht_morePagesLikeDiv">' +
+			'<div class="helperText ht_morePagesLikeHelperText">' +
+				'Pages:' + 
+			'</div>' +
+			'<div class="helperText ht_morePagesLikeTitle">' +
+				query +
+			'</div><br>' +
+			'<div class="helperText ht_goBack">' +
+				'<-- Go back' +
+			'</div>' +
+		'</div>'
+	);
 }
 
 function createDetailedPage(suggestion) {
