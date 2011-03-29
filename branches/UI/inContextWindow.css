@@ -1,0 +1,162 @@
+.inContextWindow {
+	position:fixed;
+	bottom:5px;
+	width:260px; 
+	height:280px;
+	background-color:rgb(250, 249, 244);
+	border-style:solid;
+	border-color:rgb(47, 78, 84);
+	border-width:2px 2px 5px 2px;
+	border-radius:7px 7px 2px 2px; 
+}
+
+.suggestion {
+	margin:7px 0px;
+	padding:0px;
+	height:30px;
+	overflow:hidden;
+}
+
+.suggestion:hover {
+	background-color:rgb(245, 243, 229);
+}
+
+.suggestionTitle {
+	display:inline-block;
+	font-family:Arial;
+	font-size:12px;
+	font-weight:bold;
+	text-decoration:none;
+	color:rgb(23, 31, 32);
+}
+
+.suggestionTitle:hover {
+	color:rgb(23, 31, 32);
+}
+
+.suggestionMore {
+	display:inline-block;
+	width:16px;
+	height:16px;
+	vertical-align:top;
+}
+
+.helperText {
+	height:15px;
+	font-family:Arial;
+	font-size:12px;
+	color:rgb(23, 31, 32);
+} 
+
+.helperText.ht_evenMore {
+	position:absolute;
+	right:0px;
+	margin:0px;
+	
+}
+
+.inContextWindow ul {
+	margin:0px;
+	padding:0px;
+	list-style:none;
+}
+
+/* 
+ * Primary Window
+ * ==============
+ * Total height: 280 = 20 (titleBar) + 25 (searchBar) + 
+ * 		[2*15 (helperText) + 5*30 + 6*7 (suggestions + padding)) + 5+8 (extra padding between sections)]
+ */
+
+#primaryWindow {
+	left:5px;
+}
+
+#pw_titleBar {
+	width:250px;
+	height:20px;
+	padding:0px 0px 0px 10px;
+	border-radius:4px 4px 0px 0px;
+	background-color:rgb(47, 78, 84);
+	color:rgb(250, 249, 244);
+	font-family:Arial;
+	font-size:12px;
+}
+
+#pw_searchBar {
+	position:absolute;
+	bottom:0px;
+	left:0px;
+	width:220px;
+	height:18px;	/* total: 25px */ 
+	padding:3px 20px 4px 20px;
+	border-style:solid;
+	border-color:rgb(47, 78, 84);
+	border-width:2px 0px 0px 0px;
+}
+
+#pw_searchBar input {
+	margin:0px;
+	padding:0px;
+	color:rgb(100, 120, 125);
+}
+
+#pw_mainArea {
+	height:230px;	
+	overflow:hidden; 
+}
+
+#pw_mainArea .suggestion {
+	padding:0px 10px 0px 15px;
+}
+
+#pw_mainArea .suggestionTitle {
+	width:215px;
+}
+
+#pw_mainArea .ht_initial {
+	margin:5px 0px 0px 3px;
+}
+
+/*
+ * Secondary window
+ * ================
+ * Total height: 290 ~ 95 (detailedPage + padding) + 2*15 (helperText) + 4*30 + 5*10 (suggestions + padding))
+ */
+
+#secondaryWindow {
+	left:265px;
+}
+
+#sw_detailedPage {
+	margin:10px;
+	height:75px;
+}
+
+#sw_detailedPage .detailedPageTitle {
+	font-family:Arial;
+	font-size:12px;
+	font-weight:bold;
+	text-decoration:none;
+	color:rgb(23, 31, 32);
+}
+
+#sw_detailedPage .detailedPageSummary {
+	margin:0px;
+	padding:2px 0px 0px 10px;
+	font-family:Arial;
+	font-size:12px;
+	color:rgb(23, 31, 32);
+}
+
+#sw_similarPages .ht_morePagesLikeThis {
+	margin:15px 0px 0px 10px;
+}
+
+#sw_similarPages .suggestion {
+	padding:0px 10px 0px 25px;
+}
+
+#sw_similarPages .suggestionTitle {
+	width:205px;
+}
