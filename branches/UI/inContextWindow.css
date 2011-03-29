@@ -129,7 +129,7 @@
 }
 
 #sw_detailedPage {
-	margin:10px;
+	margin:5px 10px 15px 10px;
 	height:75px;
 }
 
@@ -150,7 +150,7 @@
 }
 
 #sw_similarPages .ht_morePagesLikeThis {
-	margin:15px 0px 0px 10px;
+	margin:0px 0px 0px 10px;
 }
 
 #sw_similarPages .suggestion {
