@@ -56,45 +56,62 @@ History.prototype = {
 		var that = this;
 		chrome.extension.onConnect.addListener(function(port){
 			port.onMessage.addListener(function(msg){
-				if(msg.action == 'pageLoaded') {
-					var url = msg.url;
-					if (that.filterURL(url)) return;
-					
-					var startTime = (new Date).getTime();
-					that.lastProcessedHistoryEntry = startTime;
-					var pageBody = document.createElement('body');
-					pageBody.innerHTML = msg.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
-					var page = that.computeTfsDfs(url, msg.title, pageBody);
-					if (page) {
-						// TODO: Move this in a nicer place.
-						// Compute log idfs for the current dfs.
-        				var logIdfs = new Array();
-        				for(word in that.dfs) 
-        					logIdfs[word] = Math.log(that.nrProcessed / that.dfs[word]) / Math.LN2;
-						delete that.logIdfs;
-						that.logIdfs = logIdfs;
 				
-						page = that.computeShortTfidf(page);
-						that.computeSuggestions(page, function(){
-							that.printSuggestions(page.url);
-							port.postMessage({url:page.url, scores:that.scores[page.url].scores})
-							
-							that.store.storePage(page, function(){
-								that.store.storeParams(that, function(){
-									if(that.nrProcessed - that.lastComputedTfidfs > that.batchSize)
-										that.updateTfidfs(function(){});
+				switch(msg.action) {
+					case 'pageLoaded': 
+						var url = msg.url;
+						if (that.filterURL(url)) return;
+					
+						var startTime = (new Date).getTime();
+						that.lastProcessedHistoryEntry = startTime;
+						var pageBody = document.createElement('body');
+						pageBody.innerHTML = msg.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
+						var page = that.computeTfsDfs(url, msg.title, pageBody);
+						if (page) {
+							// TODO: Move this in a nicer place.
+							// Compute log idfs for the current dfs.
+    	    				var logIdfs = new Array();
+        					for(word in that.dfs) 
+        						logIdfs[word] = Math.log(that.nrProcessed / that.dfs[word]) / Math.LN2;
+							delete that.logIdfs;
+							that.logIdfs = logIdfs;
+				
+							page = that.computeShortTfidf(page);
+							that.computeSuggestions(page, function(){
+								port.postMessage({
+									url:page.url, 
+									scores:that.scores[page.url].scores
+								});
+								
+								that.store.storePage(page, function(){
+									that.store.storeParams(that, function(){
+										if(that.nrProcessed - that.lastComputedTfidfs > that.batchSize)
+											that.updateTfidfs(function(){});
+									});
 								});
 							});
+						}
+						break;
+				
+					case 'moreLikeThisRequested': 
+						that.moreLikeThisRequested(msg.sourceURL, msg.suggestionURL, function() {
+							var resultURL = msg.sourceURL + " -> " + msg.suggestionURL;
+							port.postMessage({
+								url:resultURL,
+								scores:that.scores[resultURL].scores,
+							});
 						});
-					}
-				} else if(msg.action == 'moreLikeThisRequested') {
-					that.moreLikeThisRequested(msg.sourceURL, msg.suggestionURL, function() {
-						var resultURL = msg.sourceURL + " -> " + msg.suggestionURL;
-						port.postMessage({
-							url:resultURL,
-							scores:that.scores[resultURL].scores,
+						break;
+					
+					case 'searchRequested':
+						that.searchBoxQueryEntered(msg.url, msg.query, function() {
+							var resultURL = msg.url + " -> " + msg.query;
+							port.postMessage({
+								url:resultURL,
+								scores:that.scores[resultURL].scores,
+							});
 						});
-					});
+						break;
 				}	
 			});
 		});
@@ -105,6 +122,7 @@ History.prototype = {
 		that.computeTfidfScores(page, function(tfidfScores){
 			that.computeMMRScores(tfidfScores, function(mmrScores) {
 				that.scores[page.url] = {page:page, scores:mmrScores};
+				that.printSuggestions(page.url);
 				callback();	
 			});
 		});
@@ -126,9 +144,6 @@ History.prototype = {
 			"> </textarea><br>";
 		s += "<br><br>"
         detailsPage.document.write(s);
-		
-		
-		
 	},
 	
 	// Loads lastProcessedHistoryEntry, nrProcessed, dfs from disk.
@@ -477,7 +492,6 @@ History.prototype = {
 		// Normalize
 		for (var word in v) v[word] /= l;
 		
-		detailsPage.document.write(serializeFloatArray(v, 2) + "<br>");
 		return v;
 	},
 
@@ -509,7 +523,7 @@ History.prototype = {
 		});
 	},
 	
-	searchBoxQueryEntered: function(url, q) {
+	searchBoxQueryEntered: function(url, q, callback) {
 		var that = this;
 		var pg = this.scores[url].page;
 		var query = pg.tfidf;
@@ -552,15 +566,16 @@ History.prototype = {
 		};
 		this.computeSuggestions(page, function(){ 
 		
-			// Debug.
-			detailsPage.document.write("Compare to: <br>");
-			var page = {
-				url: q,
-				title: q,
-				tfidf: positive,
-			};
-			that.computeSuggestions(page, function(){});
+//			// Debug.
+//			detailsPage.document.write("Compare to: <br>");
+//			var page = {
+//				url: q,
+//				title: q,
+//				tfidf: positive,
+//			};
+//			that.computeSuggestions(page, callback);
 			
+			callback();
 		});
 	},
 };
