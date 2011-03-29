@@ -6,7 +6,8 @@
   "content_scripts": [
     {
       "matches": ["http://*/*"],
-      "js": ["gettext.js", "injectWindow.js"]
+	  "css": ["inContextWindow.css"],
+      "js": ["jquery-1.5.1.js", "inContextWindow.js"]
     }
   ],
   "permissions": [

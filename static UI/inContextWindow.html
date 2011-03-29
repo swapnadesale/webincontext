@@ -4,11 +4,40 @@
 		<title> inContext </title>
 		
 		<script>
-			var secondaryWindowVisible = false;
-		
+			var primaryWindow, secondaryWindow;
+			var secondaryWindowVisible;
+			function onLoad() {
+				primaryWindow = document.getElementById("primaryWindow");
+				secondaryWindow = document.getElementById("secondaryWindow");
+				
+				// Hide secondary window.
+				document.body.removeChild(secondaryWindow);
+				secondaryWindowVisible = false;
+			}
+
+			function showDetailClick() {
+				if(!secondaryWindowVisible) {
+					document.body.appendChild(secondaryWindow);
+					secondaryWindowVisible = true;
+				} else {
+					document.body.removeChild(secondaryWindow);
+					secondaryWindowVisible = false;
+				}
+			}
+
+//			function minimize() {
+//				document.body.removeChild(win);
+//				document.body.appendChild(minWin);
+//			}
+//			
+//			function maximize() {
+//				document.body.removeChild(minWin);
+//				document.body.appendChild(win);
+//			}
+
 		</script>
 	</head>
-	<body onload = "">
+	<body onload = "onLoad();">
 		<div id="primaryWindow" class="inContextWindow">
 			<div id="pw_titleBar" onclick = "">
 				inContext
@@ -35,7 +64,7 @@
 						<a class="suggestionTitle" href="http://www.unhcr.org.uk/about-us/jobs-and-internships.html" target="_blank"> 
 							UNHCR: Jobs and Internships
 						</a>
-						<img class="suggestionMore" src="arrow2.gif"></img>
+						<img class="suggestionMore" src="arrow2.gif" onclick = "showDetailClick()"></img>
 					</li>
 
 					<li class = "suggestion">
@@ -51,8 +80,6 @@
 						</a>
 						<img class="suggestionMore" src="arrow2.gif"></img>
 					</li>
-					
-
 				</ul>
 				<p class = "helperText ht_evenMore"> Even more.. </p>
 			</div>
