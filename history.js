@@ -87,6 +87,14 @@ History.prototype = {
 							});
 						});
 					}
+				} else if(msg.action == 'moreLikeThisRequested') {
+					that.moreLikeThisRequested(msg.sourceURL, msg.suggestionURL, function() {
+						var resultURL = msg.sourceURL + " -> " + msg.suggestionURL;
+						port.postMessage({
+							url:resultURL,
+							scores:that.scores[resultURL].scores,
+						});
+					});
 				}	
 			});
 		});
@@ -473,15 +481,14 @@ History.prototype = {
 		return v;
 	},
 
-	similarSuggestionsButtonClicked: function(url, idx) {
+	moreLikeThisRequested: function(url, clickedURL, callback) {
 		var that = this;
 		detailsPage.document.write("Suggestion clicked! <br>");
 		
 		var pg = that.scores[url].page;
-		var clickedURL = this.scores[url].scores[idx].url;
-		var otherSeenURLs	= new Array();		// TODO: This is UI dependent, maybe move somewhere else.
+		var otherSeenURLs = new Array();		// TODO: This is UI dependent, move to inContextWindow!
 		for(var i=0; i<this.nTopResultsShown; i++)
-			if(i != idx) otherSeenURLs.push(this.scores[url].scores[i].url);
+			if(this.scores[url].scores[i].url != clickedURL) otherSeenURLs.push(this.scores[url].scores[i].url);
 		
 		that.store.getTfidf(clickedURL, function(clickedTfidf) {
 			that.store.getTfidfForURLs(otherSeenURLs, function(otherSeenTfidfs) {
@@ -497,7 +504,7 @@ History.prototype = {
 					title: pg.title + " -> " + clickedTfidf.title,
 					tfidf: v
 				};
-				that.computeSuggestions(page, function(){ });
+				that.computeSuggestions(page, callback);
 			});
 		});
 	},
