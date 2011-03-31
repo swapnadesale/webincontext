@@ -7,19 +7,15 @@
 	<script LANGUAGE="JavaScript" SRC="seedrandom.js"></script>
 	
 	<script>
-		var log = "Starting.. <br>";
-		var detailsPage;
-		chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {});
-		
-		var hist;
+		var hist, detailsPage;
 		function run(){
-			hist = new History({});
-			// 1. Load existing state from disk.
-			hist.loadParametersFromDisk(function(){
-				detailsPage = chrome.extension.getViews()[1];
-				// 2. Load (+process&save) yet unprocessed URLs from history.
-				hist.loadUnprocessedHistoryEntries(function(){
-					hist.historyLoaded();
+			chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {
+				hist = new History({});
+				hist.loadParametersFromDisk(function(){
+					detailsPage = chrome.extension.getViews()[1];
+					hist.loadUnprocessedHistoryEntries(function(){
+						hist.historyLoaded();
+					});
 				});
 			});
 		}
