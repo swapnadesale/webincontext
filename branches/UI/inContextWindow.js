@@ -1,6 +1,4 @@
 if (document.body != null) {
-	var port = chrome.extension.connect();
-	
 	var title = (document.title != null) ? document.title : document.URL;
 	var trace = new Array();
 	trace.push({ url: document.URL, title:title, type:'initial' });
@@ -12,7 +10,7 @@ if (document.body != null) {
 	 * Send the body of the page to the extension to compute suggestions.
 	 * ==================================================================
 	 */
-	port.postMessage({
+	chrome.extension.sendRequest({
 		action: 'pageLoaded',
 		url: document.URL,
 		title: title,
@@ -69,7 +67,7 @@ if (document.body != null) {
 			createSearchPage(trace[1]);			
 
 			// Then send the request for data.
-			port.postMessage({
+			chrome.extension.sendRequest({
 				action: 'searchRequested',
 				url: trace[0].url,
 				query: query,
@@ -108,7 +106,7 @@ if (document.body != null) {
 		createDetailedPage(suggestion);
 		
 		// Then send the request for data.
-		port.postMessage({
+		chrome.extension.sendRequest({
 			action: 'moreLikeThisRequested',
 			sourceURL: source.url,
 			suggestionURL: suggestion.url,
@@ -151,7 +149,7 @@ if (document.body != null) {
 	 * Listen for suggestions computed events from the background page.
 	 * ================================================================
 	 */
-	port.onMessage.addListener(function(msg) {
+	chrome.extension.onRequest.addListener(function(msg) {
 		if(msg.url == trace[trace.length-1].url) {	// If I obtained the last thing I requested.
 			trace[trace.length-1].scores = msg.scores;
 			
