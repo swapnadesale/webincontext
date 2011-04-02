@@ -1,5 +1,6 @@
 if (document.body != null) {
 	var title = (document.title != null) ? document.title : document.URL;
+	
 	var trace = new Array();
 	trace.push({ url: document.URL, title:title, type:'initial' });
 	var primaryWindow, secondaryWindow;
@@ -22,7 +23,7 @@ if (document.body != null) {
 	 * Create the inContext Windows
 	 * ==============================
 	 */
-	$('body').append('<div id="primaryWindow" class="inContextWindow"></div>');
+	$('body').append('<div id="primaryWindow"></div>');
 	primaryWindow = $('primaryWindow');
 	$('#primaryWindow').append('<div id="pw_titleBar" onclick = "">inContext</div>');
 	$('#primaryWindow').append('<div id="pw_mainArea"></div>');
@@ -35,7 +36,7 @@ if (document.body != null) {
 			'</form>' +
 		'</div>');
 	
-	$('body').append('<div id="secondaryWindow" class="inContextWindow"></div>');
+	$('body').append('<div id="secondaryWindow"></div>');
 	secondaryWindow = $('#secondaryWindow');
 	$('#secondaryWindow').append('<div id="sw_detailedPage"></div>');
 	$('#secondaryWindow').append('<div id="sw_similarPages"></div>');
@@ -247,7 +248,7 @@ function addSuggestions(source, nMax, w){
 				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
 					source.scores[i].title +
 				'</a>' +
-				'<img id="'+w+'_more'+i+'" class="suggestionMore" src="chrome-extension://hkkggmcdiaknkkhajaafmlgmnfcohnck/arrow2.gif"></img>' +
+				'<img id="'+w+'_more'+i+'" class="suggestionMore" src="chrome-extension://hkkggmcdiaknkkhajaafmlgmnfcohnck/UI/arrow2.gif"></img>' +
 			'</li>'
 		);
 	}

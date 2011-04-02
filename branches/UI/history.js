@@ -78,34 +78,71 @@ History.prototype = {
 				}
 			}
 
-
 			// Helper functions.
-			var findElementInArray = function(a, key, value) {
-				for(var i=0; i<a.length; i++)
-					if(a[i][key] == value) return a[i];
-				return null;
-			}
-			var extractElementFromArray = function(a, key, value) {
-				var el;
+			var findTabInArray = function(a, key, value) {
 				for (var i = 0; i < a.length; i++) 
 					if (a[i][key] == value) {
-						el = a[i];
-						a.splice(i, 1);
-						if(a.nextToProcess == a.length) a.nextToProcess=0;	// Reset nextToProcess if needed.
-						return el;
+						a[i].idx = i;	// Note: the idx property cannot be guaranteed to be present/correct at any other time besides immediatelly after a find call.
+						return a[i];
 					}
 				return null;
 			}
-			var findElement = function(key, value){
-				var el = findElement(that.selectedTabs, 'tId', tId);
-				if(el == null) el = findElement(that.openTabs, 'tId', tId);
-				return el;
+			var extractTabFromArray = function(a, key, value) {
+				var t;
+				for (var i = 0; i < a.length; i++) 
+					if (a[i][key] == value) {
+						t = a[i];
+						a.splice(i, 1);
+						if(a.nextToProcess >= a.length) a.nextToProcess=0;	// Reset nextToProcess if needed.
+						return t;
+					}
+				return null;
+			}
+			var findTab = function(key, value){
+				var t = findTabInArray(that.selectedTabs, key, value);
+				if (t == null) {
+					t = findTabInArray(that.openTabs, key, value);
+					t.selected = false;		// Note: the select property cannot be guaranteed to be present/correct at any other time besides immediatelly after a find call.
+				} else t.selected = true;
+				return t;
 				
 			}
-			var extractElement = function(key, value) {
-				var el = extractElement(that.selectedTabs, 'tId', tId);
-				if(el == null) el = extractElement(that.openTabs, 'tId', tId);
-				return el;
+			var extractTab = function(key, value) {
+				var t = extractTabFromArray(that.selectedTabs, key, value);
+				if(t == null) t = extractTabFromArray(that.openTabs, key, value);
+				return t;
+			}
+			var addRequest = function(pg, tId) {
+				if (that.recentPages[pg.url] == null) {
+					pg.state = 'computingTfidfScores';
+					pg.tfidfScores = new Array();
+					pg.nextBatch = 0;
+					that.recentPages[pg.url] = pg;
+				}
+				var t = findTab('tId', tId);
+				t.requests.push(pg.url);
+				if(t.selected) that.selectedTabs.nextToProcess = t.idx;
+
+				detailsPage.document.write('Request added for URL: ' + pg.url + '.<br>' +
+					'Existing requests: <br>');
+				s = '';
+				for (var i = 0; i < t.requests.length; i++) 
+					s += t.requests[i] + '<br>';
+				s += '<br>'
+				detailsPage.document.write(s);
+			}
+			var removeRequest = function(pg, tId) {
+				var t = findTab('tId', tId);
+				var i;
+				for(i = t.requests.length-1; i>=0; i--) {
+					if(t.requests[i] == pg.url) {
+						t.requests.splice(i, 1);
+						break;
+					}
+				}
+				if(i == t.requests.length)	// If removing top of stack request.
+					if(t.selected) that.selectedTabs.nextToProcess = (t.idx + 1) % that.selectedTabs.length;
+					else that.openTabs.nextToProcess = (t.idx + 1) % that.openTabs.length;
 			}
 			// 2. Set up listeners for window and tab events: resets requests when new page is loaded, or tab is closed.
 			// =========================================================================================================
@@ -116,72 +153,70 @@ History.prototype = {
 					requests: [],
 				});
 			});
-
 			chrome.tabs.onRemoved.addListener(function(tId) {
-				extractElement('tId', tId);
+				extractTab('tId', tId);
 			});
-
 			chrome.tabs.onSelectionChanged.addListener(function(tId, selectInfo) {
-				var tOld = extractElementFromArray(that.selectedTabs, 'wId', selectInfo.windowId);
+				var tOld = extractTabFromArray(that.selectedTabs, 'wId', selectInfo.windowId);
 				if(tOld != null) that.openTabs.push(tOld);
-				var t = extractElementFromArray(that.openTabs, 'tId', tId);
+				var t = extractTabFromArray(that.openTabs, 'tId', tId);
 				that.selectedTabs.push(t);
+				that.selectedTabs.nextToProcess = that.selectedTabs.length - 1;
 			});
-
 			chrome.tabs.onUpdated.addListener(function(tId, changeInfo){
 				if (changeInfo.status == 'loading') {
 					that.lastProcessedHistoryEntry = (new Date).getTime();
-					var url = changeInfo.url;
-					var t = findElement('tId', tId) 
+					var t = findTab('tId', tId) 
 					t.requests = [];
 				}
 			});
 
 			// 3. Set up listeners for messages from inContext windows: prepares and adds incoming requests from the inContext window.
 			// =======================================================================================================================
-			chrome.extension.onRequest.addListener(function(msg){
+			chrome.extension.onRequest.addListener(function(msg, sender){
 				var pg;
-				var addRequest = function(pg) {		// Helper function.
-					pg.state = 'computingTfidfScores';
-					pg.tfidfScores = new Array();
-					pg.nextBatch = 0;
-					that.recentPages[msg.url] = pg;
-					
-					var t = findElement('tId', msg.tId);
-					t.requests.push(pg.url);
-				}
-				
 				switch (msg.action) {
 					case 'pageLoaded':
-						if (this.filterURL(url)) return;	// TODO: display a better message.
+						if (that.filterURL(msg.url)) return;	// TODO: display a better message.
 						
-						var pg = {
-							url:msg.url,
-							title:msg.title,
-						};
-						var pageBody = document.createElement('body');
-						pageBody.innerHTML = msg.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
-						if (that.computeTfsDfs(pg, pageBody)) {
-							that.updateLogIdfs();
-							that.computeShortTfidf(pg);
-							that.store.storePage(pg, function(){
-								that.store.storeParams(that, function(){
+						if (that.recentPages[msg.url] != null)	// TODO: clean this up a bit.
+							addRequest({url:msg.url}, sender.tab.id);
+						else {
+							var pg = {
+								url: msg.url,
+								title: msg.title,
+							};
+							var pageBody = document.createElement('body');
+							pageBody.innerHTML = msg.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
+							if (that.computeTfsDfs(pg, pageBody)) {
+								that.updateLogIdfs();
+								that.computeShortTfidf(pg);
+								that.store.storePage(pg, function(){
+									that.store.storeParams(that, function(){});
 								});
-							});
-							
-							addRequest(pg);
+								addRequest(pg, sender.tab.id);
+							}
 						}
 						break;
 						
 					case 'moreLikeThisRequested':
-						that.computeMoreLikeThisPage(msg.sourceURL, msg.suggestionURL, function(pg){
-							addRequest(pg);							
-						});
+						var resultURL = msg.sourceURL + ' -> ' + msg.suggestionURL; 
+						if(that.recentPages[resultURL] != null) 
+							addRequest({url:resultURL}, sender.tab.id);
+						else 
+							that.computeMoreLikeThisPage(msg.sourceURL, msg.suggestionURL, function(pg){
+								addRequest(pg, sender.tab.id);							
+							});
 						break;
 						
 					case 'searchRequested':
-						pg = computeSearchQueryPage(msg.url, msg.query);
-						addRequest(pg);
+						var resultURL = msg.url + ' -> ' + msg.query;
+						if (that.recentPages[resultURL] != null) 
+							addRequest({url:resultURL}, sender.tab.id);
+						else {
+							pg = that.computeSearchQueryPage(msg.url, msg.query);
+							addRequest(pg, sender.tab.id);
+						}
 						break;
 				}
 			});
@@ -194,10 +229,10 @@ History.prototype = {
 				// =================================================
 				if(that.selectedTabs.length > 0) {	// Prioritize selected tabs.
 					for (var i = 0; i < that.selectedTabs.length; i++) { // Try out all selected tabs for a request to service. 
-						var requests = that.selectedTabs[that.selectedTabs.nextToProcess].requests;
-						if (requests.length > 0) {
-							url = requests[requests.length - 1]; // Found one!
-							tId = i; 
+						var t = that.selectedTabs[that.selectedTabs.nextToProcess];
+						if (t.requests.length > 0) {
+							url = t.requests[t.requests.length - 1]; // Found one!
+							tId = t.tId; 
 							break;
 						}
 						else that.selectedTabs.nextToProcess = (that.selectedTabs.nextToProcess + 1) % that.selectedTabs.length; // Look further.
@@ -205,10 +240,10 @@ History.prototype = {
 				} 
 				if(url == null) {	// If still no request found, try other open pages. 
 					for (var i = 0; i < that.openTabs.length; i++) { // Try out all open tabs for a request to service. 
-						var requests = that.openTabs[that.openTabs.nextToProcess].requests;
-						if (requests.length > 0) {
-							url = requests[requests.length - 1]; // Found one! 
-							tId = i;
+						var t = that.openTabs[that.openTabs.nextToProcess];
+						if (t.requests.length > 0) {
+							url = t.requests[t.requests.length - 1]; // Found one! 
+							tId = t.tId;
 							break;
 						}
 						else that.openTabs.nextToProcess = (that.openTabs.nextToProcess + 1) % that.openTabs.length; // Look further.
@@ -220,6 +255,7 @@ History.prototype = {
 					setTimeout(function(){loop();}, 100);	// Wait a bit and try again
 					return;
 				}
+				detailsPage.document.write('Servicing: ' + url + '. <br>');
 				
 				// 4.2. Service the request.
 				// =========================
@@ -228,10 +264,10 @@ History.prototype = {
 					case 'computingTfidfScores':
        					that.computeTfidfScoresBatched(pg, function(done){
 							if (done) {
-								that.tfidfScores = that.tfidfScores.sort(function(a, b){
+								pg.tfidfScores = pg.tfidfScores.sort(function(a, b){
 									return b.score - a.score
 								});
-								that.tfidfScores.splice(that.nMoreResultsShown, tfidfScores.length - that.nMoreResultsShown); // Only keep top results.
+								pg.tfidfScores.splice(that.nMoreResultsShown, pg.tfidfScores.length - that.nMoreResultsShown); // Only keep top results.
 								pg.state = 'computingMmrScores';
 							} else pg.nextBatch++;
 							loop();
@@ -239,35 +275,23 @@ History.prototype = {
 						break;
 					case 'computingMmrScores':
 						that.computeMMRScores(pg, function(){
+							detailsPage.document.write('Computed mmrScore. Sending results. <br>');
 							pg.state = 'ready';
 							chrome.tabs.sendRequest(tId, {type:'result', url:url, scores:pg.mmrScores});
+							removeRequest(pg, tId);
+							loop();
 						});
 						break;
 					case 'ready':
+						detailsPage.document.write('Page already ready. Sending results. <br>');
 						chrome.tabs.sendRequest(tId, {type:'result', url:url, scores:pg.mmrScores});
+						removeRequest(pg, tId);
+						loop();
 						break;
 				}
 			};
 			loop(); 	// Actually start the loop.
 		});
-	},
-	
-	printSuggestions: function(pg){
-		var s = "Suggestions for " + pg.url + ". <br>";
-		
-		var scores = pg.mmrScores; 
-		for (var i = 0; (i < this.nTopResultsShown) && (i < scores.length); i++) 
-			if(scores[i].score >= this.treshholdResultsShown) {
-        		s += "<a href=" + scores[i].url + " target=\"_blank\">" +
-            		scores[i].title + "</a>: " + 
-					scores[i].score.toPrecision(2) + 
-					"  <button type=\"button\" onclick=\"bg.hist.similarSuggestionsButtonClicked('" + url + "', " + i + ");\" >+</button> <br>";
-			}
-		s += "Search: <textarea rows='1' cols='20' " + 
-			"onkeypress = 'if(event.which == 13) bg.hist.searchBoxQueryEntered(\"" + url + "\", this.value);'" + 
-			"> </textarea><br>";
-		s += "<br><br>"
-        detailsPage.document.write(s);
 	},
 	
 	loadParametersFromDisk: function(callback){
@@ -362,8 +386,6 @@ History.prototype = {
 		var that = this;
 		this.updateLogIdfs();
 		// this.updateTfidfs(function() {
-			// Register for new page loaded events.
-			// TODO: think about how to make this work even before we've started processing					
 			that.registerForEvents();
 			that.ready = true;
 			detailsPage.document.write("Ready! <br><br>");
@@ -478,30 +500,6 @@ History.prototype = {
 		page.tfidf = v; 
 	},
 
-	updateTfidfs: function(callback) {
-		var that = this;
-		// Start updating.
-		this.updateTfidfsBatched(0, function() {
-			that.lastComputedTfidfs = that.nrProcessed; 
-			that.store.storeParams(that, callback);
-		});
-	},
-	
-	updateTfidfsBatched: function(batch, callback) {
-		var that = this;
-		this.store.getPagesBatch(batch, function(pageBatch) {
-			if(pageBatch.length == 0) { callback(); return; }
-			
-			for(var i=0; i<pageBatch.length; i++) 
-				that.computeShortTfidf(pageBatch[i]);
-			that.store.storeAllPages(pageBatch, function() {
-				delete pageBatch;
-				// LOOP
-				that.updateTfidfsBatched(batch+1, callback);
-			});
-		});
-	},
-
 	/*
 	 * @return 	true if done with all batches, false otherwise.
 	 * 			Updates the page in place with tfidfScores for the current batch. 
@@ -563,7 +561,7 @@ History.prototype = {
 						var simMax = 0;
 						var v1 = tfidfs[j].tfidf;
 						for(var k=0; k<i; k++) {	// For Dk in S
-							var v2 = tfidfs[mmrScores[k].pageIdx].tfidf, s = 0;
+							var v2 = tfidfs[page.mmrScores[k].pageIdx].tfidf, s = 0;
                 			for(var word in v1)
                     			if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
 							if(s > simMax) simMax = s;
@@ -635,7 +633,7 @@ History.prototype = {
 		var pg = this.recentPages[url];
 		var otherSeenURLs = new Array();		// TODO: This is UI dependent, move to inContextWindow!
 		for(var i=0; i<this.nTopResultsShown; i++)
-			if(pg.scores[i].url != clickedURL) otherSeenURLs.push(pg.scores[i].url);
+			if(pg.mmrScores[i].url != clickedURL) otherSeenURLs.push(pg.mmrScores[i].url);
 		
 		that.store.getTfidf(clickedURL, function(clickedTfidf) {
 			that.store.getTfidfForURLs(otherSeenURLs, function(otherSeenTfidfs) {
