@@ -7,7 +7,7 @@ StoreWrapper.prototype = {
 		var that = this;
 		
 		// Default properties.
-		this.name = merge('MyStore2', opts.name);
+		this.name = merge('MyStore3', opts.name);
 		this.version = merge('1.0', opts.version);
 		this.display = merge('Store', opts.display);
 		this.max = merge(512 * 1024 * 1024, opts.max);
@@ -40,9 +40,8 @@ StoreWrapper.prototype = {
 	loadParams: function(history, callback){
 		var that = this;
 		
-		var sql = "SELECT * FROM " + this.paramTable;
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result){
+			t.executeSql("SELECT * FROM " + that.paramTable, [], function(tx, result){
 				for (var i = 0; i < result.rows.length; i++) {
 					var row = result.rows.item(i);
 					switch (row.key) {
@@ -60,48 +59,42 @@ StoreWrapper.prototype = {
 				}
 				callback();
 			}, function(tx, error){
-				log += error.message + "<br>";
+				alert(error.message);
 			});
 		});
 	},
 	
 	storeParams: function(history, callback){
-		var sql = "REPLACE INTO " + this.paramTable + 
-			" SELECT \"" + this.keyLastProcessedHistoryEntry + "\", \"" + history.lastProcessedHistoryEntry + "\" UNION " +
-			" SELECT \"" + this.keyNrProcessed + "\", \"" + history.nrProcessed + "\" UNION " +
-			" SELECT \"" + this.keyDfs + "\", \"" + serializeIntArray(history.dfs) + "\" UNION " + 
-			" SELECT \"" + this.keyLastComputedTfidfs + "\", \"" + history.lastComputedTfidfs + "\"";
+		var that = this;
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result){
-				callback();
-			}, function(tx, error){
-				log += error.message + "<br>";
-			});
-		});
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastProcessedHistoryEntry, history.lastProcessedHistoryEntry]);
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyNrProcessed, history.nrProcessed]);
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyDfs, serializeIntArray(history.dfs)]);
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastComputedTfidfs, history.lastComputedTfidfs]);
+		}, function(){ }, callback);
 	},
 	
 	getAllURLs: function(callback){
-		var sql = "SELECT url FROM " + this.pagesTable;
+		var that = this;
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results){
+			t.executeSql("SELECT url FROM " + that.pagesTable, [], function(tx, results){
 				var urls = new Array();
 				for (var i = 0; i < results.rows.length; i++) 
 					urls.push(results.rows.item(i).url);
 				callback(urls);
 			}, function(tx, error){
-				log += error.message + "<br>";
+				alert(error.message);
 			});
 		});
 	},
 	
 	getPage: function(url, callback) {
 		var that = this;
-		var sql = "SELECT * FROM " + that.pagesTable + " WHERE url=\"" + url + "\"";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results){
+			t.executeSql("SELECT * FROM " + that.pagesTable + " WHERE url= ? ", [url], function(tx, results){
 				callback(that.parsePageResults(results)[0]);
 			}, function(tx, error){
-				log += error.message + "<br>";
+				alert(error.message);
 			});
 		});
 
@@ -109,12 +102,11 @@ StoreWrapper.prototype = {
 	
 	getTfidf: function(url, callback) {
 		var that = this;
-		var sql = "SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url=\"" + url + "\"";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results){
+			t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url= ? ", [url], function(tx, results){
 				callback(that.parseTfidfResults(results)[0]);
 			}, function(tx, error){
-				log += error.message + "<br>";
+				alert(error.message);
 			});
 		});
 
@@ -123,12 +115,11 @@ StoreWrapper.prototype = {
 	getPagesBatch: function(batch, callback){
 		var that = this;
 		var offset = that.batchSize * batch;
-		var sql = "SELECT * FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [that.batchSize, offset], function(tx, results){
+			t.executeSql("SELECT * FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
 				callback(that.parsePageResults(results));
 			}, function(tx, error){
-				log += error.message + "<br>";
+				alert(error.message);
 			});
 		});
 	},
@@ -136,67 +127,61 @@ StoreWrapper.prototype = {
 	getTfidfBatch: function(batch, callback){
 		var that = this;
 		var offset = that.batchSize * batch;
-		var sql = "SELECT url, title, tfidf FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?";
 		this.db.transaction(function(t){
-			t.executeSql(sql, [that.batchSize, offset], function(tx, results){
+			t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
 				callback(that.parseTfidfResults(results));
 			}, function(tx, error){
-				log += error.message + "<br>";
+				alert(error.message);
 			});
 		});
 	}, 
 	
 	getTfidfForURLs: function(urls, callback) {
 		var that = this;
-		var sql = "";
-		for(var i=0; i<urls.length; i++)
-			sql += "SELECT url, title, tfidf FROM " + that.pagesTable + 
-				" WHERE url=\"" + urls[i] + "\" UNION ";
-		sql = sql.substring(0, sql.length - 6); // Take out the last UNION.
+		var pages = new Array();
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, results){
-				callback(that.parseTfidfResults(results));
-			}, function(tx, error){
-				log += error.message + "<br>";
-			});
-		});
+			for (var i = 0; i < urls.length; i++) {
+				t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url= ? ", [urls[i]], function(tx, results){
+					pages.push(that.parseTfidfResult(results.rows.item(0)));
+				});
+			}
+		}, function(){}, function() { callback(pages); });
 	},
 
-	storePage: function(page, callback){
-		var sql = "REPLACE INTO " + this.pagesTable + " VALUES (" + this.serializePage(page) + ")";
+	storePage: function(page, history, callback){
+		var that = this;
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result){
-				callback();
-			}, function(tx, error){
-				log += error.message + "<br>";
+			t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?)", 
+				[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)], function(tx, result){
+				that.storeParams(history, callback);
 			});
 		});
 	},
 	
-	storeAllPages: function(pages, callback){
-		var sql = "REPLACE INTO " + this.pagesTable + " ";
-		var empty = true;
-		for (var i=0; i<pages.length; i++) {
-			sql += "SELECT " + this.serializePage(pages[i]) + " UNION ";
-			empty = false;
-		}
-		if (empty) { callback(); return; }
-		sql = sql.substring(0, sql.length - 6); // Take out the last UNION.
+	storeAllPages: function(pages, history, callback){
+		var that = this;
 		this.db.transaction(function(t){
-			t.executeSql(sql, [], function(tx, result){
-				callback();
-			}, function(tx, error){
-				log += error.message + "<br>";
-			});
+			for (var i = 0; i < pages.length; i++) {
+				var page = pages[i];
+				t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?)", [page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)]);
+			}
+		}, function() {}, function() {
+			that.storeParams(history, callback);
 		});
 	},
 	
-	serializePage: function(page) {
-		return "\"" + page.url + "\", \"" + escape(page.title) + "\", \"" + 
-			serializeIntArray(page.tfs) + "\", \"" + 
-			serializeFloatArray(page.tfidf, 3) + "\"";
+	storeAllTfidfs: function(pages, history, callback) {
+		var that = this;
+		this.db.transaction(function(t){
+			for (var i = 0; i < pages.length; i++) {
+				var page = pages[i];
+				t.executeSql("UPDATE " + that.pagesTable + " SET tfidf=? WHERE url=?", [serializeFloatArray(page.tfidf, 3), page.url]);
+			}
+		}, function() {}, function() {
+			that.storeParams(history, callback);
+		});
 	},
-
+	
 	parsePageResults: function(results){
 		var pageBatch = new Array();
 		for (var i = 0; i < results.rows.length; i++) {
@@ -207,14 +192,20 @@ StoreWrapper.prototype = {
 		return pageBatch;
 	},
 	
+	parseTfidfResult: function(row) {
+		var page = {
+			url:row.url, 
+			title:unescape(row.title), 
+			tfidf:parseFloatArray(row.tfidf)
+		};
+		return page;
+	},
+	
 	parseTfidfResults: function(results){
 		var pageBatch = new Array();
 		for (var i = 0; i < results.rows.length; i++) {
-			var row = results.rows.item(i);
-			pageBatch.push({url:row.url, title:unescape(row.title), 
-				tfidf:parseFloatArray(row.tfidf)});
+			pageBatch.push(this.parseTfidfResult(results.rows.item(i)));
 		}
 		return pageBatch;
 	},
-
 };

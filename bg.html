@@ -11,11 +11,8 @@
 		function run(){
 			chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {
 				hist = new History({});
-				hist.loadParametersFromDisk(function(){
-					detailsPage = chrome.extension.getViews()[1];
-					hist.loadUnprocessedHistoryEntries(function(){
-						hist.historyLoaded();
-					});
+				hist.loadHistory(function(){
+					detailsPage.document.write("Ready! <br><br>");
 				});
 			});
 		}
