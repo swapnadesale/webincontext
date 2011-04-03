@@ -59,7 +59,7 @@ StoreWrapper.prototype = {
 				}
 				callback();
 			}, function(tx, error){
-				alert(error.message);
+				detailsPage.document.write('Error in loadParams: ' + error.message + "<br>");
 			});
 		});
 	},
@@ -67,11 +67,21 @@ StoreWrapper.prototype = {
 	storeParams: function(history, callback){
 		var that = this;
 		this.db.transaction(function(t){
-			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastProcessedHistoryEntry, history.lastProcessedHistoryEntry]);
-			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyNrProcessed, history.nrProcessed]);
-			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyDfs, serializeIntArray(history.dfs)]);
-			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastComputedTfidfs, history.lastComputedTfidfs]);
-		}, function(){ }, callback);
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastProcessedHistoryEntry, history.lastProcessedHistoryEntry], 
+				function() {}, function() { detailsPage.document.write('Error in storeParams - lastProcessedHistoryEntry: ' + error.message + "<br>"); });
+				
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyNrProcessed, history.nrProcessed], 
+				function() {}, function() { detailsPage.document.write('Error in storeParams - nrProcessed: ' + error.message + "<br>"); });
+				
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyDfs, serializeIntArray(history.dfs)], 
+				function() {}, function() { detailsPage.document.write('Error in storeParams - dfs: ' + error.message + "<br>"); });
+				
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastComputedTfidfs, history.lastComputedTfidfs], 
+				function() {}, function() { detailsPage.document.write('Error in storeParams - lastComputedTfidfs: ' + error.message + "<br>"); });
+
+		}, function(error){ 
+			detailsPage.document.write('Error in storeParams:' + error.message + "<br>"); 
+		}, callback);
 	},
 	
 	getAllURLs: function(callback){
@@ -83,7 +93,7 @@ StoreWrapper.prototype = {
 					urls.push(results.rows.item(i).url);
 				callback(urls);
 			}, function(tx, error){
-				alert(error.message);
+				detailsPage.document.write('Error in getAllURLs: ' + error.message + "<br>");
 			});
 		});
 	},
@@ -94,7 +104,7 @@ StoreWrapper.prototype = {
 			t.executeSql("SELECT * FROM " + that.pagesTable + " WHERE url= ? ", [url], function(tx, results){
 				callback(that.parsePageResults(results)[0]);
 			}, function(tx, error){
-				alert(error.message);
+				detailsPage.document.write('Error in getPage: ' + error.message + "<br>");
 			});
 		});
 
@@ -106,7 +116,7 @@ StoreWrapper.prototype = {
 			t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url= ? ", [url], function(tx, results){
 				callback(that.parseTfidfResults(results)[0]);
 			}, function(tx, error){
-				alert(error.message);
+				detailsPage.document.write('Error in getTfidf: ' + error.message + "<br>");
 			});
 		});
 
@@ -119,7 +129,7 @@ StoreWrapper.prototype = {
 			t.executeSql("SELECT * FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
 				callback(that.parsePageResults(results));
 			}, function(tx, error){
-				alert(error.message);
+				detailsPage.document.write('Error in getPagesBatch: ' + error.message + "<br>");
 			});
 		});
 	},
@@ -131,7 +141,7 @@ StoreWrapper.prototype = {
 			t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
 				callback(that.parseTfidfResults(results));
 			}, function(tx, error){
-				alert(error.message);
+				detailsPage.document.write('Error in getTfidfBatch: ' + error.message + "<br>");
 			});
 		});
 	}, 
@@ -141,20 +151,30 @@ StoreWrapper.prototype = {
 		var pages = new Array();
 		this.db.transaction(function(t){
 			for (var i = 0; i < urls.length; i++) {
-				t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url= ? ", [urls[i]], function(tx, results){
-					pages.push(that.parseTfidfResult(results.rows.item(0)));
-				});
+				t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url= ? ", [urls[i]], 
+					function(tx, results){
+						pages.push(that.parseTfidfResult(results.rows.item(0)));
+					},
+					function(tx, error) {
+						detailsPage.document.write('Error in getTfidfForURLs - url: ' + urls[i] + " - " + error.message + "<br>");
+					});
 			}
-		}, function(){}, function() { callback(pages); });
+		}, function(error){
+			detailsPage.document.write('Error in getTfidfForURLs: ' + error.message + "<br>");
+		}, function() { callback(pages); });
 	},
 
 	storePage: function(page, history, callback){
 		var that = this;
 		this.db.transaction(function(t){
 			t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?)", 
-				[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)], function(tx, result){
-				that.storeParams(history, callback);
-			});
+				[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)], 
+				function(tx, result){
+					that.storeParams(history, callback);
+				}, 
+				function(tx, error) {
+					detailsPage.document.write('Error in storePage: ' + error.message + "<br>");
+				});
 		});
 	},
 	
@@ -163,9 +183,15 @@ StoreWrapper.prototype = {
 		this.db.transaction(function(t){
 			for (var i = 0; i < pages.length; i++) {
 				var page = pages[i];
-				t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?)", [page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)]);
+				t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?)", 
+					[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)], function() {}, 
+					function(){
+						detailsPage.document.write('Error in storeAllPages - url: ' + page.url + " - " + error.message + "<br>");	
+					});
 			}
-		}, function() {}, function() {
+		}, function() {
+			detailsPage.document.write('Error in storeAllPages: ' + error.message + "<br>");
+		}, function() {
 			that.storeParams(history, callback);
 		});
 	},
@@ -175,9 +201,14 @@ StoreWrapper.prototype = {
 		this.db.transaction(function(t){
 			for (var i = 0; i < pages.length; i++) {
 				var page = pages[i];
-				t.executeSql("UPDATE " + that.pagesTable + " SET tfidf=? WHERE url=?", [serializeFloatArray(page.tfidf, 3), page.url]);
+				t.executeSql("UPDATE " + that.pagesTable + " SET tfidf=? WHERE url=?", [serializeFloatArray(page.tfidf, 3), page.url], function() {}, 
+					function(){
+						detailsPage.document.write('Error in storeAllTfidfs - url: ' + page.url + " - " + error.message + "<br>");	
+					});
 			}
-		}, function() {}, function() {
+		}, function() {
+			detailsPage.document.write('Error in storeAllTfidfs: ' + error.message + "<br>");
+		}, function() {
 			that.storeParams(history, callback);
 		});
 	},
