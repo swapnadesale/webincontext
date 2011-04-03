@@ -38,7 +38,7 @@ History.prototype = {
 		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
 		
-		this.batchSize = merge(50, opts.batchSize);
+		this.batchSize = merge(1000, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.longPartSize);
 		
@@ -222,14 +222,15 @@ History.prototype = {
 				var t = findTab('tId', tId);
 				t.requests.push(pg.url);
 				if(t.selected) that.selectedTabs.nextToProcess = t.idx;
-
-				detailsPage.document.write('Request added for URL: ' + pg.url + '.<br>' +
-					'Existing requests: <br>');
-				s = '';
-				for (var i = 0; i < t.requests.length; i++) 
-					s += t.requests[i] + '<br>';
-				s += '<br>'
-				detailsPage.document.write(s);
+				
+				detailsPage.document.write('Request added for URL: ' + pg.url + '.<br>');
+//				detailsPage.document.write('Request added for URL: ' + pg.url + '.<br>' +
+//					'Existing requests: <br>');
+//				s = '';
+//				for (var i = 0; i < t.requests.length; i++) 
+//					s += t.requests[i] + '<br>';
+//				s += '<br>'
+//				detailsPage.document.write(s);
 			}
 			var removeRequest = function(pg, tId) {
 				var t = findTab('tId', tId);
@@ -255,11 +256,12 @@ History.prototype = {
 			});
 			chrome.tabs.onRemoved.addListener(function(tId) {
 				extractTab('tId', tId);
+				detailsPage.document.write("Extracted tab: " + tId + "<br>");
 			});
 			chrome.tabs.onSelectionChanged.addListener(function(tId, selectInfo) {
 				var tOld = extractTabFromArray(that.selectedTabs, 'wId', selectInfo.windowId);
 				if(tOld != null) that.openTabs.push(tOld);
-				var t = extractTabFromArray(that.openTabs, 'tId', tId);
+				var t = extractTab('tId', tId);
 				that.selectedTabs.push(t);
 				that.selectedTabs.nextToProcess = that.selectedTabs.length - 1;
 			});
