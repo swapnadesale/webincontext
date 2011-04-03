@@ -38,7 +38,7 @@ History.prototype = {
 		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.timeout = merge(10000, opts.timeout);
 		
-		this.batchSize = merge(500, opts.batchSize);
+		this.batchSize = merge(50, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.longPartSize);
 		
@@ -52,10 +52,110 @@ History.prototype = {
 		this.feedbackParamsSearchBoxQuery = merge([0.5, 1.0, 0.0], opts.feedbackParamsSearchBoxQuery);
 		// this.feedbackParamsTopicWord = merge([0.75, 0.25, -0.25], opts.feedbackParamsTopicWord);
 		
-		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({});
+		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({batchSize:this.batchSize});
 		else this.store = opts.store;
 		
 		Math.seedrandom('random');
+	},
+	
+	loadHistory: function(callback){
+		var that = this;
+		this.store.loadParams(this, function(){
+			detailsPage = chrome.extension.getViews()[1];
+			
+			chrome.history.search({
+				text: "",
+				startTime: that.lastProcessedHistoryEntry,
+				maxResults: that.maxHistoryEntries
+			}, function(unprocessed){
+				that.unprocessed = unprocessed;
+				var pages = new Array();
+				var saveToStore = function(cbk){
+					that.store.storeAllPages(pages, that, function(){
+						delete pages;	// Free memory.
+						pages = new Array();
+						cbk();
+					});
+				};
+				
+				// Processes one history entry, then loops.
+				var loop = function(){
+					if (unprocessed.length == 0) saveToStore(function() {
+						that.historyLoaded(callback);
+					});
+					else { // Process and loop.
+						var entry = unprocessed.pop();
+						that.processHistoryEntry(entry, function(page) {
+							if(page != null) pages.push(page);
+							if (pages.length == that.batchSize) saveToStore(loop); // Store current batch, if needed.
+							else loop();
+						});
+					}
+				};
+				loop();	// Start the loop.
+			});
+			
+		});
+	},
+
+	/*
+	 * @return	Page containing url, title, tfs and tfidf=[] if successful,
+	 * 			null if unsuccessful (request failed, or document empty).
+	 */
+	processHistoryEntry: function(entry, callback){
+		var that = this;
+
+		this.lastProcessedHistoryEntry = entry.lastVisitTime;		
+		var url = entry.url;
+		if (this.filterURL(url)) { callback(null); return; } // If filtered, continue.
+
+		// Try loading the page, through an async send request.
+		try {
+			var req = new XMLHttpRequest();
+			req.open("GET", url, true);
+			var reqTimeout = setTimeout(function(){ 
+				req.abort(); 
+			}, this.timeout);
+			req.onreadystatechange = function(){
+				if (req.readyState == 4) {
+					clearTimeout(reqTimeout);
+					if (req.status == 200) { // Successful.
+						// Parse the html, eliminating <script> and <style> content.
+						var pageDocument = document.createElement('html');
+						pageDocument.innerHTML = req.responseText.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
+						var title = pageDocument.getElementsByTagName('title')[0];
+						title = (title != null) ? title.innerText : url;
+						var pageBody = pageDocument.getElementsByTagName('body')[0];
+						if (pageBody != null) {
+							var page = {
+								url:url, 
+								title:title, 
+							}
+							if(that.computeTfsDfs(page, pageBody)) callback(page);
+							else callback(null);
+						} else callback(null);
+					} else callback(null);
+				}
+			}
+			detailsPage.document.write(that.nrProcessed + ": " + url + "<br>");
+			req.send();
+		} 
+		catch (err) { 
+			clearTimeout(reqTimeout);
+			log += err.message + "<br>";
+			callback(null); 
+		}
+	},
+	
+	historyLoaded: function(callback){
+		var that = this;
+		this.updateLogIdfs();
+		var firstBatch = Math.floor(this.lastComputedTfidfs/this.batchSize);
+		this.updateTfidfs(firstBatch, function() {
+			that.registerForEvents();
+			that.ready = true;
+			callback();
+		});
 	},
 	
 	registerForEvents: function(){
@@ -191,8 +291,9 @@ History.prototype = {
 							if (that.computeTfsDfs(pg, pageBody)) {
 								that.updateLogIdfs();
 								that.computeShortTfidf(pg);
-								that.store.storePage(pg, function(){
-									that.store.storeParams(that, function(){});
+								that.store.storePage(pg, that, function(){
+									if(that.nrProcessed % that.batchSize == 0)	// TODO: Use another divisor here?
+										that.updateTfidfs(0, function() {});
 								});
 								addRequest(pg, sender.tab.id);
 							}
@@ -294,104 +395,6 @@ History.prototype = {
 		});
 	},
 	
-	loadParametersFromDisk: function(callback){
-		this.store.loadParams(this, function(){
-			callback();
-		});
-	},
-	
-	loadUnprocessedHistoryEntries: function(callback){
-		var that = this;
-		chrome.history.search({
-			text: "",
-			startTime: this.lastProcessedHistoryEntry,
-			maxResults: this.maxHistoryEntries
-		}, function(unprocessed){
-			that.unprocessed = unprocessed;
-			var pages = new Array();
-			var saveToStore = function(cbk){
-				that.store.storeAllPages(pages, function(){
-					that.store.storeParams(that, function(){
-						delete pages;	// Free memory.
-						pages = new Array();
-						cbk();
-					});
-				});
-			};
-			
-			// Processes one history entry, then loops.
-			var loop = function(){
-				if (unprocessed.length == 0) saveToStore(callback);
-				else { // Process and loop.
-					var entry = unprocessed.pop();
-					that.processHistoryEntry(entry, function(page) {
-						if(page != null) pages.push(page);
-						if (pages.length == that.batchSize) saveToStore(loop); // Store current batch, if needed.
-						else loop();
-					});
-				}
-			};
-			loop();	// Start the loop.
-		});
-	},
-
-	/*
-	 * @return	Page containing url, title, tfs and tfidf=[] if successful,
-	 * 			null if unsuccessful (request failed, or document empty).
-	 */
-	processHistoryEntry: function(entry, callback){
-		var that = this;
-
-		this.lastProcessedHistoryEntry = entry.lastVisitTime;		
-		var url = entry.url;
-		if (this.filterURL(url)) { callback(null); return; } // If filtered, continue.
-
-		// Try loading the page, through an async send request.
-		try {
-			var req = new XMLHttpRequest();
-			req.open("GET", url, true);
-			var reqTimeout = setTimeout(function(){ req.abort(); }, this.timeout);
-			req.onreadystatechange = function(){
-				if (req.readyState == 4) {
-					clearTimeout(reqTimeout);
-					if (req.status == 200) { // Successful.
-						// Parse the html, eliminating <script> and <style> content.
-						var pageDocument = document.createElement('html');
-						pageDocument.innerHTML = req.responseText.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
-						var title = pageDocument.getElementsByTagName('title')[0];
-						title = (title != null) ? title.innerText : url;
-						var pageBody = pageDocument.getElementsByTagName('body')[0];
-						if (pageBody != null) {
-							var page = {
-								url:url, 
-								title:title, 
-							}
-							if(that.computeTfsDfs(page, pageBody)) callback(page);
-							else callback(null);
-						}
-					} else callback(null);
-				}
-			}
-			detailsPage.document.write(that.nrProcessed + ": " + url + "<br>");
-			req.send();
-		} 
-		catch (err) { 
-			clearTimeout(reqTimeout);
-			log += err.message + "<br>";
-			callback(null); 
-		}
-	},
-	
-	historyLoaded: function(){
-		var that = this;
-		this.updateLogIdfs();
-		// this.updateTfidfs(function() {
-			that.registerForEvents();
-			that.ready = true;
-			detailsPage.document.write("Ready! <br><br>");
-		// });
-	},
-	
 	filterURL: function(url){
 		if (url.substr(0, protocol.length) != protocol) return true;
 		var domain = url.match(domainReg)[0];
@@ -471,6 +474,27 @@ History.prototype = {
 	updateLogIdfs: function() {
         for(var word in this.dfs) 
         	this.logIdfs[word] = Math.log(this.nrProcessed / this.dfs[word]) / Math.LN2;
+	},
+
+	updateTfidfs: function(firstBatch, callback) {
+        this.updateTfidfsBatched(firstBatch, callback);
+	},
+        
+	updateTfidfsBatched: function(batch, callback) {
+    	var that = this;
+        this.store.getPagesBatch(batch, function(pageBatch) {
+        	if(pageBatch.length == 0) { callback(); return; }
+                        
+			var startI = Math.max(0, that.lastComputedTfidfs - batch * that.batchSize);
+            for(var i=startI; i<pageBatch.length; i++) 
+            	that.computeShortTfidf(pageBatch[i]);
+			that.lastComputedTfidfs = batch * that.batchSize + pageBatch.length;
+            that.store.storeAllTfidfs(pageBatch, that, function() {
+				delete pageBatch;
+                // LOOP
+                that.updateTfidfsBatched(batch+1, callback);
+			});
+		});
 	},
 
 	/*
@@ -632,7 +656,7 @@ History.prototype = {
 		
 		var pg = this.recentPages[url];
 		var otherSeenURLs = new Array();		// TODO: This is UI dependent, move to inContextWindow!
-		for(var i=0; i<this.nTopResultsShown; i++)
+		for(var i=0; (i<this.nTopResultsShown) && (i<pg.mmrScores.length); i++)
 			if(pg.mmrScores[i].url != clickedURL) otherSeenURLs.push(pg.mmrScores[i].url);
 		
 		that.store.getTfidf(clickedURL, function(clickedTfidf) {
