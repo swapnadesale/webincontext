@@ -36,6 +36,7 @@ History.prototype = {
 									
 		// Default properties
 		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
+		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
 		this.batchSize = merge(1000, opts.batchSize);
@@ -79,9 +80,12 @@ History.prototype = {
 				};
 				
 				// Processes one history entry, then loops.
+				var threadsFinished = 0;
 				var loop = function(){
 					if (unprocessed.length == 0) saveToStore(function() {
-						that.historyLoaded(callback);
+						threadsFinished++;
+						if(threadsFinished == that.nrLoadThreads)
+							that.historyLoaded(callback);
 					});
 					else { // Process and loop.
 						var entry = unprocessed.pop();
@@ -92,7 +96,9 @@ History.prototype = {
 						});
 					}
 				};
-				loop();	// Start the loop.
+
+				for(var i=0; i<that.nrLoadThreads; i++)		// Start nrLoadThreads threads;
+					loop();
 			});
 			
 		});
@@ -256,7 +262,6 @@ History.prototype = {
 			});
 			chrome.tabs.onRemoved.addListener(function(tId) {
 				extractTab('tId', tId);
-				detailsPage.document.write("Extracted tab: " + tId + "<br>");
 			});
 			chrome.tabs.onSelectionChanged.addListener(function(tId, selectInfo) {
 				var tOld = extractTabFromArray(that.selectedTabs, 'wId', selectInfo.windowId);
