@@ -2,7 +2,12 @@ if (document.body != null) {
 	var title = (document.title != null) ? document.title : document.URL;
 	
 	var trace = new Array();
-	trace.push({ url: document.URL, title:title, type:'initial' });
+	trace.push({ 
+		url: document.URL, 
+		title:title, 
+		type:'initial',
+		ready:false 
+	});
 	var primaryWindow, secondaryWindow;
 	var primaryWindowVisible = true, secondaryWindowVisible = false;
 	
@@ -57,7 +62,8 @@ if (document.body != null) {
 			trace.push({
 				url:trace[0].url + " -> " + query,
 				title:trace[0].title + " -> " + query, 
-				type:'search'
+				type:'search',
+				ready:false
 			});
 			
 			// First update the UI			
@@ -93,7 +99,8 @@ if (document.body != null) {
 		trace.push({
 			url:source.url + " -> " + suggestion.url,
 			title:source.title + " -> " + suggestion.title, 
-			type:'more'
+			type:'more',
+			ready:false
 		});
 		
 		// First update the UI
@@ -151,10 +158,12 @@ if (document.body != null) {
 	 * ================================================================
 	 */
 	chrome.extension.onRequest.addListener(function(msg) {
-		if(msg.url == trace[trace.length-1].url) {	// If I obtained the last thing I requested.
-			trace[trace.length-1].scores = msg.scores;
+		var lastTraceEntry = trace[trace.length-1];
+		if((msg.url == lastTraceEntry.url) && (!lastTraceEntry.ready)) {	// If I obtained the last thing I requested.
+			lastTraceEntry.scores = msg.scores;
+			lastTraceEntry.ready = true;
 			
-			var type = trace[trace.length-1].type;
+			var type = lastTraceEntry.type;
 			switch(type) {
 				case 'initial':
 					createInitialPage(msg);
