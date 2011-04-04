@@ -1,0 +1,17 @@
+{
+  "name": "inContext",
+  "version": "1.0",
+  "description": "",
+  "background_page": "bg.html",
+  "content_scripts": [
+    {
+      "matches": ["http://*/*"],
+	  "css": ["UI/inContextWindow.css"],
+      "js": ["libraries/jquery-1.5.1.js", "UI/inContextWindow.js"]
+    }
+  ],
+  "permissions": [
+     "http://*/*", "https://*/*",
+     "history", "tabs", "unlimitedStorage"
+  ]
+}

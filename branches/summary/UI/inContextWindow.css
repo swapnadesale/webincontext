@@ -1,0 +1,179 @@
+#primaryWindow, #secondaryWindow {
+	position:fixed;
+	bottom:5px;
+	width:260px; 
+	height:280px;
+	background-color:rgb(250, 249, 244);
+	border-style:solid;
+	border-color:rgb(47, 78, 84);
+	border-width:2px 2px 5px 2px;
+	border-radius:7px 7px 2px 2px;
+	z-index:10000;
+}
+
+#primaryWindow *, #secondaryWindow * {
+	margin:0px;
+	padding:0px;
+	overflow:hidden;
+	line-height:15px;
+	font-family:Arial, Helvetica, sans-serif;
+	font-size:12px;
+	font-weight:none;
+	text-decoration:none;
+	text-align:left;
+	background-image:none;
+	background-color:rgb(250, 249, 244);
+	color:rgb(23, 31, 32);
+	list-style-type:none;
+}
+
+#primaryWindow .suggestion, #secondaryWindow .suggestion{
+	margin:7px 0px;
+	height:30px;
+}
+
+#primaryWindow .suggestion:hover, #secondaryWindow .suggestion:hover {
+	background-color:rgb(245, 243, 229);
+}
+
+#primaryWindow .suggestionTitle, #secondaryWindow .suggestionTitle {
+	display:inline-block;
+	font-weight:bold;
+}
+
+#primaryWindow .suggestionMore, #secondaryWindow .suggestionMore {
+	display:inline-block;
+	width:16px;
+	height:16px;
+	vertical-align:top;
+}
+
+#primaryWindow .helperText, #secondaryWindow .helperText {
+	height:15px;
+} 
+
+#primaryWindow .helperText.ht_evenMore, #secondaryWindow .helperText.ht_evenMore {
+	position:absolute;
+	right:0px;
+}
+
+#primaryWindow .helperText.ht_evenMore:hover, #secondaryWindow .helperText.ht_evenMore:hover {
+	text-decoration:underline;
+}
+
+/* 
+ * Primary Window
+ * ==============
+ * Total height: 280 = 20 (titleBar) + 25 (searchBar) + 
+ * 		[2*15 (helperText) + 5*30 + 6*7 (suggestions + padding)) + 5+8 (extra padding between sections)]
+ */
+
+#primaryWindow {
+	left:5px;
+}
+
+#primaryWindow #pw_titleBar {
+	width:250px;
+	height:20px;
+	padding-right:10px;
+	border-radius:4px 4px 0px 0px;
+	background-color:rgb(47, 78, 84);
+	color:rgb(250, 249, 244);
+}
+
+#primaryWindow #pw_searchBar {
+	position:absolute;
+	bottom:0px;
+	left:0px;
+	width:220px;
+	height:18px;	/* total: 25px */ 
+	padding:3px 20px 4px 20px;
+	border-style:solid;
+	border-color:rgb(47, 78, 84);
+	border-width:2px 0px 0px 0px;
+}
+
+#primaryWindow #pw_searchBar input {
+	color:rgb(100, 120, 125);
+}
+
+#primaryWindow #pw_mainArea {
+	height:230px;	
+}
+
+#primaryWindow #pw_mainArea ul {
+	list-style-type:none;	
+}
+
+#primaryWindow #pw_mainArea .suggestion {
+	padding:0px 10px 0px 15px;
+}
+
+#primaryWindow #pw_mainArea .suggestionTitle {
+	width:215px;
+}
+
+#primaryWindow #pw_mainArea .ht_initial {
+	margin:5px 0px 0px 3px;
+}
+
+#primaryWindow #pw_mainArea .ht_morePagesLikeDiv {
+	margin:5px 5px 15px 5px;
+	height:45px;
+}
+
+#primaryWindow #pw_mainArea .ht_morePagesLikeHelperText {
+	display:inline-block;
+	width:75px;
+	height:30px;
+}
+
+#primaryWindow #pw_mainArea .ht_morePagesLikeTitle {
+	display:inline-block;
+	width:175px;
+	height:30px;
+	font-weight:bold;
+}
+
+#primaryWindow .helperText.ht_goBack:hover {
+	text-decoration:underline;
+}
+
+/*
+ * Secondary window
+ * ================
+ * Total height: 280 = 95px (detailedPage + margins) + 4 * 37px (suggestions + margins) + 
+ * 		2*15 (helperText) + 3+4 (extraPadding) 
+ */
+
+#secondaryWindow {
+	left:265px;
+}
+
+#secondaryWindow #sw_detailedPage {
+	margin:5px 10px 15px 10px;
+	height:75px;
+}
+
+#secondaryWindow #sw_detailedPage .detailedPageTitle {
+	display:inline-block;
+	height:30px;
+	font-weight:bold;
+}
+
+#secondaryWindow #sw_detailedPage .detailedPageSummary {
+	height:45px;
+	padding:2px 0px 0px 10px;
+}
+
+#secondaryWindow #sw_similarPages .ht_morePagesLikeThis {
+	margin-right:10px;
+}
+
+#secondaryWindow #sw_similarPages .suggestion {
+	padding:0px 10px 0px 25px;
+}
+
+#secondaryWindow #sw_similarPages .suggestionTitle {
+	width:205px;
+}
