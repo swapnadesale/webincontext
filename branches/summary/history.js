@@ -35,7 +35,7 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 									
 		// Default properties
-		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(2000, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -234,13 +234,6 @@ History.prototype = {
 				if(t.selected) that.selectedTabs.nextToProcess = t.idx;
 				
 				detailsPage.document.write('Request added for URL: ' + pg.url + '.<br>');
-//				detailsPage.document.write('Request added for URL: ' + pg.url + '.<br>' +
-//					'Existing requests: <br>');
-//				s = '';
-//				for (var i = 0; i < t.requests.length; i++) 
-//					s += t.requests[i] + '<br>';
-//				s += '<br>'
-//				detailsPage.document.write(s);
 			}
 			var removeRequest = function(pg, tId) {
 				var t = findTab('tId', tId);
@@ -307,8 +300,9 @@ History.prototype = {
 								that.updateLogIdfs();
 								that.computeShortTfidf(pg);
 								that.store.storePage(pg, that, function(){
-									if(that.nrProcessed % that.batchSize == 0)	// TODO: Use another divisor here?
-										that.updateTfidfs(0, function() {});
+									if (that.nrProcessed % that.batchSize == 0) // TODO: Use another divisor here?
+										that.updateTfidfs(0, function(){
+										});
 								});
 								addRequest(pg, sender.tab.id);
 							}
@@ -418,17 +412,17 @@ History.prototype = {
 		return false;
 	},
 	
-	buildPageStructure: function(node, struct){
+	extractPageParts: function(node, pageParts){
 		var rest = "";
 		for (var i = 0, l = node.childNodes.length; i < l; i++) {
 			var child = node.childNodes[i];
-			if (structureNodes[child.nodeName] == 1) this.buildPageStructure(child, struct);
+			if (structureNodes[child.nodeName] == 1) this.extractPageParts(child, pageParts);
 			else
 				if (child.nodeName == "#text") rest += child.nodeValue + " ";
 				else if (child.innerText != null) rest += child.innerText + " ";
 		}
-		if (rest != "") struct.push(rest);
-		return struct;
+		if (rest != "") pageParts.push(rest);
+		return pageParts;
 	},
 	
 	/*
@@ -436,15 +430,15 @@ History.prototype = {
 	 * 			Adds tfs, tfidf=[] to the page in place.
 	 */
 	computeTfsDfs: function(page, body){
-		var s = this.buildPageStructure(body, new Array());
-		
+		var textGeneral = this.extractPageParts(body, new Array());
+		var textSpecific = new Array();
 		var tfsGeneral = new Array();
 		var tfsSpecific = new Array();
 		var specific = false;
 		
 		// Compute the parts.
-		for (var i = 0; i < s.length; i++) {
-			var words = s[i].toLowerCase().match(/[a-z]+/g);
+		for (var i = 0; i < textGeneral.length; i++) {
+			var words = textGeneral[i].toLowerCase().match(/[a-z]+/g);
 			if ((words == null) || (words.length == 0)) continue;
 			
 			var part = new Array();
@@ -472,15 +466,25 @@ History.prototype = {
 						tfsSpecific[word] = part[word];
 						tfsSpecific.length++;
 					} else tfsSpecific[word] += part[word];
+				textSpecific.push(textGeneral[i]);
 			}
 			delete part;
 		}
 
 		this.nrProcessed++;
-		var tfs = specific ? tfsSpecific : tfsGeneral;
+		
+		var tfs, text;
+		if (specific) { 
+			tfs = tfsSpecific; 
+			text = textSpecific; 
+		} else { 
+			tfs = tfsGeneral; 
+			text = textGeneral; 
+		}
 		if (tfs.length > 0) {
 			page.tfs = tfs;
 			page.tfidf = new Array();
+			page.text = text;
 			return true;
 		}
 		else return false;
@@ -497,15 +501,19 @@ History.prototype = {
         
 	updateTfidfsBatched: function(batch, callback) {
     	var that = this;
-        this.store.getPagesBatch(batch, function(pageBatch) {
+        this.store.getTfsBatch(batch, function(pageBatch) {
         	if(pageBatch.length == 0) { callback(); return; }
                         
 			var startI = Math.max(0, that.lastComputedTfidfs - batch * that.batchSize);
-            for(var i=startI; i<pageBatch.length; i++) 
-            	that.computeShortTfidf(pageBatch[i]);
+			var updatedPageBatch = new Array();
+            for (var i = startI; i < pageBatch.length; i++) {
+				that.computeShortTfidf(pageBatch[i]);
+				updatedPageBatch.push(pageBatch[i]);
+			}
 			that.lastComputedTfidfs = batch * that.batchSize + pageBatch.length;
-            that.store.storeAllTfidfs(pageBatch, that, function() {
+            that.store.storeAllTfidfs(updatedPageBatch, that, function() {
 				delete pageBatch;
+				delete updatedPageBatch;
                 // LOOP
                 that.updateTfidfsBatched(batch+1, callback);
 			});
@@ -582,7 +590,7 @@ History.prototype = {
 		var lambda = 1 - 2/3 * page.tfidfScores[Math.min(page.tfidfScores.length, this.nTopResultsShown)-1].score;
 		var urls = new Array();
 		for(var i=0; i<page.tfidfScores.length; i++) urls.push(page.tfidfScores[i].url);	
-		this.store.getTfidfForURLs(urls, function(tfidfs) {
+		this.store.getTfidfAndTextForURLs(urls, function(tfidfs) {
 			// Tag tfidfs with score. 
 			var s = new Array();
 			for(var i=0; i<urls.length; i++) s[page.tfidfScores[i].url] = page.tfidfScores[i].score;
@@ -612,17 +620,85 @@ History.prototype = {
 							mmrMaxPage = j;
 						}
 					}
-				page.mmrScores.push({
+				
+
+				var suggestion = {
 					score: tfidfs[mmrMaxPage].score, 
 					url:tfidfs[mmrMaxPage].url, 
-					title:tfidfs[mmrMaxPage].title, 
+					title:tfidfs[mmrMaxPage].title,
 					pageIdx:mmrMaxPage,
-				});
+				};			
+				that.computeSummaryText(page, tfidfs[mmrMaxPage]);
+				
+				// Debug
+				if (i < 5) {
+					detailsPage.document.write("Summaries for: " + tfidfs[mmrMaxPage].url + "<br>");
+					for (var j = 0; (j < tfidfs[mmrMaxPage].summary.length) && (j<5); j++) {
+						var summary = tfidfs[mmrMaxPage].summary[j];
+						detailsPage.document.write(summary.score.toFixed(3) + ": " + summary.sentence + "<br>");
+					}
+					detailsPage.document.write("<br><br>");
+				}
+							
+				page.mmrScores.push(suggestion);
 				tfidfs[mmrMaxPage].inS = true;
 			}
 			
 			callback();	
 		});
+	},
+	
+	computeTfidfFromString: function(s) {
+		var tfidf = new Array();
+		var words = s.toLowerCase().match(/[a-z]+/g);
+		if ((words == null) || (words.length == 0)) return tfidf;
+
+		// Compute tfs
+		var tfs = new Array();		
+		for (var j = 0; j < words.length; j++) {
+			var word = stemmer(words[j]);
+			if (stopwords[word] != 1) 
+				if (typeof(tfs[word]) != 'number') tfs[word] = 1;
+				else tfs[word]++;
+		}
+
+		// Compute tf-idf
+		var l = 0;
+		for (var word in tfs) {
+			tfidf[word] = tfs[word] * Math.log(this.nrProcessed / (this.dfs[word] + 1)) / Math.LN2;
+			l += tfidf[word] * tfidf[word];
+		}
+		l = Math.sqrt(l);
+		
+		// Normalize
+		if(l != 0) for (var word in tfidf) tfidf[word] /= l;
+		
+		return tfidf;
+	},
+	
+	computeSummaryText: function(page, suggestion) {
+		var v1 = page.tfidf;
+		
+		var sentenceScores = new Array();
+		for(var i=0; i<suggestion.text.length; i++) {
+			var t = suggestion.text[i];
+			var sentences = t.split(/[\056;!?]/);
+			for(var j=0; j<sentences.length; j++) {
+				var sentence = sentences[j];
+				var v2 = this.computeTfidfFromString(sentence);
+
+				var s = 0;
+				for(var word in v1)
+					if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
+				sentenceScores.push({
+					sentence:sentence,
+					score:s,
+				});
+			}
+		}
+		
+		sentenceScores.sort(function(a, b){ return b.score - a.score });
+		suggestion.summary = sentenceScores;
 	},
 	
 	adjustQuery: function(query, positive, negative, feedbackParams){
@@ -712,36 +788,9 @@ History.prototype = {
 	computeSearchQueryPage: function(url, q) {
 		var that = this;
 		var pg = this.recentPages[url];
-		var query = pg.tfidf;
 				
-		// Compute the positive vector.
-		var positive = new Array();
-		
-			// Compute tfs
-		var words = q.toLowerCase().match(/[a-z]+/g);
-		if ((words == null) || (words.length == 0)) return;
-		for (var j = 0; j < words.length; j++) {
-			var word = stemmer(words[j]);
-			if (stopwords[word] != 1) 
-				if (typeof(positive[word]) != 'number') {
-					positive[word] = 1;
-					positive.length++;
-				}
-				else positive[word]++;
-		}
-
-			// Compute tf-idf
-		var l = 0;
-		for (var word in positive) {
-			positive[word] = positive[word] * Math.log(this.nrProcessed / (this.dfs[word] + 1)) / Math.LN2;
-			l += positive[word] * positive[word];
-		}
-		l = Math.sqrt(l);
-		
-			// Normalize
-		if(l == 0) return;
-		for (var word in positive) positive[word] /= l;
-		
+		var query = pg.tfidf;
+		var positive = this.computeTfidfFromString(q);
 		var negative = new Array();
 		var v = this.adjustQuery(query, positive, negative, this.feedbackParamsSearchBoxQuery);
 		
