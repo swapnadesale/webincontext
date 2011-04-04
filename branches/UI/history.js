@@ -137,6 +137,10 @@ History.prototype = {
 								url:url, 
 								title:title, 
 							}
+							var blockedURLs = new Array();
+							blockedURLs[url] = true;
+							page.blockedURLs = blockedURLs;
+							
 							if(that.computeTfsDfs(page, pageBody)) callback(page);
 							else callback(null);
 						} else callback(null);
@@ -293,6 +297,10 @@ History.prototype = {
 								url: msg.url,
 								title: msg.title,
 							};
+							var blockedURLs = new Array();
+							blockedURLs[msg.url] = true;
+							pg.blockedURLs = blockedURLs;
+							
 							var pageBody = document.createElement('body');
 							pageBody.innerHTML = msg.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
 							if (that.computeTfsDfs(pg, pageBody)) {
@@ -544,7 +552,7 @@ History.prototype = {
 
 			var v1 = page.tfidf;
             for (var i = 0; i < pageBatch.length; i++) {
-            	if (pageBatch[i].url != page.url) {
+            	if (!page.blockedURLs[pageBatch[i].url]) {
                 	var v2 = pageBatch[i].tfidf, s = 0;
                 	for(var word in v1)
                     	if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
@@ -663,8 +671,12 @@ History.prototype = {
 		
 		var pg = this.recentPages[url];
 		var otherSeenURLs = new Array();		// TODO: This is UI dependent, move to inContextWindow!
-		for(var i=0; (i<this.nTopResultsShown) && (i<pg.mmrScores.length); i++)
-			if(pg.mmrScores[i].url != clickedURL) otherSeenURLs.push(pg.mmrScores[i].url);
+		var i=0, found = false;
+		while ((i < that.nTopResultsShown) || (!found)) {
+			if (pg.mmrScores[i].url == clickedURL) found = true; 
+			else otherSeenURLs.push(pg.mmrScores[i].url);
+			i++;
+		}
 		
 		that.store.getTfidf(clickedURL, function(clickedTfidf) {
 			that.store.getTfidfForURLs(otherSeenURLs, function(otherSeenTfidfs) {
@@ -680,6 +692,15 @@ History.prototype = {
 					title: pg.title + " -> " + clickedTfidf.title,
 					tfidf: v,
 				};
+				var blockedURLs = new Array();
+				var urlParts = page.url.split(' -> ');
+				for(var i=0; i<urlParts.length; i++)							
+					if(urlParts[i].substr(0, protocol.length) == protocol)		// Block URLs:
+						blockedURLs[urlParts[i]] = true;						// * on the path.
+				for(var i=0; i<otherSeenURLs.length; i++)						// * seen one step before.
+					blockedURLs[otherSeenURLs[i]] = true;						  
+				page.blockedURLs = blockedURLs;
+							
 				callback(page);
 			});
 		});
@@ -729,6 +750,13 @@ History.prototype = {
 			title: pg.title + " -> " + q,
 			tfidf: v
 		};
+		var blockedURLs = new Array();
+		var urlParts = page.url.split(' -> ');
+		for(var i=0; i<urlParts.length; i++)
+			if(urlParts[i].substr(0, protocol.length) == protocol)
+				blockedURLs[urlParts[i]] = true;
+		page.blockedURLs = blockedURLs;
+
 		return page;
 	},
 };
