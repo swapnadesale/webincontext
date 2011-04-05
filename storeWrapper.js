@@ -7,7 +7,7 @@ StoreWrapper.prototype = {
 		var that = this;
 		
 		// Default properties.
-		this.name = merge('MyStore3', opts.name);
+		this.name = merge('MyStore4', opts.name);
 		this.version = merge('1.0', opts.version);
 		this.display = merge('Store', opts.display);
 		this.max = merge(512 * 1024 * 1024, opts.max);
@@ -16,6 +16,7 @@ StoreWrapper.prototype = {
 		this.pagesTable = merge('pagesTable', opts.pagesTable);
 		this.batchSize = merge(500, opts.batchSize);
 		this.maxVectorLength = merge(2500000, opts.maxVectorLength);
+		this.maxTextLength = merge(5000000, opts.maxVectorLength);
 		
 		// Parameter keys
 		this.keyLastProcessedHistoryEntry = "lastProcessedHistoryEntry";
@@ -33,7 +34,8 @@ StoreWrapper.prototype = {
 		this.db.transaction(function(t){
 			t.executeSql("CREATE TABLE " + that.pagesTable + " (url CHAR(4098), title CHAR(4098), " + 
 			"tfs CHAR(" + that.maxVectorLength + "), " +
-			"tfidf CHAR(" + that.maxVectorLength + "), PRIMARY KEY (url))");
+			"tfidf CHAR(" + that.maxVectorLength + "), " + 
+			"text CHAR(" + that.maxTextLength + "), PRIMARY KEY (url))");
 		});
 	},
 	
@@ -84,32 +86,24 @@ StoreWrapper.prototype = {
 		}, callback);
 	},
 	
-	getAllURLs: function(callback){
+	/*
+	 * @return	{url, tfs}
+	 */
+	getTfsBatch: function(batch, callback){
 		var that = this;
+		var offset = that.batchSize * batch;
 		this.db.transaction(function(t){
-			t.executeSql("SELECT url FROM " + that.pagesTable, [], function(tx, results){
-				var urls = new Array();
-				for (var i = 0; i < results.rows.length; i++) 
-					urls.push(results.rows.item(i).url);
-				callback(urls);
+			t.executeSql("SELECT url, tfs FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
+				callback(that.parseTfsResults(results));
 			}, function(tx, error){
-				detailsPage.document.write('Error in getAllURLs: ' + error.message + "<br>");
+				detailsPage.document.write('Error in getPagesBatch: ' + error.message + "<br>");
 			});
 		});
 	},
 	
-	getPage: function(url, callback) {
-		var that = this;
-		this.db.transaction(function(t){
-			t.executeSql("SELECT * FROM " + that.pagesTable + " WHERE url= ? ", [url], function(tx, results){
-				callback(that.parsePageResults(results)[0]);
-			}, function(tx, error){
-				detailsPage.document.write('Error in getPage: ' + error.message + "<br>");
-			});
-		});
-
-	},
-	
+	/*
+	 * @return	{url, title, tfidf}
+	 */
 	getTfidf: function(url, callback) {
 		var that = this;
 		this.db.transaction(function(t){
@@ -122,18 +116,9 @@ StoreWrapper.prototype = {
 
 	},
 	
-	getPagesBatch: function(batch, callback){
-		var that = this;
-		var offset = that.batchSize * batch;
-		this.db.transaction(function(t){
-			t.executeSql("SELECT * FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
-				callback(that.parsePageResults(results));
-			}, function(tx, error){
-				detailsPage.document.write('Error in getPagesBatch: ' + error.message + "<br>");
-			});
-		});
-	},
-	
+	/*
+	 * @return	{url, title, tfidf}
+	 */
 	getTfidfBatch: function(batch, callback){
 		var that = this;
 		var offset = that.batchSize * batch;
@@ -146,6 +131,9 @@ StoreWrapper.prototype = {
 		});
 	}, 
 	
+	/*
+	 * @return	{url, title, tfidf}
+	 */
 	getTfidfForURLs: function(urls, callback) {
 		var that = this;
 		var pages = new Array();
@@ -164,11 +152,35 @@ StoreWrapper.prototype = {
 		}, function() { callback(pages); });
 	},
 
+	/*
+	 * @return	{url, title, tfidf, text}
+	 */
+	getTfidfAndTextForURLs: function(urls, callback) {
+		var that = this;
+		var pages = new Array();
+		this.db.transaction(function(t){
+			for (var i = 0; i < urls.length; i++) {
+				t.executeSql("SELECT url, title, tfidf, text FROM " + that.pagesTable + " WHERE url= ? ", [urls[i]], 
+					function(tx, results){
+						pages.push(that.parseTfidfAndTextResult(results.rows.item(0)));
+					},
+					function(tx, error) {
+						detailsPage.document.write('Error in getTfidfAndTextForURLs - url: ' + urls[i] + " - " + error.message + "<br>");
+					});
+			}
+		}, function(error){
+			detailsPage.document.write('Error in getTfidfAndTextForURLs: ' + error.message + "<br>");
+		}, function() { callback(pages); });
+	},
+
+	/*
+	 * Replaces the entire page with the new value.
+	 */
 	storePage: function(page, history, callback){
 		var that = this;
 		this.db.transaction(function(t){
-			t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?)", 
-				[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)], 
+			t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?, ?)", 
+				[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3), that.serializePageText(page.text)], 
 				function(tx, result){
 					that.storeParams(history, callback);
 				}, 
@@ -177,14 +189,17 @@ StoreWrapper.prototype = {
 				});
 		});
 	},
-	
+
+	/*
+	 * Replaces the entire page with the new value.
+	 */
 	storeAllPages: function(pages, history, callback){
 		var that = this;
 		this.db.transaction(function(t){
 			for (var i = 0; i < pages.length; i++) {
 				var page = pages[i];
-				t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?)", 
-					[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3)], function() {}, 
+				t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?, ?)", 
+					[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3), that.serializePageText(page.text)], function() {}, 
 					function(){
 						detailsPage.document.write('Error in storeAllPages - url: ' + page.url + " - " + error.message + "<br>");	
 					});
@@ -196,6 +211,9 @@ StoreWrapper.prototype = {
 		});
 	},
 	
+	/*
+	 * Updates the tfidfs in place.
+	 */
 	storeAllTfidfs: function(pages, history, callback) {
 		var that = this;
 		this.db.transaction(function(t){
@@ -213,12 +231,24 @@ StoreWrapper.prototype = {
 		});
 	},
 	
-	parsePageResults: function(results){
+	serializePageText: function(text) {
+		var s = '';
+		for(var i=0; i<text.length; i++) s += escape(text[i]) + ', ';
+		s = s.substr(0, s.length - 2);
+		return s;
+	},
+	
+	parsePageText: function(s) {
+		var text = s.split(', ');
+		for(var i=0; i<text.length; i++) text[i] = unescape(text[i]);
+		return text;
+	},
+	
+	parseTfsResults: function(results){
 		var pageBatch = new Array();
 		for (var i = 0; i < results.rows.length; i++) {
 			var row = results.rows.item(i);
-			pageBatch.push({url:row.url, title:unescape(row.title), tfs:parseIntArray(row.tfs), 
-				tfidf:parseFloatArray(row.tfidf)});
+			pageBatch.push({url:row.url, tfs:parseIntArray(row.tfs)});
 		}
 		return pageBatch;
 	},
@@ -228,6 +258,16 @@ StoreWrapper.prototype = {
 			url:row.url, 
 			title:unescape(row.title), 
 			tfidf:parseFloatArray(row.tfidf)
+		};
+		return page;
+	},
+	
+	parseTfidfAndTextResult: function(row) {
+		var page = {
+			url:row.url, 
+			title:unescape(row.title), 
+			tfidf:parseFloatArray(row.tfidf),
+			text:this.parsePageText(row.text),
 		};
 		return page;
 	},

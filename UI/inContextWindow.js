@@ -239,7 +239,7 @@ function createDetailedPage(suggestion) {
 		'</a>');
 	$('#sw_detailedPage').append(			
 		'<p class="detailedPageSummary">' +
-			'Page summary here.. Page summary here.. Page summary here.. Page summary here.. Page summary here.. Page summary here..' +	// TODO 
+			suggestion.summary + '...' +
 		'</p>'
 	);
 	
@@ -257,7 +257,7 @@ function addSuggestions(source, nMax, w){
 				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
 					source.scores[i].title +
 				'</a>' +
-				'<img id="'+w+'_more'+i+'" class="suggestionMore" src="chrome-extension://hkkggmcdiaknkkhajaafmlgmnfcohnck/UI/arrow2.gif"></img>' +
+				'<img id="'+w+'_more'+i+'" class="suggestionMore" src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/arrow2.gif"></img>' +
 			'</li>'
 		);
 	}
