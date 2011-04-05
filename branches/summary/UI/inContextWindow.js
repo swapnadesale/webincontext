@@ -239,7 +239,7 @@ function createDetailedPage(suggestion) {
 		'</a>');
 	$('#sw_detailedPage').append(			
 		'<p class="detailedPageSummary">' +
-			'Page summary here.. Page summary here.. Page summary here.. Page summary here.. Page summary here.. Page summary here..' +	// TODO 
+			suggestion.summary + '...' +
 		'</p>'
 	);
 	

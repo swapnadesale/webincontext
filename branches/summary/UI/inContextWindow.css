@@ -69,7 +69,7 @@
  */
 
 #primaryWindow {
-	left:5px;
+	right:265px;
 }
 
 #primaryWindow #pw_titleBar {
@@ -147,7 +147,7 @@
  */
 
 #secondaryWindow {
-	left:265px;
+	right:5px;
 }
 
 #secondaryWindow #sw_detailedPage {
@@ -163,7 +163,7 @@
 
 #secondaryWindow #sw_detailedPage .detailedPageSummary {
 	height:45px;
-	padding:2px 0px 0px 10px;
+	margin-left:10px;
 }
 
 #secondaryWindow #sw_similarPages .ht_morePagesLikeThis {

@@ -626,20 +626,9 @@ History.prototype = {
 					score: tfidfs[mmrMaxPage].score, 
 					url:tfidfs[mmrMaxPage].url, 
 					title:tfidfs[mmrMaxPage].title,
+					summary:that.computeSummaryText(page, tfidfs[mmrMaxPage]),
 					pageIdx:mmrMaxPage,
-				};			
-				that.computeSummaryText(page, tfidfs[mmrMaxPage]);
-				
-				// Debug
-				if (i < 5) {
-					detailsPage.document.write("Summaries for: " + tfidfs[mmrMaxPage].url + "<br>");
-					for (var j = 0; (j < tfidfs[mmrMaxPage].summary.length) && (j<5); j++) {
-						var summary = tfidfs[mmrMaxPage].summary[j];
-						detailsPage.document.write(summary.score.toFixed(3) + ": " + summary.sentence + "<br>");
-					}
-					detailsPage.document.write("<br><br>");
-				}
-							
+				};
 				page.mmrScores.push(suggestion);
 				tfidfs[mmrMaxPage].inS = true;
 			}
@@ -648,7 +637,7 @@ History.prototype = {
 		});
 	},
 	
-	computeTfidfFromString: function(s) {
+	computeTfidfFromString: function(s, normalize) {
 		var tfidf = new Array();
 		var words = s.toLowerCase().match(/[a-z]+/g);
 		if ((words == null) || (words.length == 0)) return tfidf;
@@ -671,34 +660,90 @@ History.prototype = {
 		l = Math.sqrt(l);
 		
 		// Normalize
-		if(l != 0) for (var word in tfidf) tfidf[word] /= l;
+		if ((normalize) && (l != 0)) for (var word in tfidf) tfidf[word] /= l;
 		
 		return tfidf;
 	},
 	
 	computeSummaryText: function(page, suggestion) {
-		var v1 = page.tfidf;
-		
-		var sentenceScores = new Array();
+		var sentenceScoresQ  = new Array(), sentenceScoresD = new Array(), 
+			sentenceScoresC = new Array();
 		for(var i=0; i<suggestion.text.length; i++) {
 			var t = suggestion.text[i];
 			var sentences = t.split(/[\056;!?]/);
 			for(var j=0; j<sentences.length; j++) {
-				var sentence = sentences[j];
-				var v2 = this.computeTfidfFromString(sentence);
+				var sentence = sentences[j].slice(0, 135);
 
-				var s = 0;
-				for(var word in v1)
-					if (typeof(v2[word]) == 'number') s += v1[word] * v2[word];
-				sentenceScores.push({
-					sentence:sentence,
-					score:s,
+//				var sentenceParts = new Array();
+//				if (sentence.length <= 135) {
+//					sentenceParts.push(sentence);
+//				} 
+//				else {
+//					var re = /[a-z]+/gi, rest = sentence;
+//					while(rest.length > 135) {
+//						var s = rest.substr(0, 135);		// Cut out a sentence of <70 chars
+//						var words = s.match(re);
+//						if((words == null) || (words.length == 0)) break;
+//						s = s.substring(0, s.lastIndexOf(words[words.length - 1]));	 // Eliminate the part word at the end.
+//						sentenceParts.push(s);
+//						
+//						rest = rest.slice(rest.indexOf(words[0]) + words[0].length);	// Eliminate the first word.
+//						rest = rest.slice(rest.indexOf(words[1]));		// Advance to beginning of second word
+//					}
+//					sentenceParts.push(rest);
+//				}
+	
+				var v = this.computeTfidfFromString(sentence, false);
+				
+				// Similarity to query.
+				var v2 = page.tfidf;
+				var sQ = 0;
+				for (var word in v) 
+					if (typeof(v2[word]) == 'number') 
+						sQ += v[word] * v2[word];
+				sentenceScoresQ.push({
+					sentence: sentence,
+					score: sQ,
+				});
+				
+				// Similarity to document.
+				var v2 = suggestion.tfidf;
+				var sD = 0;
+				for (var word in v) 
+					if (typeof(v2[word]) == 'number') 
+						sD += v[word] * v2[word];
+				sentenceScoresD.push({
+					sentence: sentence,
+					score: sD,
+				});
+					
+				// Combined Similarity
+				sentenceScoresC.push({
+					sentence: sentence,
+					score: 0.7 * sQ + 0.3 * sD,
 				});
 			}
 		}
 		
-		sentenceScores.sort(function(a, b){ return b.score - a.score });
-		suggestion.summary = sentenceScores;
+		sentenceScoresQ.sort(function(a, b){ return b.score - a.score });
+		sentenceScoresD.sort(function(a, b){ return b.score - a.score });
+		sentenceScoresC.sort(function(a, b){ return b.score - a.score });
+
+		detailsPage.document.write('Summaries for: ' + suggestion.url + '<br>');
+		detailsPage.document.write('Similarity to query: <br>');
+		for(var i=0; (i<2) && (i<sentenceScoresQ.length); i++)
+			detailsPage.document.write(sentenceScoresQ[i].score.toFixed(3) + ': ' + sentenceScoresQ[i].sentence + '<br>');
+		
+//		detailsPage.document.write('<br>Relevance to document: <br>');
+//		for(var i=0; (i<2) && (i<sentenceScoresD.length); i++)
+//			detailsPage.document.write(sentenceScoresD[i].score.toFixed(3) + ': ' + sentenceScoresD[i].sentence + '<br>');
+		
+		detailsPage.document.write('<br>Combined score: <br>');
+		for(var i=0; (i<2) && (i<sentenceScoresC.length); i++)
+			detailsPage.document.write(sentenceScoresC[i].score.toFixed(3) + ': ' + sentenceScoresC[i].sentence + '<br>');
+		detailsPage.document.write("<br><br>");
+
+		return sentenceScoresC[0].sentence;
 	},
 	
 	adjustQuery: function(query, positive, negative, feedbackParams){
@@ -790,7 +835,7 @@ History.prototype = {
 		var pg = this.recentPages[url];
 				
 		var query = pg.tfidf;
-		var positive = this.computeTfidfFromString(q);
+		var positive = this.computeTfidfFromString(q, true);
 		var negative = new Array();
 		var v = this.adjustQuery(query, positive, negative, this.feedbackParamsSearchBoxQuery);
 		
