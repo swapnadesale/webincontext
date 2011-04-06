@@ -46,6 +46,9 @@
 	height:16px;
 	padding:7px 10px 7px 4px;
 }
+#primaryWindow .load_spinner, #secondaryWindow .load_spinner {
+	padding-left:10px;
+}
 
 #primaryWindow .helperText, #secondaryWindow .helperText {
 	height:17px;
@@ -129,7 +132,7 @@
 }
 
 #primaryWindow #pw_mainArea .ht_morePagesLikeDiv {
-	margin:5px 5px 15px 5px;
+	margin:5px 5px 0px 5px;
 	height:47px;
 }
 
@@ -141,6 +144,7 @@
 
 #primaryWindow #pw_mainArea .ht_morePagesLikeTitle {
 	display:inline-block;
+	vertical-align:top;
 	width:175px;
 	height:30px;
 	font-weight:bold;
