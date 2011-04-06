@@ -1,6 +1,4 @@
 #primaryWindow, #secondaryWindow {
-	position:fixed;
-	bottom:5px;
 	width:260px; 
 	height:280px;
 	background-color:rgb(250, 249, 244);
@@ -43,9 +41,10 @@
 
 #primaryWindow .suggestionMore, #secondaryWindow .suggestionMore {
 	display:inline-block;
+	vertical-align:top;
 	width:16px;
 	height:16px;
-	vertical-align:top;
+	padding:7px 10px 7px 4px;
 }
 
 #primaryWindow .helperText, #secondaryWindow .helperText {
@@ -69,7 +68,9 @@
  */
 
 #primaryWindow {
+	position:fixed;
 	right:265px;
+	bottom:5px;
 }
 
 #primaryWindow #pw_titleBar {
@@ -106,7 +107,7 @@
 }
 
 #primaryWindow #pw_mainArea .suggestion {
-	padding:0px 10px 0px 15px;
+	padding-left:15px;
 }
 
 #primaryWindow #pw_mainArea .suggestionTitle {
@@ -147,7 +148,9 @@
  */
 
 #secondaryWindow {
-	right:5px;
+	position:absolute;	/* Relative to primaryWindow*/
+	top:0px;
+	left:260px;
 }
 
 #secondaryWindow #sw_detailedPage {
@@ -171,7 +174,7 @@
 }
 
 #secondaryWindow #sw_similarPages .suggestion {
-	padding:0px 10px 0px 25px;
+	padding-left:25px;
 }
 
 #secondaryWindow #sw_similarPages .suggestionTitle {

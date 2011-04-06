@@ -751,7 +751,7 @@ History.prototype = {
 		var pg = this.recentPages[url];
 		var otherSeenURLs = new Array();		// TODO: This is UI dependent, move to inContextWindow!
 		var i=0, found = false;
-		while ((i < that.nTopResultsShown) || (!found)) {
+		while (((i<pg.mmrScores.length) && (i < that.nTopResultsShown)) || (!found)) {
 			if (pg.mmrScores[i].url == clickedURL) found = true; 
 			else otherSeenURLs.push(pg.mmrScores[i].url);
 			i++;
