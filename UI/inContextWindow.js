@@ -8,9 +8,6 @@ if (document.body != null) {
 		type:'initial',
 		ready:false 
 	});
-	var primaryWindow, secondaryWindow;
-	var primaryWindowVisible = true, secondaryWindowVisible = false;
-	
 	
 	/*
 	 * Send the body of the page to the extension to compute suggestions.
@@ -28,11 +25,16 @@ if (document.body != null) {
 	 * Create the inContext Windows
 	 * ==============================
 	 */
+	var primaryWindow, secondaryWindow;
+	var pwVisible = true, swVisible = false;
+	var swWidth, swHeight, swBottom, swRight;
+	var mouseOverShowMeMore = false;
+
 	$('body').append('<div id="primaryWindow"></div>');
-	primaryWindow = $('primaryWindow');
-	$('#primaryWindow').append('<div id="pw_titleBar" onclick = "">inContext</div>');
-	$('#primaryWindow').append('<div id="pw_mainArea"></div>');
-	$('#primaryWindow').append(
+	primaryWindow = $('#primaryWindow');
+	primaryWindow.append('<div id="pw_titleBar" onclick = "">inContext</div>');
+	primaryWindow.append('<div id="pw_mainArea"></div>');
+	primaryWindow.append(
 		'<div id="pw_searchBar">' +
 			'<form>' +
 				'<input type="text" id="searchBox" value="Search.. " ' +
@@ -41,11 +43,15 @@ if (document.body != null) {
 			'</form>' +
 		'</div>');
 	
-	$('body').append('<div id="secondaryWindow"></div>');
+	primaryWindow.append('<div id="secondaryWindow"></div>');
 	secondaryWindow = $('#secondaryWindow');
-	$('#secondaryWindow').append('<div id="sw_detailedPage"></div>');
-	$('#secondaryWindow').append('<div id="sw_similarPages"></div>');
-	$('#secondaryWindow').remove();		// Hide for now.
+	secondaryWindow.append('<div id="sw_detailedPage"></div>');
+	secondaryWindow.append('<div id="sw_similarPages"></div>');
+	swWidth = secondaryWindow.width();
+	swHeight = secondaryWindow.height();
+	swRight = getCSSSizeValue(secondaryWindow, 'right');
+	swBottom = getCSSSizeValue(secondaryWindow, 'bottom');
+	hideSecondaryWindow();
 	
 
 	/*
@@ -57,6 +63,11 @@ if (document.body != null) {
     	if(event.keyCode == 13) {
 			event.preventDefault();
 
+			// First update the UI
+			hideSecondaryWindow();			
+			createSearchPage(trace[1]);			
+
+			// Then send the request for data.
 			var query = event.target.value;
 			for(var i=trace.length-1; i>0; i--) trace.pop();	// Only keep the original suggestions.
 			trace.push({
@@ -66,14 +77,6 @@ if (document.body != null) {
 				ready:false
 			});
 			
-			// First update the UI			
-			if(secondaryWindowVisible) {
-				$('#secondaryWindow').remove();
-				secondaryWindowVisible = false;
-			}
-			createSearchPage(trace[1]);			
-
-			// Then send the request for data.
 			chrome.extension.sendRequest({
 				action: 'searchRequested',
 				url: trace[0].url,
@@ -83,42 +86,84 @@ if (document.body != null) {
   	});
 
 	/*
-	 * Listen to MoreLikeThis events.
-	 * ============================= 
+	 * Listen to mouse-over suggestion events.
+	 * ======================================= 
 	 */
-	$('.suggestionMore').live('click', function(event) {
-		// Determine what suggestion was clicked
-		var id = event.target.id;
+	var timerHover, timerHideWindow, timerMoreLikeThis;
+	var animationLength = 500;
+	var hoverDelay = hideWindowDelay = 100, moreLikeThisDelay = 500;
+
+	$('.suggestion').live('mouseenter', function(event){
+		clearTimeout(timerHover);
+		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
+		var id = target.id;
 		var w = id.slice(0,2);
-		var sourceIsTop = ((w == 'sw') || (!secondaryWindowVisible)); 
+		w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
+		
+		$(w + ' .suggestion').css('opacity', '0.5');
+		$(w + ' .suggestion:hover').css('opacity', '1.0');
+	});
+	
+	$('.suggestion').live('mouseleave', function(event){
+		timerHover = setTimeout(function() {
+			var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
+			var id = target.id;
+			var w = id.slice(0,2);
+			w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
+
+			$(w + ' .suggestion').css('opacity', '1.0');
+		}, hoverDelay);
+	});
+	
+	
+	$('.suggestionMore').live('mouseenter', function(event) {
+		clearTimeout(timerHideWindow);	
+		
+		// Determine what suggestion was clicked
+		var id = event.target.parentNode.id;
+		var w = id.slice(0,2);
+		var sourceIsTop = ((w == 'sw') || (!swVisible)); 
 		var source =  sourceIsTop ? trace[trace.length-1] : trace[trace.length-2];
 		var idx = parseInt(id.slice(7));
 		var suggestion = source.scores[idx];
+
+		if (trace[trace.length - 1].url == (source.url + ' -> ' + suggestion.url)) // If already showing this
+			return;
+
+		timerMoreLikeThis = setTimeout(function(){
+			// First update the UI
+			if (w == 'pw') showSecondaryWindow();
+			else createMorePagesLikePage(source);
+			createDetailedPage(suggestion);
+	
+			// Then send the request for data.
+			if(!sourceIsTop) trace.pop();
+			trace.push({
+				url:source.url + " -> " + suggestion.url,
+				title:source.title + " -> " + suggestion.title, 
+				type:'more',
+				ready:false
+			});
 		
-		if(!sourceIsTop) trace.pop();
-		trace.push({
-			url:source.url + " -> " + suggestion.url,
-			title:source.title + " -> " + suggestion.title, 
-			type:'more',
-			ready:false
-		});
-		
-		// First update the UI
-		if (w == 'pw') {
-			if (!secondaryWindowVisible) {
-				$('body').append(secondaryWindow);
-				secondaryWindowVisible = true;
-			}
-		}
-		else createMorePagesLikePage(source);
-		createDetailedPage(suggestion);
-		
-		// Then send the request for data.
-		chrome.extension.sendRequest({
-			action: 'moreLikeThisRequested',
-			sourceURL: source.url,
-			suggestionURL: suggestion.url,
-		});
+			chrome.extension.sendRequest({
+				action: 'moreLikeThisRequested',
+				sourceURL: source.url,
+				suggestionURL: suggestion.url,
+			});
+		}, moreLikeThisDelay);
+	});
+
+	$('.suggestionMore').live('mouseleave', function(event) {
+		clearTimeout(timerMoreLikeThis);
+		timerHideWindow = setTimeout('hideSecondaryWindow();', hideWindowDelay);
+	});
+
+	secondaryWindow.bind('mouseover', function(event) {
+		clearTimeout(timerHideWindow);	
+	});
+	
+	secondaryWindow.bind('mouseleave', function(event) {
+		timerHideWindow = setTimeout('hideSecondaryWindow();', hideWindowDelay);
 	});
 
 	/*
@@ -126,11 +171,7 @@ if (document.body != null) {
 	 * ========================
 	 */
 	$('.ht_goBack').live('click', function(event) {
-		if(secondaryWindowVisible) {
-			$('#secondaryWindow').remove();
-			secondaryWindowVisible = false;
-			trace.pop();
-		}
+		hideSecondaryWindow();
 		trace.pop();
 		
 		var source = trace[trace.length-1];
@@ -181,6 +222,20 @@ if (document.body != null) {
 	});
 }
 
+function showSecondaryWindow(){
+	swVisible = true;
+	secondaryWindow.stop();
+	secondaryWindow.animate({width:swWidth}, animationLength, 'linear');
+}
+
+function hideSecondaryWindow(){
+	if (swVisible) {
+		swVisible = false;
+		trace.pop();
+		secondaryWindow.stop();
+		secondaryWindow.animate({width: 0}, animationLength, 'linear');
+	} else secondaryWindow.width(0);	// Useful for the first time to script is run.
+}
 
 function createInitialPage(source) {
 	$('#pw_mainArea').empty();
@@ -253,12 +308,17 @@ function addSuggestions(source, nMax, w){
 	$(wDiv).append('<ul></ul>');
 	for (var i = 0; (i < source.scores.length) && (i < nMax); i++) {
 		$(wDiv + ' ul').append(
-			'<li class = "suggestion">' +
+			'<li id="'+w+'_more'+i+'" class = "suggestion">' +
 				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
 					source.scores[i].title +
 				'</a>' +
-				'<img id="'+w+'_more'+i+'" class="suggestionMore" src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/arrow2.gif"></img>' +
+				'<img class="suggestionMore" src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/arrow2.gif"></img>' +
 			'</li>'
 		);
 	}
 };
+
+function getCSSSizeValue(node, property) {
+	var s = node.css(property);
+	return parseInt(s.substr(0, s.length - 2));
+}
