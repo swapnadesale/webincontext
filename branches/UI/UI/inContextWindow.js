@@ -31,21 +31,32 @@ if (document.body != null) {
 
 	$('body').append('<div id="primaryWindow"></div>');
 	primaryWindow = $('#primaryWindow');
-	primaryWindow.append('<div id="pw_titleBar">inContext</div>');
-	primaryWindow.append('<div id="pw_mainArea"></div>');
-	primaryWindow.append(
-		'<div id="pw_searchBar">' +
-			'<form>' +
-				'<input type="text" id="searchBox" value="Search.. " ' +
-				'onfocus = \'document.getElementById("searchBox").setAttribute("value", "");\'' +
-				'onblur = \'document.getElementById("searchBox").setAttribute("value", "Search..");\' />' +
-			'</form>' +
-		'</div>');
-	
+	primaryWindow
+		.append('<div id="pw_titleBar">inContext</div>')
+		.append('<div id="pw_mainArea"></div>')
+		.append(
+			'<div id="pw_searchBar">' +
+				'<form>' +
+					'<input type="text" id="searchBox" value="Search.. " ' +
+						'onfocus = \'document.getElementById("searchBox").setAttribute("value", "");\'' +
+						'onblur = \'document.getElementById("searchBox").setAttribute("value", "Search..");\' />' +
+				'</form>' +
+			'</div>');
+	$('#pw_mainArea')
+		.empty()
+		.append('<p class = "helperText ht_initial"> Similar pages: </p>')
+		.append(
+			'<div class="load_spinner">' +
+				'Loading: ' + 
+				'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' + 
+			'</div>' 
+		);
+
 	primaryWindow.append('<div id="secondaryWindow"></div>');
 	secondaryWindow = $('#secondaryWindow');
-	secondaryWindow.append('<div id="sw_detailedPage"></div>');
-	secondaryWindow.append('<div id="sw_similarPages"></div>');
+	secondaryWindow
+		.append('<div id="sw_detailedPage"></div>')
+		.append('<div id="sw_similarPages"></div>');
 	swWidth = secondaryWindow.width();
 	swHeight = secondaryWindow.height();
 	swRight = getCSSSizeValue(secondaryWindow, 'right');
@@ -60,7 +71,7 @@ if (document.body != null) {
 	 * Listen to minimize/maximize events
 	 * ===================================
 	 */
-	primaryWindow.bind('click', function(event) {
+	$('#pw_titleBar').bind('click', function(event) {
 		primaryWindow.hide();
 		minimizedWindow.show();
 		pwVisible = false;
@@ -80,19 +91,28 @@ if (document.body != null) {
     	if(event.keyCode == 13) {
 			event.preventDefault();
 
-			// First update the UI
-			hideSecondaryWindow();			
-			createSearchPage(trace[1]);			
-
-			// Then send the request for data.
 			var query = event.target.value;
-			for(var i=trace.length-1; i>0; i--) trace.pop();	// Only keep the original suggestions.
-			trace.push({
+			var searchPage = {
 				url:trace[0].url + " -> " + query,
 				title:trace[0].title + " -> " + query, 
 				type:'search',
 				ready:false
-			});
+			};
+
+			// First update the UI
+			hideSecondaryWindow();			
+			createSearchPage(searchPage);
+			$('#pw_mainArea').append(
+				'<div class="load_spinner">' +
+					'Loading: ' + 
+					'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' + 
+				'</div>' 
+			);
+
+
+			// Then send the request for data.
+			for(var i=trace.length-1; i>0; i--) trace.pop();	// Only keep the original suggestions.
+			trace.push(searchPage);
 			
 			chrome.extension.sendRequest({
 				action: 'searchRequested',
@@ -157,7 +177,6 @@ if (document.body != null) {
 			else createMorePagesLikePage(source);
 			createDetailedPage(suggestion);
 			
-	
 			// Then send the request for data.
 			if(!sourceIsTop) trace.pop();
 			trace.push({
@@ -202,6 +221,9 @@ if (document.body != null) {
 			var source = trace[trace.length - 1];
 			switch (source.type) {
 				case 'initial':
+					$('#pw_mainArea')
+						.empty()
+						.append('<p class = "helperText ht_initial"> Similar pages: </p>');
 					createInitialPage(source);
 					break;
 				case 'search':
@@ -234,6 +256,7 @@ if (document.body != null) {
 			lastTraceEntry.scores = msg.scores;
 			lastTraceEntry.ready = true;
 			
+			$('.load_spinner').remove();
 			var type = lastTraceEntry.type;
 			switch(type) {
 				case 'initial':
@@ -268,68 +291,78 @@ function hideSecondaryWindow(){
 }
 
 function createInitialPage(source) {
-	$('#pw_mainArea').empty();
-	$('#pw_mainArea').append('<p class = "helperText ht_initial"> Similar pages: </p>');
 	addSuggestions(source, 5, 'pw');
-	$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+	$('#pw_mainArea')
+		.append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 }
 
 function createMorePagesLikePage(source) {
 	var titleSequence = source.title.split(" -> ");
 	var sourceTitle = titleSequence[titleSequence.length - 1];
 	
-	$('#pw_mainArea').empty();
-	$('#pw_mainArea').append(
-		'<div class="ht_morePagesLikeDiv">' +
-			'<div class="helperText ht_morePagesLikeHelperText">' +
-				'More pages like:' + 
-			'</div>' +
-			'<div class="helperText ht_morePagesLikeTitle">' +
-				sourceTitle +
-			'</div><br>' +
-			'<div class="helperText ht_goBack">' +
-				'<-- Go back' +
-			'</div>' +
-		'</div>'
-	);
+	$('#pw_mainArea')
+		.empty()
+		.append(
+			'<div class="ht_morePagesLikeDiv">' +
+				'<div class="helperText ht_morePagesLikeHelperText">' +
+					'More pages like:' + 
+				'</div>' +
+				'<div class="helperText ht_morePagesLikeTitle">' +
+					sourceTitle +
+				'</div><br>' +
+				'<div class="helperText ht_goBack">' +
+					'<-- Go back' +
+				'</div>' +
+			'</div>'
+		);
 	addSuggestions(source, 4, 'pw');
-	$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+	$('#pw_mainArea')
+		.append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 }
 
 function createSearchPage(source) {
 	var titleSequence = source.title.split(" -> ");
 	var query = titleSequence[titleSequence.length - 1];
 	
-	$('#pw_mainArea').empty();
-	$('#pw_mainArea').append(
-		'<div class="ht_morePagesLikeDiv">' +
-			'<div class="helperText ht_morePagesLikeHelperText">' +
-				'Pages:' + 
-			'</div>' +
-			'<div class="helperText ht_morePagesLikeTitle">' +
-				query +
-			'</div><br>' +
-			'<div class="helperText ht_goBack">' +
-				'<-- Go back' +
-			'</div>' +
-		'</div>'
-	);
+	$('#pw_mainArea')
+		.empty()
+		.append(
+			'<div class="ht_morePagesLikeDiv">' +
+				'<div class="helperText ht_morePagesLikeHelperText">' +
+					'Pages<br>related to:' + 
+				'</div>' +
+				'<div class="helperText ht_morePagesLikeTitle">' +
+					query +
+				'</div><br>' +
+				'<div class="helperText ht_goBack">' +
+					'<-- Go back' +
+				'</div>' +
+			'</div>'
+		);
 }
 
 function createDetailedPage(suggestion) {
-	$('#sw_detailedPage').empty();
-	$('#sw_detailedPage').append(
-		'<a class="detailedPageTitle" href="' + suggestion.url + '">' +
-			suggestion.title +
-		'</a>');
-	$('#sw_detailedPage').append(			
-		'<p class="detailedPageSummary">' +
-			suggestion.summary + '...' +
-		'</p>'
-	);
+	$('#sw_detailedPage')
+		.empty()
+		.append(
+			'<a class="detailedPageTitle" href="' + suggestion.url + '">' +
+				suggestion.title +
+			'</a>')
+		.append(			
+			'<p class="detailedPageSummary">' +
+				suggestion.summary + '...' +
+			'</p>'
+		);
 	
-	$('#sw_similarPages').empty();
-	$('#sw_similarPages').append('<p class = "helperText ht_morePagesLikeThis"> More pages like this: </p>');
+	$('#sw_similarPages')
+		.empty()
+		.append('<p class = "helperText ht_morePagesLikeThis"> More pages like this: </p>')
+		.append(
+			'<div class="load_spinner">' +
+				'Loading: ' + 
+				'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' + 
+			'</div>' 
+		);
 }
 
 function addSuggestions(source, nMax, w){
