@@ -28,11 +28,10 @@ if (document.body != null) {
 	var primaryWindow, secondaryWindow;
 	var pwVisible = true, swVisible = false;
 	var swWidth, swHeight, swBottom, swRight;
-	var mouseOverShowMeMore = false;
 
 	$('body').append('<div id="primaryWindow"></div>');
 	primaryWindow = $('#primaryWindow');
-	primaryWindow.append('<div id="pw_titleBar" onclick = "">inContext</div>');
+	primaryWindow.append('<div id="pw_titleBar">inContext</div>');
 	primaryWindow.append('<div id="pw_mainArea"></div>');
 	primaryWindow.append(
 		'<div id="pw_searchBar">' +
@@ -53,6 +52,24 @@ if (document.body != null) {
 	swBottom = getCSSSizeValue(secondaryWindow, 'bottom');
 	hideSecondaryWindow();
 	
+	$('body').append('<div id="minimizedWindow"></div>');
+	minimizedWindow = $('#minimizedWindow');
+	minimizedWindow.hide();
+
+	/*
+	 * Listen to minimize/maximize events
+	 * ===================================
+	 */
+	primaryWindow.bind('click', function(event) {
+		primaryWindow.hide();
+		minimizedWindow.show();
+		pwVisible = false;
+	});
+	minimizedWindow.bind('click', function(event){
+		primaryWindow.show();
+		minimizedWindow.hide();
+		pwVisible = true;
+	});
 
 	/*
 	 * Listen to search events.
@@ -89,30 +106,34 @@ if (document.body != null) {
 	 * Listen to mouse-over suggestion events.
 	 * ======================================= 
 	 */
-	var timerHover, timerHideWindow, timerMoreLikeThis;
+	var timerHoverPw, timerHoverSw, timerHideWindow, timerMoreLikeThis, timerBack;
 	var animationLength = 500;
-	var hoverDelay = hideWindowDelay = 100, moreLikeThisDelay = 500;
+	var hoverDelay = hideWindowDelay = 100, moreLikeThisDelay = backDelay = 500;
 
 	$('.suggestion').live('mouseenter', function(event){
-		clearTimeout(timerHover);
 		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
 		var id = target.id;
 		var w = id.slice(0,2);
-		w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
+		if(w == 'pw') clearTimeout(timerHoverPw)
+		else clearTimeout(timerHoverSw);
 		
-		$(w + ' .suggestion').css('opacity', '0.5');
+		w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
+		$(w + ' .suggestion').css('opacity', '0.65');
 		$(w + ' .suggestion:hover').css('opacity', '1.0');
 	});
 	
 	$('.suggestion').live('mouseleave', function(event){
-		timerHover = setTimeout(function() {
-			var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
-			var id = target.id;
-			var w = id.slice(0,2);
-			w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
-
-			$(w + ' .suggestion').css('opacity', '1.0');
-		}, hoverDelay);
+		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
+		var id = target.id;
+		var w = id.slice(0,2);
+		if(w == 'pw') 
+			timerHoverPw = setTimeout(function() { 
+				$('#primaryWindow .suggestion').css('opacity', '1.0');
+			}, hoverDelay);
+		else 
+			timerHoverSw = setTimeout(function() { 
+				$('#secondaryWindow .suggestion').css('opacity', '1.0');
+			}, hoverDelay);
 	});
 	
 	
@@ -135,6 +156,7 @@ if (document.body != null) {
 			if (w == 'pw') showSecondaryWindow();
 			else createMorePagesLikePage(source);
 			createDetailedPage(suggestion);
+			
 	
 			// Then send the request for data.
 			if(!sourceIsTop) trace.pop();
@@ -159,10 +181,12 @@ if (document.body != null) {
 	});
 
 	secondaryWindow.bind('mouseover', function(event) {
-		clearTimeout(timerHideWindow);	
+		clearTimeout(timerHoverPw);
+		clearTimeout(timerHideWindow);
 	});
 	
 	secondaryWindow.bind('mouseleave', function(event) {
+		$('#primaryWindow .suggestion').css('opacity', '1.0');
 		timerHideWindow = setTimeout('hideSecondaryWindow();', hideWindowDelay);
 	});
 
@@ -170,24 +194,30 @@ if (document.body != null) {
 	 * Listen to goBack events.
 	 * ========================
 	 */
-	$('.ht_goBack').live('click', function(event) {
-		hideSecondaryWindow();
-		trace.pop();
-		
-		var source = trace[trace.length-1];
-		switch(source.type) {
-			case 'initial': 
-				createInitialPage(source);
-				break;
-			case 'search':
-				createSearchPage(source);
-				addSuggestions(source, 4, 'pw');
-				$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
-				break;
-			case 'more':
-				createMorePagesLikePage(source);	
-				break;
-		}
+	$('.ht_goBack').live('mouseenter', function(event) {
+		timerBack = setTimeout(function(){
+			hideSecondaryWindow();
+			trace.pop();
+			
+			var source = trace[trace.length - 1];
+			switch (source.type) {
+				case 'initial':
+					createInitialPage(source);
+					break;
+				case 'search':
+					createSearchPage(source);
+					addSuggestions(source, 4, 'pw');
+					$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+					break;
+				case 'more':
+					createMorePagesLikePage(source);
+					break;
+			}
+		}, backDelay);
+	});
+	
+	$('.ht_goBack').live('mouseleave', function(event) {
+		clearTimeout(timerBack);
 	});
 
 	$('.ht_evenMore').live('click', function(event) {

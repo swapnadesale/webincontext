@@ -48,7 +48,7 @@
 }
 
 #primaryWindow .helperText, #secondaryWindow .helperText {
-	height:15px;
+	height:17px;
 } 
 
 #primaryWindow .helperText.ht_evenMore, #secondaryWindow .helperText.ht_evenMore {
@@ -71,6 +71,16 @@
 	position:fixed;
 	right:265px;
 	bottom:5px;
+}
+
+#minimizedWindow {
+	position:fixed;
+	right:265px;
+	bottom:5px;
+	width:250px;
+	height:20px;
+	border-radius:4px 4px 0px 0px;
+	background-color:rgb(47, 78, 84);
 }
 
 #primaryWindow #pw_titleBar {
@@ -120,7 +130,7 @@
 
 #primaryWindow #pw_mainArea .ht_morePagesLikeDiv {
 	margin:5px 5px 15px 5px;
-	height:45px;
+	height:47px;
 }
 
 #primaryWindow #pw_mainArea .ht_morePagesLikeHelperText {
@@ -136,7 +146,7 @@
 	font-weight:bold;
 }
 
-#primaryWindow .helperText.ht_goBack:hover {
+#primaryWindow .ht_goBack:hover {
 	text-decoration:underline;
 }
 
