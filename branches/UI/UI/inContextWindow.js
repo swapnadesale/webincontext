@@ -1,12 +1,12 @@
-if (document.body != null) {
+if ((!filterURL(document.URL)) && (document.body != null)) {
 	var title = (document.title != null) ? document.title : document.URL;
 	
 	var trace = new Array();
-	trace.push({ 
-		url: document.URL, 
-		title:title, 
-		type:'initial',
-		ready:false 
+	trace.push({
+		url: document.URL,
+		title: title,
+		type: 'initial',
+		ready: false
 	});
 	
 	/*
@@ -18,17 +18,24 @@ if (document.body != null) {
 		url: document.URL,
 		title: title,
 		body: document.body.innerHTML
+	}, function(historyLoaded){
+		if (historyLoaded) {
+			createInContextWindow();
+		}
 	});
+}
 
 
-	/*
-	 * Create the inContext Windows
-	 * ==============================
-	 */
-	var primaryWindow, secondaryWindow;
-	var pwVisible = true, swVisible = false;
-	var swWidth, swHeight, swBottom, swRight;
+var primaryWindow, secondaryWindow;
+var pwVisible = true, swVisible = false;
+var swWidth, swHeight, swBottom, swRight;
 
+var timerHoverPw, timerHoverSw, timerHideWindow, timerMoreLikeThis, timerBack;
+var animationLength = 200;
+var hoverDelay = hideWindowDelay = 100, moreLikeThisDelay = backDelay = 500;
+
+
+function createInContextWindow(){
 	$('body').append('<div id="primaryWindow"></div>');
 	primaryWindow = $('#primaryWindow');
 	primaryWindow
@@ -47,11 +54,11 @@ if (document.body != null) {
 		.append('<p class = "helperText ht_initial"> Similar pages: </p>')
 		.append(
 			'<div class="load_spinner">' +
-				'Loading: ' + 
-				'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' + 
-			'</div>' 
+				'Loading: ' +
+				'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' +
+			'</div>'
 		);
-
+	
 	primaryWindow.append('<div id="secondaryWindow"></div>');
 	secondaryWindow = $('#secondaryWindow');
 	secondaryWindow
@@ -66,12 +73,12 @@ if (document.body != null) {
 	$('body').append('<div id="minimizedWindow"></div>');
 	minimizedWindow = $('#minimizedWindow');
 	minimizedWindow.hide();
-
+	
 	/*
 	 * Listen to minimize/maximize events
 	 * ===================================
 	 */
-	$('#pw_titleBar').bind('click', function(event) {
+	$('#pw_titleBar').bind('click', function(event){
 		primaryWindow.hide();
 		minimizedWindow.show();
 		pwVisible = false;
@@ -81,37 +88,36 @@ if (document.body != null) {
 		minimizedWindow.hide();
 		pwVisible = true;
 	});
-
+	
 	/*
 	 * Listen to search events.
 	 * =======================
 	 */
-	
 	$('#pw_searchBar input').live('keydown', function(event){
-    	if(event.keyCode == 13) {
+		if (event.keyCode == 13) {
 			event.preventDefault();
-
+			
 			var query = event.target.value;
 			var searchPage = {
-				url:trace[0].url + " -> " + query,
-				title:trace[0].title + " -> " + query, 
-				type:'search',
-				ready:false
+				url: trace[0].url + " -> " + query,
+				title: trace[0].title + " -> " + query,
+				type: 'search',
+				ready: false
 			};
-
+			
 			// First update the UI
-			hideSecondaryWindow();			
+			hideSecondaryWindow();
 			createSearchPage(searchPage);
 			$('#pw_mainArea').append(
 				'<div class="load_spinner">' +
-					'Loading: ' + 
-					'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' + 
-				'</div>' 
+					'Loading: ' +
+					'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' +
+				'</div>'
 			);
-
-
+			
 			// Then send the request for data.
-			for(var i=trace.length-1; i>0; i--) trace.pop();	// Only keep the original suggestions.
+			for (var i = trace.length - 1; i > 0; i--) 
+				trace.pop(); // Only keep the original suggestions.
 			trace.push(searchPage);
 			
 			chrome.extension.sendRequest({
@@ -119,23 +125,21 @@ if (document.body != null) {
 				url: trace[0].url,
 				query: query,
 			});
-    	}
-  	});
-
+		}
+	});
+	
 	/*
 	 * Listen to mouse-over suggestion events.
-	 * ======================================= 
+	 * =======================================
 	 */
-	var timerHoverPw, timerHoverSw, timerHideWindow, timerMoreLikeThis, timerBack;
-	var animationLength = 500;
-	var hoverDelay = hideWindowDelay = 100, moreLikeThisDelay = backDelay = 500;
-
 	$('.suggestion').live('mouseenter', function(event){
 		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
 		var id = target.id;
-		var w = id.slice(0,2);
-		if(w == 'pw') clearTimeout(timerHoverPw)
-		else clearTimeout(timerHoverSw);
+		var w = id.slice(0, 2);
+		if (w == 'pw') 
+			clearTimeout(timerHoverPw)
+		else 
+			clearTimeout(timerHoverSw);
 		
 		w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
 		$(w + ' .suggestion').css('opacity', '0.65');
@@ -145,47 +149,50 @@ if (document.body != null) {
 	$('.suggestion').live('mouseleave', function(event){
 		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
 		var id = target.id;
-		var w = id.slice(0,2);
-		if(w == 'pw') 
-			timerHoverPw = setTimeout(function() { 
+		var w = id.slice(0, 2);
+		if (w == 'pw') 
+			timerHoverPw = setTimeout(function(){
 				$('#primaryWindow .suggestion').css('opacity', '1.0');
 			}, hoverDelay);
 		else 
-			timerHoverSw = setTimeout(function() { 
+			timerHoverSw = setTimeout(function(){
 				$('#secondaryWindow .suggestion').css('opacity', '1.0');
 			}, hoverDelay);
 	});
 	
 	
-	$('.suggestionMore').live('mouseenter', function(event) {
-		clearTimeout(timerHideWindow);	
+	$('.suggestionMore').live('mouseenter', function(event){
+		clearTimeout(timerHideWindow);
 		
 		// Determine what suggestion was clicked
 		var id = event.target.parentNode.id;
-		var w = id.slice(0,2);
-		var sourceIsTop = ((w == 'sw') || (!swVisible)); 
-		var source =  sourceIsTop ? trace[trace.length-1] : trace[trace.length-2];
+		var w = id.slice(0, 2);
+		var sourceIsTop = ((w == 'sw') || (!swVisible));
+		var source = sourceIsTop ? trace[trace.length - 1] : trace[trace.length - 2];
 		var idx = parseInt(id.slice(7));
 		var suggestion = source.scores[idx];
-
+		
 		if (trace[trace.length - 1].url == (source.url + ' -> ' + suggestion.url)) // If already showing this
 			return;
-
+		
 		timerMoreLikeThis = setTimeout(function(){
 			// First update the UI
-			if (w == 'pw') showSecondaryWindow();
-			else createMorePagesLikePage(source);
+			if (w == 'pw') 
+				showSecondaryWindow();
+			else 
+				createMorePagesLikePage(source);
 			createDetailedPage(suggestion);
 			
 			// Then send the request for data.
-			if(!sourceIsTop) trace.pop();
+			if (!sourceIsTop) 
+				trace.pop();
 			trace.push({
-				url:source.url + " -> " + suggestion.url,
-				title:source.title + " -> " + suggestion.title, 
-				type:'more',
-				ready:false
+				url: source.url + " -> " + suggestion.url,
+				title: source.title + " -> " + suggestion.title,
+				type: 'more',
+				ready: false
 			});
-		
+			
 			chrome.extension.sendRequest({
 				action: 'moreLikeThisRequested',
 				sourceURL: source.url,
@@ -193,42 +200,42 @@ if (document.body != null) {
 			});
 		}, moreLikeThisDelay);
 	});
-
-	$('.suggestionMore').live('mouseleave', function(event) {
+	
+	$('.suggestionMore').live('mouseleave', function(event){
 		clearTimeout(timerMoreLikeThis);
 		timerHideWindow = setTimeout('hideSecondaryWindow();', hideWindowDelay);
 	});
-
-	secondaryWindow.bind('mouseover', function(event) {
+	
+	secondaryWindow.bind('mouseover', function(event){
 		clearTimeout(timerHoverPw);
 		clearTimeout(timerHideWindow);
 	});
 	
-	secondaryWindow.bind('mouseleave', function(event) {
+	secondaryWindow.bind('mouseleave', function(event){
 		$('#primaryWindow .suggestion').css('opacity', '1.0');
 		timerHideWindow = setTimeout('hideSecondaryWindow();', hideWindowDelay);
 	});
-
-	$('.ht_evenMore').live('click', function(event) {
+	
+	$('.ht_evenMore').live('click', function(event){
 		var w = event.target.parentNode.id.slice(0, 2);
-		var sourceIsTop = ((w == 'sw') || (!swVisible)); 
-		var source =  sourceIsTop ? trace[trace.length-1] : trace[trace.length-2];
+		var sourceIsTop = ((w == 'sw') || (!swVisible));
+		var source = sourceIsTop ? trace[trace.length - 1] : trace[trace.length - 2];
 		addMoreSuggestions(source, w)
-
+		
 		// Readjust the width of the text to fit with the scroll bar.
 		var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
 		var currentWidth = getCSSSizeValue($(wDiv + ' .suggestionTitle'), 'width');
-		$(wDiv + ' .suggestionTitle').css('width', currentWidth-12);
+		$(wDiv + ' .suggestionTitle').css('width', currentWidth - 12);
 		
 		$(wDiv + ' ul').jScrollPane();
 	});
-
-
+	
+	
 	/*
 	 * Listen to goBack events.
 	 * ========================
 	 */
-	$('.ht_goBack').live('click', function(event) {
+	$('.ht_goBack').live('click', function(event){
 		hideSecondaryWindow();
 		trace.pop();
 		
@@ -236,48 +243,45 @@ if (document.body != null) {
 		switch (source.type) {
 			case 'initial':
 				$('#pw_mainArea').empty().append('<p class = "helperText ht_initial"> Similar pages: </p>');
-				createInitialPage(source);
+				addSuggestions(source, 5, 'pw');
 				break;
 			case 'search':
 				createSearchPage(source);
 				addSuggestions(source, 4, 'pw');
-				$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 				break;
 			case 'more':
 				createMorePagesLikePage(source);
 				break;
 		}
 	});
-
+	
 	/*
 	 * Listen for suggestions computed events from the background page.
 	 * ================================================================
 	 */
-	chrome.extension.onRequest.addListener(function(msg) {
-		var lastTraceEntry = trace[trace.length-1];
-		if((msg.url == lastTraceEntry.url) && (!lastTraceEntry.ready)) {	// If I obtained the last thing I requested.
+	chrome.extension.onRequest.addListener(function(msg){
+		var lastTraceEntry = trace[trace.length - 1];
+		if ((msg.url == lastTraceEntry.url) && (!lastTraceEntry.ready)) { // If I obtained the last thing I requested.
 			lastTraceEntry.scores = msg.scores;
 			lastTraceEntry.ready = true;
 			
 			$('.load_spinner').remove();
 			var type = lastTraceEntry.type;
-			switch(type) {
+			switch (type) {
 				case 'initial':
-					createInitialPage(msg);
+					addSuggestions(msg, 5, 'pw');
 					break;
 				case 'search':
 					addSuggestions(msg, 4, 'pw');
-					$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+					$('#pw_mainArea ul').addClass('search');
 					break;
 				case 'more':
 					addSuggestions(msg, 4, 'sw');
-					$('#sw_similarPages').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 					break;
- 			};
+			};
 		}
 	});
 }
-
 
 /*
  * UI Construction functions.
@@ -297,12 +301,6 @@ function hideSecondaryWindow(){
 		secondaryWindow.stop();
 		secondaryWindow.animate({width: 0}, animationLength, 'linear');
 	} else secondaryWindow.width(0);	// Useful for the first time to script is run.
-}
-
-function createInitialPage(source) {
-	addSuggestions(source, 5, 'pw');
-	$('#pw_mainArea')
-		.append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 }
 
 function createMorePagesLikePage(source) {
@@ -325,8 +323,7 @@ function createMorePagesLikePage(source) {
 			'</div>'
 		);
 	addSuggestions(source, 4, 'pw');
-	$('#pw_mainArea')
-		.append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+	$('#pw_mainArea ul').addClass('morePagesLike');
 }
 
 function createSearchPage(source) {
@@ -387,9 +384,13 @@ function suggestionString(source, i, w) {
 function addSuggestions(source, nMax, w){
 	var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
 	
-	$(wDiv).append('<ul></ul>');
-	for (var i = 0; (i < source.scores.length) && (i < nMax); i++)
-		$(wDiv + ' ul').append(suggestionString(source, i, w));
+	if (source.scores.length > 0) {
+		$(wDiv).append('<ul></ul>');
+		for (var i = 0; (i < source.scores.length) && (i < nMax); i++) 
+			$(wDiv + ' ul').append(suggestionString(source, i, w));
+		$(wDiv).append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+	} else
+		$(wDiv).append('<div class="helperText ht_noSimilarPages">No similar pages to show!</div>');
 };
 
 function addMoreSuggestions(source, w) {

@@ -4,14 +4,10 @@ var wordlist = ["a", "a's", "able", "about", "above", "according", "accordingly"
 var stopwords = new Array();
 for(var i=0; i<wordlist.length; i++) stopwords[wordlist[i]] = 1;
 
-var stopwebsites = ["google", "youtube", "facebook", "twitter", "yahoo", "okcupid"];
-var protocol = "http://";
-
 var nodelist = ['DIV', 'SPAN', 'NOSCRIPT', 'CENTER', 'LAYER', 'LABEL', 'UL', 'OL', 'LI', 'DL', 'DD', 'DT', 'TABLE', 'TBODY', 'TH', 'TD', 'TR', 'FORM', 'SELECT', 'OPTION', 'OPTGROUP'];
 var structureNodes = new Array();
 for(var i=0; i<nodelist.length; i++) structureNodes[nodelist[i]] = 1;
 
-domainReg = new RegExp(protocol+"[a-zA-Z0-9\x2D\x2E\x3A\x5F]*"+"/", "");
 
 var History = function(opts) {
 	this.init(opts);
@@ -20,7 +16,6 @@ var History = function(opts) {
 History.prototype = {
 	// Initializes all history fields.
 	init: function(opts){
-		this.ready = false;
 		this.lastProcessedHistoryEntry = 0;
 		this.nrProcessed = 0;
 		this.unprocessed = new Array();
@@ -35,7 +30,7 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 									
 		// Default properties
-		this.maxHistoryEntries = merge(2000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(200, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -55,6 +50,11 @@ History.prototype = {
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({batchSize:this.batchSize});
 		else this.store = opts.store;
+		
+		this.extensionNotReadyListener = function(msg, sender, sendResponse) {
+			if(msg.action == 'pageLoaded') sendResponse(false);
+		}
+		chrome.extension.onRequest.addListener(this.extensionNotReadyListener);
 		
 		Math.seedrandom('random');
 	},
@@ -113,7 +113,7 @@ History.prototype = {
 
 		this.lastProcessedHistoryEntry = entry.lastVisitTime;		
 		var url = entry.url;
-		if (this.filterURL(url)) { callback(null); return; } // If filtered, continue.
+		if (filterURL(url)) { callback(null); return; } // If filtered, continue.
 
 		// Try loading the page, through an async send request.
 		try {
@@ -141,8 +141,8 @@ History.prototype = {
 							blockedURLs[url] = true;
 							page.blockedURLs = blockedURLs;
 							
-							if(that.computeTfsDfs(page, pageBody)) callback(page);
-							else callback(null);
+							that.computeTfsDfs(page, pageBody);
+							callback(page);
 						} else callback(null);
 					} else callback(null);
 				}
@@ -163,7 +163,7 @@ History.prototype = {
 		var firstBatch = Math.floor(this.lastComputedTfidfs/this.batchSize);
 		this.updateTfidfs(firstBatch, function() {
 			that.registerForEvents();
-			that.ready = true;
+			chrome.extension.onRequest.removeListener(that.extensionNotReadyListener);
 			callback();
 		});
 	},
@@ -277,12 +277,12 @@ History.prototype = {
 
 			// 3. Set up listeners for messages from inContext windows: prepares and adds incoming requests from the inContext window.
 			// =======================================================================================================================
-			chrome.extension.onRequest.addListener(function(msg, sender){
+			chrome.extension.onRequest.addListener(function(msg, sender, sendResponse){
 				var pg;
 				switch (msg.action) {
 					case 'pageLoaded':
-						if (that.filterURL(msg.url)) return;	// TODO: display a better message.
-						
+						sendResponse(true);
+					
 						if (that.recentPages[msg.url] != null)	// TODO: clean this up a bit.
 							addRequest({url:msg.url}, sender.tab.id);
 						else {
@@ -296,16 +296,15 @@ History.prototype = {
 							
 							var pageBody = document.createElement('body');
 							pageBody.innerHTML = msg.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
-							if (that.computeTfsDfs(pg, pageBody)) {
-								that.updateLogIdfs();
-								that.computeShortTfidf(pg);
-								that.store.storePage(pg, that, function(){
-									if (that.nrProcessed % that.batchSize == 0) // TODO: Use another divisor here?
-										that.updateTfidfs(0, function(){
-										});
+							that.computeTfsDfs(pg, pageBody)
+							that.updateLogIdfs();
+							that.computeShortTfidf(pg);
+							that.store.storePage(pg, that, function(){
+								if (that.nrProcessed % that.batchSize == 0) // TODO: Use another divisor here?
+									that.updateTfidfs(0, function(){
 								});
-								addRequest(pg, sender.tab.id);
-							}
+							});
+							addRequest(pg, sender.tab.id);
 						}
 						break;
 						
@@ -404,14 +403,6 @@ History.prototype = {
 		});
 	},
 	
-	filterURL: function(url){
-		if (url.substr(0, protocol.length) != protocol) return true;
-		var domain = url.match(domainReg)[0];
-		for (var i = 0; i < stopwebsites.length; i++) 
-			if (domain.match(stopwebsites[i])) return true;
-		return false;
-	},
-	
 	extractPageParts: function(node, pageParts){
 		var rest = "";
 		for (var i = 0, l = node.childNodes.length; i < l; i++) {
@@ -426,8 +417,7 @@ History.prototype = {
 	},
 	
 	/*
-	 * @return	true if document contains non-empty parts, false otherwise.
-	 * 			Adds tfs, tfidf=[] to the page in place.
+	 * 	Adds tfs, tfidf=[] to the page in place.
 	 */
 	computeTfsDfs: function(page, body){
 		var textGeneral = this.extractPageParts(body, new Array());
@@ -474,20 +464,11 @@ History.prototype = {
 		this.nrProcessed++;
 		
 		var tfs, text;
-		if (specific) { 
-			tfs = tfsSpecific; 
-			text = textSpecific; 
-		} else { 
-			tfs = tfsGeneral; 
-			text = textGeneral; 
-		}
-		if (tfs.length > 0) {
-			page.tfs = tfs;
-			page.tfidf = new Array();
-			page.text = text;
-			return true;
-		}
-		else return false;
+		if (specific) { tfs = tfsSpecific; text = textSpecific; } 
+		else { tfs = tfsGeneral; text = textGeneral; }
+		page.tfs = tfs;
+		page.tfidf = new Array();
+		page.text = text;
 	},
 
 	updateLogIdfs: function() {
