@@ -209,42 +209,45 @@ if (document.body != null) {
 		timerHideWindow = setTimeout('hideSecondaryWindow();', hideWindowDelay);
 	});
 
+	$('.ht_evenMore').live('click', function(event) {
+		var w = event.target.parentNode.id.slice(0, 2);
+		var sourceIsTop = ((w == 'sw') || (!swVisible)); 
+		var source =  sourceIsTop ? trace[trace.length-1] : trace[trace.length-2];
+		addMoreSuggestions(source, w)
+
+		// Readjust the width of the text to fit with the scroll bar.
+		var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
+		var currentWidth = getCSSSizeValue($(wDiv + ' .suggestionTitle'), 'width');
+		$(wDiv + ' .suggestionTitle').css('width', currentWidth-12);
+		
+		$(wDiv + ' ul').jScrollPane();
+	});
+
+
 	/*
 	 * Listen to goBack events.
 	 * ========================
 	 */
-	$('.ht_goBack').live('mouseenter', function(event) {
-		timerBack = setTimeout(function(){
-			hideSecondaryWindow();
-			trace.pop();
-			
-			var source = trace[trace.length - 1];
-			switch (source.type) {
-				case 'initial':
-					$('#pw_mainArea')
-						.empty()
-						.append('<p class = "helperText ht_initial"> Similar pages: </p>');
-					createInitialPage(source);
-					break;
-				case 'search':
-					createSearchPage(source);
-					addSuggestions(source, 4, 'pw');
-					$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
-					break;
-				case 'more':
-					createMorePagesLikePage(source);
-					break;
-			}
-		}, backDelay);
+	$('.ht_goBack').live('click', function(event) {
+		hideSecondaryWindow();
+		trace.pop();
+		
+		var source = trace[trace.length - 1];
+		switch (source.type) {
+			case 'initial':
+				$('#pw_mainArea').empty().append('<p class = "helperText ht_initial"> Similar pages: </p>');
+				createInitialPage(source);
+				break;
+			case 'search':
+				createSearchPage(source);
+				addSuggestions(source, 4, 'pw');
+				$('#pw_mainArea').append('<p class = "helperText ht_evenMore"> Even more.. </p>');
+				break;
+			case 'more':
+				createMorePagesLikePage(source);
+				break;
+		}
 	});
-	
-	$('.ht_goBack').live('mouseleave', function(event) {
-		clearTimeout(timerBack);
-	});
-
-	$('.ht_evenMore').live('click', function(event) {
-	});
-
 
 	/*
 	 * Listen for suggestions computed events from the background page.
@@ -274,6 +277,12 @@ if (document.body != null) {
 		}
 	});
 }
+
+
+/*
+ * UI Construction functions.
+ * ==========================
+ */
 
 function showSecondaryWindow(){
 	swVisible = true;
@@ -365,21 +374,30 @@ function createDetailedPage(suggestion) {
 		);
 }
 
-function addSuggestions(source, nMax, w){
-	var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
-	
-	$(wDiv).append('<ul></ul>');
-	for (var i = 0; (i < source.scores.length) && (i < nMax); i++) {
-		$(wDiv + ' ul').append(
-			'<li id="'+w+'_more'+i+'" class = "suggestion">' +
+function suggestionString(source, i, w) {
+	var s = '<li id="'+w+'_more'+i+'" class = "suggestion">' +
 				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
 					source.scores[i].title +
 				'</a>' +
 				'<img class="suggestionMore" src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/arrow2.gif"></img>' +
-			'</li>'
-		);
-	}
+			'</li>';
+	return s;
+}
+
+function addSuggestions(source, nMax, w){
+	var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
+	
+	$(wDiv).append('<ul></ul>');
+	for (var i = 0; (i < source.scores.length) && (i < nMax); i++)
+		$(wDiv + ' ul').append(suggestionString(source, i, w));
 };
+
+function addMoreSuggestions(source, w) {
+	var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
+	var nExisting = $(wDiv + ' ul li').length;
+	for (var i = nExisting; (i < source.scores.length) && (i < 100); i++)
+		$(wDiv + ' ul').append(suggestionString(source, i, w));
+}
 
 function getCSSSizeValue(node, property) {
 	var s = node.css(property);

@@ -37,6 +37,7 @@
 #primaryWindow .suggestionTitle, #secondaryWindow .suggestionTitle {
 	display:inline-block;
 	font-weight:bold;
+	height:30px;
 }
 
 #primaryWindow .suggestionMore, #secondaryWindow .suggestionMore {
@@ -54,20 +55,18 @@
 	height:17px;
 } 
 
-#primaryWindow .helperText.ht_evenMore, #secondaryWindow .helperText.ht_evenMore {
+#primaryWindow .ht_evenMore, #secondaryWindow .ht_evenMore {
 	position:absolute;
 	right:0px;
 }
 
-#primaryWindow .helperText.ht_evenMore:hover, #secondaryWindow .helperText.ht_evenMore:hover {
+#primaryWindow .ht_evenMore:hover, #secondaryWindow .ht_evenMore:hover {
 	text-decoration:underline;
 }
 
 /* 
  * Primary Window
  * ==============
- * Total height: 280 = 20 (titleBar) + 25 (searchBar) + 
- * 		[2*15 (helperText) + 5*30 + 6*7 (suggestions + padding)) + 5+8 (extra padding between sections)]
  */
 
 #primaryWindow {
@@ -87,12 +86,15 @@
 }
 
 #primaryWindow #pw_titleBar {
-	width:250px;
 	height:20px;
 	padding-right:10px;
 	border-radius:4px 4px 0px 0px;
 	background-color:rgb(47, 78, 84);
 	color:rgb(250, 249, 244);
+}
+
+#primaryWindow #pw_mainArea {
+	height:235px;
 }
 
 #primaryWindow #pw_searchBar {
@@ -107,15 +109,8 @@
 	border-width:2px 0px 0px 0px;
 }
 
-#primaryWindow #pw_searchBar input {
-	color:rgb(100, 120, 125);
-}
-
-#primaryWindow #pw_mainArea {
-	height:230px;	
-}
-
 #primaryWindow #pw_mainArea ul {
+	height:195px;	/* 235px (mainArea) - 23px (ht_initial) - 17px (ht_evenMore) */
 	list-style-type:none;	
 }
 
@@ -125,6 +120,10 @@
 
 #primaryWindow #pw_mainArea .suggestionTitle {
 	width:215px;
+}
+
+#primaryWindow #pw_searchBar input {
+	color:rgb(100, 120, 125);
 }
 
 #primaryWindow #pw_mainArea .ht_initial {
@@ -169,7 +168,11 @@
 
 #secondaryWindow #sw_detailedPage {
 	margin:5px 10px 15px 10px;
-	height:75px;
+	height:75px;	/* total: 95px */ 
+}
+
+#secondaryWindow #sw_similarPages {
+	height:185px;
 }
 
 #secondaryWindow #sw_detailedPage .detailedPageTitle {
@@ -183,8 +186,8 @@
 	margin-left:10px;
 }
 
-#secondaryWindow #sw_similarPages .ht_morePagesLikeThis {
-	margin-right:10px;
+#secondaryWindow #sw_similarPages ul {
+	height:150px;
 }
 
 #secondaryWindow #sw_similarPages .suggestion {
@@ -193,4 +196,76 @@
 
 #secondaryWindow #sw_similarPages .suggestionTitle {
 	width:205px;
+}
+
+#secondaryWindow #sw_similarPages .ht_morePagesLikeThis {
+	margin-right:10px;
+}
+
+
+
+/*
+ * Scrollbars
+ * ==========
+ */
+
+#primaryWindow .jspContainer, #secondaryWindow .jspContainer {
+	overflow: hidden;
+	position: relative;
+}
+
+#primaryWindow .jspPane, #secondaryWindow .jspPane {
+	position: absolute;
+}
+
+#primaryWindow .jspVerticalBar, #secondaryWindow .jspVerticalBar {
+	position: absolute;
+	top: 0;
+	right: 0;
+	margin: 0;
+	padding: 0;
+	width: 8px;
+	height: 100%;
+	background: red;
+}
+
+#primaryWindow .jspCap, #secondaryWindow .jspCap {
+	display: none;
+	float: left;
+}
+
+#primaryWindow .jspTrack, #secondaryWindow .jspTrack {
+	background-color:rgb(220, 230, 235);
+	position: relative;
+}
+
+#primaryWindow .jspDrag, #secondaryWindow .jspDrag {
+	background-color:rgb(47, 78, 84);
+	position: relative;
+	top: 0;
+	left: 0;
+	cursor: pointer;
+}
+
+#primaryWindow .jspArrow, #secondaryWindow .jspArrow {
+	height: 16px;
+	background: #50506d;
+	text-indent: -20000px;
+	display: block;
+	cursor: pointer;
+}
+
+#primaryWindow .jspArrow.jspDisabled, #secondaryWindow .jspArrow.jspDisabled {
+	cursor: default;
+	background: #80808d;
+}
+
+#primaryWindow .jspArrow:focus, #secondaryWindow .jspArrow:focus {
+	outline: none;
+}
+
+#primaryWindow .jspCorner, #secondaryWindow .jspCorner {
+	background: #eeeef4;
+	float: left;
+	height: 100%;
 }
