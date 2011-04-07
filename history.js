@@ -157,7 +157,6 @@ History.prototype = {
 					} else callback(null);
 				}
 			}
-			detailsPage.document.write(that.nrProcessed + ": " + url + "<br>");
 			req.send();
 		} 
 		catch (err) { 
@@ -288,6 +287,7 @@ History.prototype = {
 			// 3. Set up listeners for messages from inContext windows: prepares and adds incoming requests from the inContext window.
 			// =======================================================================================================================
 			chrome.extension.onRequest.addListener(function(msg, sender, sendResponse){
+				var startTime = (new Date()).getTime();
 				var pg;
 				switch (msg.action) {
 					case 'pageLoaded':
@@ -303,6 +303,7 @@ History.prototype = {
 							var blockedURLs = new Array();
 							blockedURLs[msg.url] = true;
 							pg.blockedURLs = blockedURLs;
+							pg.startTime = startTime; 
 							
 							var pageBody = document.createElement('body');
 							pageBody.innerHTML = msg.body.replace(/<script[^>]*?>[\s\S]*?<\/script>|<style[^>]*?>[\s\S]*?<\/style>|<noscript[^>]*?>[\s\S]*?<\/noscript>/ig, '');
@@ -324,6 +325,7 @@ History.prototype = {
 							addRequest({url:resultURL}, sender.tab.id);
 						else 
 							that.computeMoreLikeThisPage(msg.sourceURL, msg.suggestionURL, function(pg){
+								pg.startTime = startTime;
 								addRequest(pg, sender.tab.id);							
 							});
 						break;
@@ -334,6 +336,7 @@ History.prototype = {
 							addRequest({url:resultURL}, sender.tab.id);
 						else {
 							pg = that.computeSearchQueryPage(msg.url, msg.query);
+							pg.startTime = startTime;
 							addRequest(pg, sender.tab.id);
 						}
 						break;
@@ -374,7 +377,7 @@ History.prototype = {
 					setTimeout(function(){loop();}, 100);	// Wait a bit and try again
 					return;
 				}
-				detailsPage.document.write('Servicing: ' + url + '. <br>');
+//				detailsPage.document.write('Servicing: ' + url + '. <br>');
 				
 				// 4.2. Service the request.
 				// =========================
@@ -394,7 +397,10 @@ History.prototype = {
 						break;
 					case 'computingMmrScores':
 						that.computeMMRScores(pg, function(){
-							detailsPage.document.write('Computed mmrScore. Sending results. <br>');
+//							detailsPage.document.write('Computed mmrScore. Sending results. <br>');
+							pg.duration = ((new Date()).getTime() - pg.startTime) / 1000;
+							detailsPage.document.write(pg.duration.toFixed(3) + ': ' + pg.url + "<br>");
+
 							pg.state = 'ready';
 							chrome.tabs.sendRequest(tId, {type:'result', url:url, scores:pg.mmrScores});
 							removeRequest(pg, tId);
@@ -402,7 +408,7 @@ History.prototype = {
 						});
 						break;
 					case 'ready':
-						detailsPage.document.write('Page already ready. Sending results. <br>');
+//						detailsPage.document.write('Page already ready. Sending results. <br>');
 						chrome.tabs.sendRequest(tId, {type:'result', url:url, scores:pg.mmrScores});
 						removeRequest(pg, tId);
 						loop();
@@ -687,10 +693,10 @@ History.prototype = {
 		}
 		sentenceScoresC.sort(function(a, b){ return b.score - a.score });
 
-		detailsPage.document.write('<br>Summaries: <br>');
-		for(var i=0; (i<2) && (i<sentenceScoresC.length); i++)
-			detailsPage.document.write(sentenceScoresC[i].score.toFixed(3) + ': ' + sentenceScoresC[i].sentence + '<br>');
-		detailsPage.document.write("<br><br>");
+//		detailsPage.document.write('<br>Summaries: <br>');
+//		for(var i=0; (i<2) && (i<sentenceScoresC.length); i++)
+//			detailsPage.document.write(sentenceScoresC[i].score.toFixed(3) + ': ' + sentenceScoresC[i].sentence + '<br>');
+//		detailsPage.document.write("<br><br>");
 
 		return sentenceScoresC[0].sentence;
 	},
@@ -737,8 +743,6 @@ History.prototype = {
 	 */
 	computeMoreLikeThisPage: function(url, clickedURL, callback) {
 		var that = this;
-		detailsPage.document.write("Suggestion clicked! <br>");
-		
 		var pg = this.recentPages[url];
 		var otherSeenURLs = new Array();		// TODO: This is UI dependent, move to inContextWindow!
 		var i=0, found = false;

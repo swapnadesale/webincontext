@@ -64,8 +64,11 @@ function updatePercentLoaded(percentLoaded) {
 }
 
 function destroyLoaderWindow() {
-	loaderWindow.progressbar('destroy');
-	loaderWindow.remove();
+	if (lwVisible) {
+		lwVisible = false;
+		loaderWindow.progressbar('destroy');
+		loaderWindow.remove();
+	}
 }
 
 function createInContextWindow(){
@@ -88,7 +91,7 @@ function createInContextWindow(){
 		.append(
 			'<div class="load_spinner">' +
 				'Loading: ' +
-				'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' +
+				'<img src="' + chrome.extension.getURL('UI/load_spinner.gif') + '"></img>' +
 			'</div>'
 		);
 	pwVisible = true;
@@ -145,7 +148,7 @@ function createInContextWindow(){
 			$('#pw_mainArea').append(
 				'<div class="load_spinner">' +
 					'Loading: ' +
-					'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' +
+					'<img src="' + chrome.extension.getURL('UI/load_spinner.gif') + '"></img>' +
 				'</div>'
 			);
 			
@@ -400,7 +403,7 @@ function createDetailedPage(suggestion) {
 		.append(
 			'<div class="load_spinner">' +
 				'Loading: ' + 
-				'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' + 
+				'<img src="' + chrome.extension.getURL('UI/load_spinner.gif') + '"></img>' + 
 			'</div>' 
 		);
 }
@@ -410,7 +413,7 @@ function suggestionString(source, i, w) {
 				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
 					source.scores[i].title +
 				'</a>' +
-				'<img class="suggestionMore" src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/arrow2.gif"></img>' +
+				'<img class="suggestionMore" src="' + chrome.extension.getURL('UI/arrow2.gif') + '"></img>' +
 			'</li>';
 	return s;
 }
