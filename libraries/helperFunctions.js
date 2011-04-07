@@ -2,6 +2,19 @@ function merge(defaultOption, userOption) {
 	return (userOption == undefined || userOption == null) ? defaultOption: userOption;
 }
 
+
+var stopwebsites = ["google", "youtube", "facebook", "twitter", "yahoo", "okcupid"];
+var protocol = "http://";
+var domainReg = new RegExp(protocol+"[a-zA-Z0-9\x2D\x2E\x3A\x5F]*"+"/", "");
+
+function filterURL(url){
+	if (url.substr(0, protocol.length) != protocol) return true;
+	var domain = url.match(domainReg)[0];
+	for (var i = 0; i < stopwebsites.length; i++) 
+		if (domain.match(stopwebsites[i])) return true;
+	return false;
+}
+
 // Functions for handling associative arrays.
 // ==========================================
 // General properties:
