@@ -47,7 +47,8 @@
 	height:16px;
 	padding:7px 10px 7px 4px;
 }
-#primaryWindow .load_spinner, #secondaryWindow .load_spinner {
+#primaryWindow .load_spinner, #secondaryWindow .load_spinner,
+	#primaryWindow .ht_noSimilarPages, #secondaryWindow .ht_noSimilarPages {
 	padding-left:10px;
 }
 
@@ -79,10 +80,11 @@
 	position:fixed;
 	right:265px;
 	bottom:5px;
-	width:250px;
+	width:260px;
 	height:20px;
 	border-radius:4px 4px 0px 0px;
 	background-color:rgb(47, 78, 84);
+	z-index:10000;
 }
 
 #primaryWindow #pw_titleBar {
@@ -114,6 +116,12 @@
 	list-style-type:none;	
 }
 
+#primaryWindow #pw_mainArea ul.morePagesLike,
+	#primaryWindow #pw_mainArea ul.search {
+	height:158px; 	/* One suggestion less */
+	list-style-type:none;
+}
+
 #primaryWindow #pw_mainArea .suggestion {
 	padding-left:15px;
 }
@@ -131,7 +139,7 @@
 }
 
 #primaryWindow #pw_mainArea .ht_morePagesLikeDiv {
-	margin:5px 5px 0px 5px;
+	margin:10px 5px 2px 5px;
 	height:47px;
 }
 
