@@ -18,7 +18,8 @@ History.prototype = {
 	init: function(opts){
 		this.lastProcessedHistoryEntry = 0;
 		this.nrProcessed = 0;
-		this.unprocessed = new Array();
+		this.unprocessed = null;
+		this.nrToProcess = 0;
 		this.dfs = new Array();
 		this.logIdfs = new Array();
 		this.lastComputedTfidfs = 0;
@@ -30,11 +31,11 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 									
 		// Default properties
-		this.maxHistoryEntries = merge(200, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
-		this.batchSize = merge(1000, opts.batchSize);
+		this.batchSize = merge(100, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.longPartSize);
 		
@@ -50,9 +51,16 @@ History.prototype = {
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({batchSize:this.batchSize});
 		else this.store = opts.store;
-		
+
+		var that = this;		
 		this.extensionNotReadyListener = function(msg, sender, sendResponse) {
-			if(msg.action == 'pageLoaded') sendResponse(false);
+			if (msg.action == 'pageLoaded') {
+				var percentLoaded = (that.unprocessed == null) ? 0: 100 * (1 - that.unprocessed.length / that.nrToProcess);
+				sendResponse({
+					historyLoaded: false,
+					percentLoaded: percentLoaded
+				});
+			}
 		}
 		chrome.extension.onRequest.addListener(this.extensionNotReadyListener);
 		
@@ -70,6 +78,8 @@ History.prototype = {
 				maxResults: that.maxHistoryEntries
 			}, function(unprocessed){
 				that.unprocessed = unprocessed;
+				that.nrToProcess = unprocessed.length;
+				
 				var pages = new Array();
 				var saveToStore = function(cbk){
 					that.store.storeAllPages(pages, that, function(){
@@ -162,8 +172,8 @@ History.prototype = {
 		this.updateLogIdfs();
 		var firstBatch = Math.floor(this.lastComputedTfidfs/this.batchSize);
 		this.updateTfidfs(firstBatch, function() {
-			that.registerForEvents();
 			chrome.extension.onRequest.removeListener(that.extensionNotReadyListener);
+			that.registerForEvents();
 			callback();
 		});
 	},
@@ -281,7 +291,7 @@ History.prototype = {
 				var pg;
 				switch (msg.action) {
 					case 'pageLoaded':
-						sendResponse(true);
+						sendResponse({historyLoaded: true});
 					
 						if (that.recentPages[msg.url] != null)	// TODO: clean this up a bit.
 							addRequest({url:msg.url}, sender.tab.id);

@@ -1,3 +1,20 @@
+/* 
+ * Constants
+ * =========
+ */
+var primaryWindow, secondaryWindow, loaderWindow;
+var pwVisible = false, swVisible = false, lwVisible = false;
+var swWidth, swHeight, swBottom, swRight;
+
+var timerLoader, timerHoverPw, timerHoverSw, timerHideWindow, timerMoreLikeThis, timerBack;
+var animationLength = 200;
+var loaderDelay = 15000, hoverDelay = hideWindowDelay = 100, moreLikeThisDelay = backDelay = 500;
+
+
+/*
+ * Page first loaded
+ * ==================
+ */
 if ((!filterURL(document.URL)) && (document.body != null)) {
 	var title = (document.title != null) ? document.title : document.URL;
 	
@@ -9,31 +26,47 @@ if ((!filterURL(document.URL)) && (document.body != null)) {
 		ready: false
 	});
 	
-	/*
-	 * Send the body of the page to the extension to compute suggestions.
-	 * ==================================================================
-	 */
-	chrome.extension.sendRequest({
-		action: 'pageLoaded',
-		url: document.URL,
-		title: title,
-		body: document.body.innerHTML
-	}, function(historyLoaded){
-		if (historyLoaded) {
-			createInContextWindow();
-		}
-	});
+	var pollForHistoryReady = function(){
+		chrome.extension.sendRequest({
+			action: 'pageLoaded',
+			url: document.URL,
+			title: title,
+			body: document.body.innerHTML
+		}, function(msg){
+			if (!msg.historyLoaded) {
+				if(!lwVisible) createLoaderWindow(msg.percentLoaded);
+				else updatePercentLoaded(msg.percentLoaded);
+			} else {
+				clearInterval(timerLoader);
+				destroyLoaderWindow();
+				createInContextWindow();
+			}
+		});
+	}
+	timerLoader = setInterval(pollForHistoryReady, loaderDelay);
+	pollForHistoryReady();
 }
 
 
-var primaryWindow, secondaryWindow;
-var pwVisible = true, swVisible = false;
-var swWidth, swHeight, swBottom, swRight;
+function createLoaderWindow(percentLoaded) {
+	$('body').append('<div id="progressbar"></div>');
+	loaderWindow = $('#progressbar');
+	lwVisible = true;
+	loaderWindow.progressbar({
+		value: percentLoaded
+	});
+}
 
-var timerHoverPw, timerHoverSw, timerHideWindow, timerMoreLikeThis, timerBack;
-var animationLength = 200;
-var hoverDelay = hideWindowDelay = 100, moreLikeThisDelay = backDelay = 500;
+function updatePercentLoaded(percentLoaded) {
+	loaderWindow.progressbar({
+		value: percentLoaded
+	});
+}
 
+function destroyLoaderWindow() {
+	loaderWindow.progressbar('destroy');
+	loaderWindow.remove();
+}
 
 function createInContextWindow(){
 	$('body').append('<div id="primaryWindow"></div>');
@@ -58,6 +91,7 @@ function createInContextWindow(){
 				'<img src="chrome-extension://pjilfelijdjlbknppjejhbjppbcchein/UI/load_spinner.gif"></img>' +
 			'</div>'
 		);
+	pwVisible = true;
 	
 	primaryWindow.append('<div id="secondaryWindow"></div>');
 	secondaryWindow = $('#secondaryWindow');
