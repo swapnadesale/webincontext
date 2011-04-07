@@ -65,6 +65,39 @@
 	text-decoration:underline;
 }
 
+
+/*
+ * Loader Window
+ * =============
+ */
+
+#progressbar {
+	position:fixed;
+	right:265px;
+	bottom:5px;
+	width:260px;
+	height:20px;
+	background-color:rgb(250, 249, 244);
+	border-color:rgb(47, 78, 84);
+	border-width:2px;
+	border-radius:5px;
+}
+
+#progressbar .ui-progressbar-value {
+	background-color:rgb(47, 78, 84);
+}
+
+#loaderWindow {
+	position:fixed;
+	right:265px;
+	bottom:5px;
+	width:260px;
+	height:20px;
+	border-radius:4px 4px 0px 0px;
+	background-color:rgb(47, 78, 84);
+	z-index:10000;
+}
+
 /* 
  * Primary Window
  * ==============
@@ -74,17 +107,6 @@
 	position:fixed;
 	right:265px;
 	bottom:5px;
-}
-
-#minimizedWindow {
-	position:fixed;
-	right:265px;
-	bottom:5px;
-	width:260px;
-	height:20px;
-	border-radius:4px 4px 0px 0px;
-	background-color:rgb(47, 78, 84);
-	z-index:10000;
 }
 
 #primaryWindow #pw_titleBar {
