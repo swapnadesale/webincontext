@@ -315,5 +315,38 @@ StoreWrapper.prototype = {
 					detailsPage.document.write('Error in storeEvent: ' + error.message + "<br>");
 				});
 		});
-	}
+	},
+	
+	numberStoredPages: function(callback) {
+		var that = this;
+		this.db.transaction(function(t){
+			t.executeSql("SELECT COUNT(*) FROM " + that.pagesTable, [], function(tx, results){
+					var n = results.rows.item(0)['COUNT(*)'];
+					callback(n); 
+				}, function(tx, error) {
+					detailsPage.document.write('Error in numberStoredPages: ' + error.message + "<br>");
+				});
+		});
+	},
+	
+	/*
+	 * @return	{url, title, tfidf, text}
+	 */
+	getTfidfAndTextForPageNumbers: function(pageNumbers, callback) {
+		var that = this;
+		var pages = new Array();
+		this.db.transaction(function(t){
+			for (var i = 0; i < pageNumbers.length; i++) {
+				t.executeSql("SELECT url, title, tfidf, text FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [1, pageNumbers[i]], 
+					function(tx, results){
+						pages.push(that.parseTfidfAndTextResult(results.rows.item(0)));
+					},
+					function(tx, error) {
+						detailsPage.document.write('Error in getTfidfAndTextForPageNumbers - pageNumber: ' + pageNumbers[i] + " - " + error.message + "<br>");
+					});
+			}
+		}, function(error){
+			detailsPage.document.write('Error in getTfidfAndTextForPageNumbers: ' + error.message + "<br>");
+		}, function() { callback(pages); });
+	},
 };
