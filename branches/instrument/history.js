@@ -34,7 +34,7 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 
 		// Default properties
-		this.maxHistoryEntries = merge(100, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(500, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -70,11 +70,9 @@ History.prototype = {
 
 		
 		// User study 
-		this.percentUserFeedback = merge(0, opts.percentUserFeedback);
-		this.percentRandomSuggestionsNoFeedback = merge(1, opts.percentRandomSuggestionsNoFeedback);
-		this.percentRandomSuggestionsFeedback = merge(0.25, opts.percentRandomSuggestionsFeedback);
-		
-//		Math.seedrandom('random');
+		this.percentUserFeedback = merge(1.0, opts.percentUserFeedback);
+		this.percentRandomSuggestionsNoFeedback = merge(0.25, opts.percentRandomSuggestionsNoFeedback);
+		this.percentRandomSuggestionsFeedback = merge(0.1, opts.percentRandomSuggestionsFeedback);
 	},
 	
 	loadHistory: function(callback){
@@ -299,18 +297,6 @@ History.prototype = {
 
 			// 3. Set up listeners for messages from inContext windows: prepares and adds incoming requests from the inContext window.
 			// =======================================================================================================================
-			var addUserStudyBehavior = function(pg) {
-				var userFeedback = (Math.random() < that.percentUserFeedback);
-				var randomSuggestions = userFeedback ?
-					(Math.random() < that.percentRandomSuggestionsFeedback) :
-					(Math.random() < that.percentRandomSuggestionsNoFeedback);
-				var state = randomSuggestions ? 'computingRandomSuggestions' :
-					'computingTfidfScores';
-				
-				pg.userFeedback = userFeedback;
-				pg.randomSuggestions = randomSuggestions;
-				pg.state = state;	
-			};	
 			chrome.extension.onRequest.addListener(function(msg, sender, sendResponse){
 				var startTime = (new Date()).getTime();
 				var pg;
@@ -318,7 +304,17 @@ History.prototype = {
 					case 'stateRequested':
 						that.pageID++;
 						var id = that.sessionID + '-' + that.pageID;
-						sendResponse({historyLoaded: true, id:id});
+						
+						/*
+						* Add user study behavior.
+						*/
+						var userFeedback = (Math.random() < that.percentUserFeedback);
+						
+						sendResponse({
+							historyLoaded:true, 
+							id:id, 
+							userFeedback:userFeedback
+						});
 						break;
 						
 					case 'pageLoaded':
@@ -345,7 +341,14 @@ History.prototype = {
 								});
 							});
 							
-							addUserStudyBehavior(pg);
+							/*
+							 * Add user study behavior.
+							 */
+							pg.randomSuggestions = msg.userFeedback ? (Math.random() < that.percentRandomSuggestionsFeedback) :
+								(Math.random() < that.percentRandomSuggestionsNoFeedback);
+							pg.state = pg.randomSuggestions ? 'computingRandomSuggestions' : 'computingTfidfScores';
+							detailsPage.document.write(pg.randomSuggestions + " - " + pg.url + "<br>");
+
 							addRequest(pg, sender.tab.id);
 						}
 						break;
@@ -357,7 +360,14 @@ History.prototype = {
 						else 
 							that.computeMoreLikeThisPage(msg.sourceURL, msg.suggestionURL, function(pg){
 								pg.startTime = startTime;
-								addUserStudyBehavior(pg);
+								
+								/*
+							 	* Add user study behavior.
+							 	*/
+								pg.randomSuggestions = msg.userFeedback? (Math.random() < that.percentRandomSuggestionsFeedback) : false; 
+								pg.state = pg.randomSuggestions ? 'computingRandomSuggestions' : 'computingTfidfScores';
+								detailsPage.document.write(pg.randomSuggestions + " - " + pg.url + "<br>");
+								
 								addRequest(pg, sender.tab.id);							
 							});
 						break;
@@ -369,7 +379,13 @@ History.prototype = {
 						else {
 							pg = that.computeSearchQueryPage(msg.url, msg.query);
 							pg.startTime = startTime;
-							addUserStudyBehavior(pg);
+							
+							/*
+							* Add user study behavior.
+							*/
+							pg.randomSuggestions = false;
+							pg.state = 'computingTfidfScores';
+							
 							addRequest(pg, sender.tab.id);
 						}
 						break;
@@ -424,7 +440,6 @@ History.prototype = {
 						type:'result', 
 						url:pg.url, 
 						scores:pg.mmrScores,
-						userFeedback:pg.userFeedback,
 						randomSuggestions:pg.randomSuggestions,
 					});
 				}
@@ -441,6 +456,7 @@ History.prototype = {
 							loop();
 						});
 						break;
+						
 					case 'computingMmrScores':
 						that.computeMMRScores(pg, function(){
 							pg.duration = ((new Date()).getTime() - pg.startTime) / 1000;
@@ -452,11 +468,13 @@ History.prototype = {
 							loop();
 						});
 						break;
+						
 					case 'ready':
 						sendResults(pg, tId);
 						removeRequest(pg, tId);
 						loop();
 						break;
+						
 					case 'computingRandomSuggestions':
 						that.computeRandomSuggestions(pg, function(){
 							pg.state = 'ready';
@@ -887,7 +905,7 @@ History.prototype = {
 				}
 				
 				// Wait for 10s before returning suggestions, to seem realistic.
-				setTimeout(callback, 10000);
+				setTimeout(callback, 100);		// TODO: Change to 10000
 			});
 		});
 	},
