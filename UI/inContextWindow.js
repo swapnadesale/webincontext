@@ -2,6 +2,9 @@
  * Constants
  * =========
  */
+var rootID, lastEventID = 0;
+var date = new Date();
+
 var primaryWindow, secondaryWindow, loaderWindow;
 var pwVisible = false, swVisible = false, lwVisible = false;
 var swWidth, swHeight, swBottom, swRight;
@@ -28,16 +31,25 @@ if ((!filterURL(document.URL)) && (document.body != null)) {
 	
 	var pollForHistoryReady = function(){
 		chrome.extension.sendRequest({
-			action: 'pageLoaded',
-			url: document.URL,
-			title: title,
-			body: document.body.innerHTML
+			action: 'stateRequested',
 		}, function(msg){
 			if (!msg.historyLoaded) {
 				if(!lwVisible) createLoaderWindow(msg.percentLoaded);
 				else updatePercentLoaded(msg.percentLoaded);
 			} else {
 				clearInterval(timerLoader);
+				
+				rootID = msg.id;
+				chrome.extension.sendRequest({
+					action: 'pageLoaded',
+					url: document.URL,
+					title: title,
+					body: document.body.innerHTML
+				});
+				
+				var eventID = reportEvent({type:'pageLoaded'});
+				trace[0].eventID = eventID;
+				
 				destroyLoaderWindow();
 				createInContextWindow();
 			}
@@ -119,11 +131,13 @@ function createInContextWindow(){
 		primaryWindow.hide();
 		minimizedWindow.show();
 		pwVisible = false;
+		reportEvent({type:'minimize', relatedID:trace[trace.length-1].eventID});
 	});
 	minimizedWindow.bind('click', function(event){
 		primaryWindow.show();
 		minimizedWindow.hide();
 		pwVisible = true;
+		reportEvent({type:'maximize', relatedID:trace[trace.length-1].eventID});
 	});
 	
 	/*
@@ -162,6 +176,10 @@ function createInContextWindow(){
 				url: trace[0].url,
 				query: query,
 			});
+			
+			var eventID = reportEvent({type:'searchRequested'});
+			trace[1].eventID = eventID;
+			
 		}
 	});
 	
@@ -173,10 +191,8 @@ function createInContextWindow(){
 		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
 		var id = target.id;
 		var w = id.slice(0, 2);
-		if (w == 'pw') 
-			clearTimeout(timerHoverPw)
-		else 
-			clearTimeout(timerHoverSw);
+		if (w == 'pw') clearTimeout(timerHoverPw)
+		else clearTimeout(timerHoverSw);
 		
 		w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
 		$(w + ' .suggestion').css('opacity', '0.65');
@@ -235,6 +251,13 @@ function createInContextWindow(){
 				sourceURL: source.url,
 				suggestionURL: suggestion.url,
 			});
+			
+			var eventID = reportEvent({
+				type:'moreLikeThisRequested', 
+				relatedID:source.eventID,
+				suggestionIdx:idx, 
+			});
+			trace[trace.length-1].eventID = eventID;
 		}, moreLikeThisDelay);
 	});
 	
@@ -253,6 +276,17 @@ function createInContextWindow(){
 		timerHideWindow = setTimeout('hideSecondaryWindow();', hideWindowDelay);
 	});
 	
+	$('.suggestionTitle').live('click', function(event) {
+		// Determine what suggestion was clicked
+		var idx = parseInt(event.target.parentNode.id.slice(7));
+		
+		reportEvent({
+			type:'suggestionClicked',
+			relatedID:trace[trace.length-1].eventID,
+			suggestionIdx:idx,
+		});
+	});
+	
 	$('.ht_evenMore').live('click', function(event){
 		var w = event.target.parentNode.id.slice(0, 2);
 		var sourceIsTop = ((w == 'sw') || (!swVisible));
@@ -265,6 +299,11 @@ function createInContextWindow(){
 		$(wDiv + ' .suggestionTitle').css('width', currentWidth - 12);
 		
 		$(wDiv + ' ul').jScrollPane();
+		
+		reportEvent({
+			type:'evenMoreClicked',
+			relatedID:source.eventID,
+		});
 	});
 	
 	
@@ -274,7 +313,7 @@ function createInContextWindow(){
 	 */
 	$('.ht_goBack').live('click', function(event){
 		hideSecondaryWindow();
-		trace.pop();
+		var oldSource = trace.pop();
 		
 		var source = trace[trace.length - 1];
 		switch (source.type) {
@@ -290,6 +329,11 @@ function createInContextWindow(){
 				createMorePagesLikePage(source);
 				break;
 		}
+		
+		reportEvent({
+			type:'goBackClicked',
+			relatedID:oldSource.eventID,
+		});
 	});
 	
 	/*
@@ -316,6 +360,13 @@ function createInContextWindow(){
 					addSuggestions(msg, 4, 'sw');
 					break;
 			};
+			
+			var eventID = reportEvent({
+				type:'showSuggestions',
+				relatedID:lastTraceEntry.eventID,	// The request ID.
+				nrSuggestions:lastTraceEntry.scores.length, 
+			});
+			lastTraceEntry.eventID = eventID;	// Replace with the response ID.
 		}
 	});
 }
@@ -440,4 +491,19 @@ function addMoreSuggestions(source, w) {
 function getCSSSizeValue(node, property) {
 	var s = node.css(property);
 	return parseInt(s.substr(0, s.length - 2));
+}
+
+function reportEvent(event) {
+	lastEventID++;
+	var eventID = rootID + '-' + lastEventID;
+	event.eventID = eventID;
+	event.date = date.getDay()+'/'+date.getMonth()+'/'+date.getFullYear();
+	event.time = date.getHours()+':'+date.getMinutes()+':'+date.getSeconds()+':'+date.getMilliseconds();
+	
+	chrome.extension.sendRequest({
+		action: 'logRequested',
+		event:event
+	});
+	
+	return eventID;
 }
