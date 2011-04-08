@@ -26,15 +26,15 @@ History.prototype = {
 		this.dfs = new Array();
 		this.logIdfs = new Array();
 		this.lastComputedTfidfs = 0;
-		
+
 		this.recentPages = new Array();	
 		this.openTabs = new Array();	/* NOTE: Does not contain selectedTabs. */
 		this.openTabs.nextToProcess = 0; 	
 		this.selectedTabs = new Array();
 		this.selectedTabs.nextToProcess = 0;
-									
+
 		// Default properties
-		this.maxHistoryEntries = merge(200, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(100, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -50,10 +50,11 @@ History.prototype = {
 		
 		this.feedbackParamsSimilarSuggestions = merge([0.25, 1.0, -0.75], opts.feedbackParamsSimilarSuggestions);
 		this.feedbackParamsSearchBoxQuery = merge([0.5, 1.0, 0.0], opts.feedbackParamsSearchBoxQuery);
-		// this.feedbackParamsTopicWord = merge([0.75, 0.25, -0.25], opts.feedbackParamsTopicWord);
+
 		
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({batchSize:this.batchSize});
 		else this.store = opts.store;
+
 
 		var that = this;		
 		this.extensionNotReadyListener = function(msg, sender, sendResponse) {
@@ -66,8 +67,14 @@ History.prototype = {
 			}
 		}
 		chrome.extension.onRequest.addListener(this.extensionNotReadyListener);
+
 		
-		Math.seedrandom('random');
+		// User study 
+		this.percentUserFeedback = merge(0, opts.percentUserFeedback);
+		this.percentRandomSuggestionsNoFeedback = merge(1, opts.percentRandomSuggestionsNoFeedback);
+		this.percentRandomSuggestionsFeedback = merge(0.25, opts.percentRandomSuggestionsFeedback);
+		
+//		Math.seedrandom('random');
 	},
 	
 	loadHistory: function(callback){
@@ -240,7 +247,6 @@ History.prototype = {
 			}
 			var addRequest = function(pg, tId) {
 				if (that.recentPages[pg.url] == null) {
-					pg.state = 'computingTfidfScores';
 					pg.tfidfScores = new Array();
 					pg.nextBatch = 0;
 					that.recentPages[pg.url] = pg;
@@ -293,6 +299,18 @@ History.prototype = {
 
 			// 3. Set up listeners for messages from inContext windows: prepares and adds incoming requests from the inContext window.
 			// =======================================================================================================================
+			var addUserStudyBehavior = function(pg) {
+				var userFeedback = (Math.random() < that.percentUserFeedback);
+				var randomSuggestions = userFeedback ?
+					(Math.random() < that.percentRandomSuggestionsFeedback) :
+					(Math.random() < that.percentRandomSuggestionsNoFeedback);
+				var state = randomSuggestions ? 'computingRandomSuggestions' :
+					'computingTfidfScores';
+				
+				pg.userFeedback = userFeedback;
+				pg.randomSuggestions = randomSuggestions;
+				pg.state = state;	
+			};	
 			chrome.extension.onRequest.addListener(function(msg, sender, sendResponse){
 				var startTime = (new Date()).getTime();
 				var pg;
@@ -326,6 +344,8 @@ History.prototype = {
 									that.updateTfidfs(0, function(){
 								});
 							});
+							
+							addUserStudyBehavior(pg);
 							addRequest(pg, sender.tab.id);
 						}
 						break;
@@ -337,6 +357,7 @@ History.prototype = {
 						else 
 							that.computeMoreLikeThisPage(msg.sourceURL, msg.suggestionURL, function(pg){
 								pg.startTime = startTime;
+								addUserStudyBehavior(pg);
 								addRequest(pg, sender.tab.id);							
 							});
 						break;
@@ -348,6 +369,7 @@ History.prototype = {
 						else {
 							pg = that.computeSearchQueryPage(msg.url, msg.query);
 							pg.startTime = startTime;
+							addUserStudyBehavior(pg);
 							addRequest(pg, sender.tab.id);
 						}
 						break;
@@ -397,6 +419,15 @@ History.prototype = {
 				// 4.2. Service the request.
 				// =========================
 				var pg = that.recentPages[url];
+				var sendResults = function(pg, tId) {
+					chrome.tabs.sendRequest(tId, {
+						type:'result', 
+						url:pg.url, 
+						scores:pg.mmrScores,
+						userFeedback:pg.userFeedback,
+						randomSuggestions:pg.randomSuggestions,
+					});
+				}
 				switch(pg.state){
 					case 'computingTfidfScores':
        					that.computeTfidfScoresBatched(pg, function(done){
@@ -412,21 +443,27 @@ History.prototype = {
 						break;
 					case 'computingMmrScores':
 						that.computeMMRScores(pg, function(){
-//							detailsPage.document.write('Computed mmrScore. Sending results. <br>');
 							pg.duration = ((new Date()).getTime() - pg.startTime) / 1000;
 							detailsPage.document.write(pg.duration.toFixed(3) + ': ' + pg.url + "<br>");
 
 							pg.state = 'ready';
-							chrome.tabs.sendRequest(tId, {type:'result', url:url, scores:pg.mmrScores});
+							sendResults(pg, tId);
 							removeRequest(pg, tId);
 							loop();
 						});
 						break;
 					case 'ready':
-//						detailsPage.document.write('Page already ready. Sending results. <br>');
-						chrome.tabs.sendRequest(tId, {type:'result', url:url, scores:pg.mmrScores});
+						sendResults(pg, tId);
 						removeRequest(pg, tId);
 						loop();
+						break;
+					case 'computingRandomSuggestions':
+						that.computeRandomSuggestions(pg, function(){
+							pg.state = 'ready';
+							sendResults(pg, tId);
+							removeRequest(pg, tId);
+							loop();
+						});
 						break;
 				}
 			};
@@ -820,5 +857,38 @@ History.prototype = {
 		page.blockedURLs = blockedURLs;
 
 		return page;
+	},
+
+	computeRandomSuggestions: function(page, callback) {
+		var that = this;
+		
+		this.store.numberStoredPages(function(numberStoredPages){
+			var randomPageNumbers = new Array();
+			for(var i=0; i<20;) {
+				var r = Math.floor(Math.random()*numberStoredPages);
+				if(!randomPageNumbers[r]) {	// If not already chosen.
+					randomPageNumbers[r] = true;
+					i++;
+				}
+			}
+			var pageNumbers = new Array();
+			for(var r in randomPageNumbers) pageNumbers.push(r);
+			
+			that.store.getTfidfAndTextForPageNumbers(pageNumbers, function(randomPages) {
+				page.mmrScores = new Array();
+				for (var i = 0; i < randomPages.length; i++) {
+					var randomPage = randomPages[i];
+					var suggestion = {
+						url: randomPage.url,
+						title: randomPage.title,
+						summary: that.computeSummaryText(page, randomPage),
+					};
+					page.mmrScores.push(suggestion);
+				}
+				
+				// Wait for 10s before returning suggestions, to seem realistic.
+				setTimeout(callback, 10000);
+			});
+		});
 	},
 };
