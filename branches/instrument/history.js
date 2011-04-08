@@ -16,6 +16,9 @@ var History = function(opts) {
 History.prototype = {
 	// Initializes all history fields.
 	init: function(opts){
+		this.sessionID = 0;
+		this.pageID = 0;
+		
 		this.lastProcessedHistoryEntry = 0;
 		this.nrProcessed = 0;
 		this.unprocessed = null;
@@ -31,7 +34,7 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 									
 		// Default properties
-		this.maxHistoryEntries = merge(100000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(200, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -54,7 +57,7 @@ History.prototype = {
 
 		var that = this;		
 		this.extensionNotReadyListener = function(msg, sender, sendResponse) {
-			if (msg.action == 'pageLoaded') {
+			if (msg.action == 'stateRequested') {
 				var percentLoaded = (that.unprocessed == null) ? 0: 100 * (1 - that.unprocessed.length / that.nrToProcess);
 				sendResponse({
 					historyLoaded: false,
@@ -70,6 +73,10 @@ History.prototype = {
 	loadHistory: function(callback){
 		var that = this;
 		this.store.loadParams(this, function(){
+			// Generate a new sessionID, for instrumentation purposes.
+			that.sessionID++;
+			that.store.storeSessionID(that.sessionID);
+			
 			detailsPage = chrome.extension.getViews()[1];
 			
 			chrome.history.search({
@@ -290,9 +297,13 @@ History.prototype = {
 				var startTime = (new Date()).getTime();
 				var pg;
 				switch (msg.action) {
+					case 'stateRequested':
+						that.pageID++;
+						var id = that.sessionID + '-' + that.pageID;
+						sendResponse({historyLoaded: true, id:id});
+						break;
+						
 					case 'pageLoaded':
-						sendResponse({historyLoaded: true});
-					
 						if (that.recentPages[msg.url] != null)	// TODO: clean this up a bit.
 							addRequest({url:msg.url}, sender.tab.id);
 						else {
@@ -339,6 +350,10 @@ History.prototype = {
 							pg.startTime = startTime;
 							addRequest(pg, sender.tab.id);
 						}
+						break;
+					
+					case 'logRequested':
+						that.store.storeEvent(msg.event);
 						break;
 				}
 			});

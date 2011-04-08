@@ -14,6 +14,7 @@ StoreWrapper.prototype = {
 
 		this.paramTable = merge('paramTable', opts.paramTable);
 		this.pagesTable = merge('pagesTable', opts.pagesTable);
+		this.logTable = merge('logTable', opts.logTable);
 		this.batchSize = merge(500, opts.batchSize);
 		this.maxVectorLength = merge(2500000, opts.maxVectorLength);
 		this.maxTextLength = merge(5000000, opts.maxVectorLength);
@@ -23,6 +24,7 @@ StoreWrapper.prototype = {
 		this.keyNrProcessed = "nrProcessed";
 		this.keyDfs = "dfs"
 		this.keyLastComputedTfidfs = "lastComputedTfidfs";
+		this.keySessionID = "sessionID";
 		
 		// instantiate the store
 		this.db = openDatabase(this.name, this.version, this.display, this.max);
@@ -36,6 +38,9 @@ StoreWrapper.prototype = {
 			"tfs CHAR(" + that.maxVectorLength + "), " +
 			"tfidf CHAR(" + that.maxVectorLength + "), " + 
 			"text CHAR(" + that.maxTextLength + "), PRIMARY KEY (url))");
+		});
+		this.db.transaction(function(t){
+			t.executeSql("CREATE TABLE " + that.logTable + " (entry CHAR(400))");
 		});
 	},
 	
@@ -55,8 +60,13 @@ StoreWrapper.prototype = {
 							break;
 						case that.keyDfs:
 							history.dfs = parseIntArray(row.value);
+							break;
 						case that.keyLastComputedTfidfs:
 							history.lastComputedTfidfs = parseFloat(row.value);
+							break;
+						case that.keySessionID:
+							history.sessionID = parseInt(row.value);
+							break;
 					}
 				}
 				callback();
@@ -80,10 +90,18 @@ StoreWrapper.prototype = {
 				
 			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastComputedTfidfs, history.lastComputedTfidfs], 
 				function() {}, function() { detailsPage.document.write('Error in storeParams - lastComputedTfidfs: ' + error.message + "<br>"); });
-
 		}, function(error){ 
 			detailsPage.document.write('Error in storeParams:' + error.message + "<br>"); 
 		}, callback);
+	},
+	
+	storeSessionID: function(sessionID) {
+		var that = this;
+		this.db.transaction(function(t){
+			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keySessionID, sessionID], function() {}, function() { 
+				detailsPage.document.write('Error in storeSessionID: ' + error.message + "<br>"); 
+			});
+		});
 	},
 	
 	/*
@@ -279,4 +297,23 @@ StoreWrapper.prototype = {
 		}
 		return pageBatch;
 	},
+	
+	/*
+	 * Instrumentation methods
+	 * ========================
+	 */
+	storeEvent: function(event) {
+		var that = this;
+		
+		var s = event.eventID + ', ' + event.date + ', ' + event.time + ', ' + event.type + ', ';
+		if(event.relatedID != null) s += event.relatedID;	s += ', ';
+		if(event.nrSuggestions != null) s += event.nrSuggestions;	s += ', ';
+		if(event.suggestionIdx != null) s += event.suggestionIdx;
+		
+		this.db.transaction(function(t){
+			t.executeSql("INSERT INTO " + that.logTable + " VALUES (?)", [s], function(){}, function(tx, error) {
+					detailsPage.document.write('Error in storeEvent: ' + error.message + "<br>");
+				});
+		});
+	}
 };
