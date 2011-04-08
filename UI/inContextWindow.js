@@ -2,7 +2,7 @@
  * Constants
  * =========
  */
-var rootID, lastEventID = 0;
+var rootID, lastEventID = 0, userFeedback;
 var date = new Date();
 
 var primaryWindow, secondaryWindow, loaderWindow;
@@ -40,11 +40,14 @@ if ((!filterURL(document.URL)) && (document.body != null)) {
 				clearInterval(timerLoader);
 				
 				rootID = msg.id;
+				userFeedback = msg.userFeedback;
+				
 				chrome.extension.sendRequest({
 					action: 'pageLoaded',
 					url: document.URL,
 					title: title,
-					body: document.body.innerHTML
+					body: document.body.innerHTML,
+					userFeedback: userFeedback,
 				});
 				
 				var eventID = reportEvent({type:'pageLoaded'});
@@ -86,6 +89,33 @@ function destroyLoaderWindow() {
 function createInContextWindow(){
 	$('body').append('<div id="primaryWindow"></div>');
 	primaryWindow = $('#primaryWindow');
+	if (userFeedback) {
+		primaryWindow.addClass('userFeedback');
+		window.onbeforeunload = function(){
+			// Check if feedback has been given.
+			var page = trace[0], ratings = "", ready = true;
+			for (var i = 0; (i < page.scores.length) && (i < 5); i++) {
+				var suggestion = page.scores[i];
+				if((suggestion.rating == null) || (suggestion.rating.relat == null) ||  
+					(suggestion.rating.inter == null) || (suggestion.rating.relev == null)) {
+					ready = false;
+					break;	
+				} else
+					ratings += suggestion.rating.relat + ', ' + suggestion.rating.inter + ', ' + 
+					suggestion.rating.relev + ', ';
+			}
+			if(ready) {
+				reportEvent({
+					type:'suggestionsRated', 
+					relatedID:trace[0].eventID,
+					ratings:ratings,					
+				});
+			}
+			else 
+				return 'Please provide feedback on the suggestions presented before navigating away!';
+		};
+	}
+	
 	primaryWindow
 		.append('<div id="pw_titleBar">inContext</div>')
 		.append('<div id="pw_mainArea"></div>')
@@ -122,6 +152,11 @@ function createInContextWindow(){
 	$('body').append('<div id="minimizedWindow"></div>');
 	minimizedWindow = $('#minimizedWindow');
 	minimizedWindow.hide();
+	
+	// For the user study.
+	primaryWindow.append('<div class="randomIndicator"></div>');
+	secondaryWindow.append('<div class="randomIndicator"></div>');
+	$('.randomIndicator').hide();
 	
 	/*
 	 * Listen to minimize/maximize events
@@ -250,6 +285,7 @@ function createInContextWindow(){
 				action: 'moreLikeThisRequested',
 				sourceURL: source.url,
 				suggestionURL: suggestion.url,
+				userFeedback: userFeedback,
 			});
 			
 			var eventID = reportEvent({
@@ -344,20 +380,24 @@ function createInContextWindow(){
 		var lastTraceEntry = trace[trace.length - 1];
 		if ((msg.url == lastTraceEntry.url) && (!lastTraceEntry.ready)) { // If I obtained the last thing I requested.
 			lastTraceEntry.scores = msg.scores;
+			lastTraceEntry.randomSuggestions = msg.randomSuggestions;
 			lastTraceEntry.ready = true;
 			
+			
 			$('.load_spinner').remove();
+			showHideRandomIndicator(msg.randomSuggestions);
+			
 			var type = lastTraceEntry.type;
 			switch (type) {
 				case 'initial':
-					addSuggestions(msg, 5, 'pw');
+					addSuggestions(lastTraceEntry, 5, 'pw');
 					break;
 				case 'search':
-					addSuggestions(msg, 4, 'pw');
+					addSuggestions(lastTraceEntry, 4, 'pw');
 					$('#pw_mainArea ul').addClass('search');
 					break;
 				case 'more':
-					addSuggestions(msg, 4, 'sw');
+					addSuggestions(lastTraceEntry, 4, 'sw');
 					break;
 			};
 			
@@ -464,8 +504,35 @@ function suggestionString(source, i, w) {
 				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
 					source.scores[i].title +
 				'</a>' +
-				'<img class="suggestionMore" src="' + chrome.extension.getURL('UI/arrow2.gif') + '"></img>' +
-			'</li>';
+				'<img class="suggestionMore" src="' + chrome.extension.getURL('UI/arrow2.gif') + '"></img>';
+	/*
+	* User study
+	*/
+	if(userFeedback) {
+		if(source.type == 'initial')
+			s+='<div class="helperText ht_rating">' +
+					'Related: ' +
+					'<div id="'+w+'_rating_relat_'+i+'" class="rating"></div>' +
+				'</div>' + 
+				'<div class="helperText ht_rating">' +
+					'Interesting: ' + 
+					'<div id="'+w+'_rating_inter_'+i+'" class="rating"></div>' + 
+				'</div>' +
+				'<div class="helperText ht_rating">' +
+					'Relevant: ' +
+					'<div id="'+w+'_rating_relev_'+i+'" class="rating"></div>' +
+				'</div>';
+		else 
+			s+='<div class="helperText ht_rating">' +
+					'Useful: ' +
+					'<div id="'+w+'_rating_usefu_'+i+'" class="rating"></div>' +
+				'</div>' + 
+				'<div class="helperText ht_rating">' +
+					'Interesting: ' +
+					'<div id="'+w+'_rating_inter_'+i+'" class="rating"></div>' +
+				'</div>';
+	}
+	s +=	'</li>';
 	return s;
 }
 
@@ -479,6 +546,25 @@ function addSuggestions(source, nMax, w){
 		$(wDiv).append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 	} else
 		$(wDiv).append('<div class="helperText ht_noSimilarPages">No similar pages to show!</div>');
+	
+	if (userFeedback) {
+		var path = chrome.extension.getURL('libraries/rate/img');
+		$(wDiv + ' .rating').raty({
+			path: path, 
+			click:function(score) {
+				var id = this[0].id;
+				var w = id.slice(0, 2);
+				var sourceIsTop = ((w == 'sw') || (!swVisible));
+				var source = sourceIsTop ? trace[trace.length - 1] : trace[trace.length - 2];
+				var question = id.slice(10, 15);
+				var idx = parseInt(id.slice(16));
+				var suggestion = source.scores[idx];
+				
+				if(suggestion.rating == null) suggestion.rating = {};
+				suggestion.rating[question] = score;
+			}
+		});
+	}
 };
 
 function addMoreSuggestions(source, w) {
@@ -506,4 +592,13 @@ function reportEvent(event) {
 	});
 	
 	return eventID;
+}
+
+/*
+* User study
+*/
+function showHideRandomIndicator(randomSuggestions) {
+	var w = swVisible ? "#secondaryWindow" : "#primaryWindow";
+	if (randomSuggestions) $(w + ' .randomIndicator').show();
+	else $(w + ' .randomIndicator').hide();
 }

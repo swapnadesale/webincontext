@@ -1,12 +1,13 @@
+#primaryWindow, #secondaryWindow, #minimizedWindow, #progressbar, #primaryWindow .randomIndicator, #secondaryWindow .randomIndicator {
+	z-index:10000;	
+}
+
 #primaryWindow, #secondaryWindow {
 	width:260px; 
 	height:280px;
-	background-color:rgb(250, 249, 244);
 	border-style:solid;
-	border-color:rgb(47, 78, 84);
 	border-width:2px 2px 5px 2px;
 	border-radius:7px 7px 2px 2px;
-	z-index:10000;
 }
 
 #minimizedWindow {
@@ -16,11 +17,9 @@
     width:260px;
     height:20px;
     border-radius:4px 4px 0px 0px;
-    background-color:rgb(47, 78, 84);
-    z-index:10000;
 }
 
-#primaryWindow *, #secondaryWindow * {
+#primaryWindow * {
 	margin:0px;
 	padding:0px;
 	overflow:hidden;
@@ -36,43 +35,52 @@
 	list-style-type:none;
 }
 
-#primaryWindow .suggestion, #secondaryWindow .suggestion{
+#primaryWindow, #secondaryWindow, #progressbar, #primaryWindow #pw_searchBar {
+	background-color:rgb(250, 249, 244);
+	border-color:rgb(47, 78, 84);
+}
+
+#minimizedWindow, #primaryWindow #pw_titleBar, #primaryWindow .randomIndicator, #secondaryWindow .randomIndicator,
+	#primaryWindow .jspDrag, #secondaryWindow .jspDrag, #progressbar .ui-progressbar-value {
+	background-color:rgb(47, 78, 84);
+}
+
+#primaryWindow .suggestion {
 	margin:7px 0px;
 	height:30px;
 }
 
-#primaryWindow .suggestion:hover, #secondaryWindow .suggestion:hover {
+#primaryWindow .suggestion:hover, #primaryWindow .suggestion:hover * {
 	background-color:rgb(245, 243, 229);
 }
 
-#primaryWindow .suggestionTitle, #secondaryWindow .suggestionTitle {
+#primaryWindow .suggestionTitle {
 	display:inline-block;
 	font-weight:bold;
 	height:30px;
 }
 
-#primaryWindow .suggestionMore, #secondaryWindow .suggestionMore {
+#primaryWindow .suggestionMore {
 	display:inline-block;
 	vertical-align:top;
 	width:16px;
 	height:16px;
 	padding:7px 10px 7px 4px;
 }
-#primaryWindow .load_spinner, #secondaryWindow .load_spinner,
-	#primaryWindow .ht_noSimilarPages, #secondaryWindow .ht_noSimilarPages {
+#primaryWindow .load_spinner, #primaryWindow .ht_noSimilarPages {
 	padding-left:10px;
 }
 
-#primaryWindow .helperText, #secondaryWindow .helperText {
+#primaryWindow .helperText {
 	height:17px;
 } 
 
-#primaryWindow .ht_evenMore, #secondaryWindow .ht_evenMore {
+#primaryWindow .ht_evenMore {
 	position:absolute;
 	right:0px;
 }
 
-#primaryWindow .ht_evenMore:hover, #secondaryWindow .ht_evenMore:hover {
+#primaryWindow .ht_evenMore:hover {
 	text-decoration:underline;
 }
 
@@ -88,15 +96,8 @@
 	bottom:5px;
 	width:260px;
 	height:20px;
-	background-color:rgb(250, 249, 244);
-	border-color:rgb(47, 78, 84);
 	border-width:2px;
 	border-radius:5px;
-	z-index:10000;
-}
-
-#progressbar .ui-progressbar-value {
-	background-color:rgb(47, 78, 84);
 }
 
 /* 
@@ -114,12 +115,7 @@
 	height:20px;
 	padding-right:10px;
 	border-radius:4px 4px 0px 0px;
-	background-color:rgb(47, 78, 84);
 	color:rgb(250, 249, 244);
-}
-
-#primaryWindow #pw_mainArea {
-	height:235px;
 }
 
 #primaryWindow #pw_searchBar {
@@ -130,7 +126,6 @@
 	height:18px;	/* total: 25px */ 
 	padding:3px 20px 4px 20px;
 	border-style:solid;
-	border-color:rgb(47, 78, 84);
 	border-width:2px 0px 0px 0px;
 }
 
@@ -198,12 +193,8 @@
 }
 
 #secondaryWindow #sw_detailedPage {
-	margin:5px 10px 15px 10px;
+	padding:5px 10px 15px 10px;
 	height:75px;	/* total: 95px */ 
-}
-
-#secondaryWindow #sw_similarPages {
-	height:185px;
 }
 
 #secondaryWindow #sw_detailedPage .detailedPageTitle {
@@ -233,6 +224,52 @@
 	margin-right:10px;
 }
 
+
+/*
+ * User study 
+ * ===========
+ */
+
+.randomIndicator {
+	position:absolute;
+	bottom:4px;
+	right:4px;
+	width:6px;
+	height:6px;
+	opacity:0.4;
+}
+
+#primaryWindow.userFeedback, #primaryWindow.userFeedback #secondaryWindow {
+	height:550px;	/* Add 270px, 54px per suggestion */
+}
+
+#primaryWindow.userFeedback #pw_mainArea ul {
+	height:465px;	
+}
+
+#primaryWindow.userFeedback #pw_mainArea ul.morePagesLike,
+	#primaryWindow.userFeedback #pw_mainArea ul.search {
+	height:428px; 	/* One suggestion less */
+}
+
+#primaryWindow.userFeedback #sw_similarPages ul {
+	height:420px;
+}
+
+#primaryWindow.userFeedback .suggestion {
+	height:84px;
+}
+
+#primaryWindow.userFeedback .ht_rating {
+	padding-left:30px;
+}
+
+#primaryWindow.userFeedback .rating {
+	position:absolute;
+	right:35px;
+	display:inline-block;
+	height:17px;
+}
 
 
 /*
@@ -271,7 +308,6 @@
 }
 
 #primaryWindow .jspDrag, #secondaryWindow .jspDrag {
-	background-color:rgb(47, 78, 84);
 	position: relative;
 	top: 0;
 	left: 0;
