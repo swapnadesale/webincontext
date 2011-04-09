@@ -187,6 +187,9 @@ function createInContextWindow(){
 			for (var i = trace.length - 1; i > 0; i--) 	trace.pop(); 
 			trace.push(newPage);					// Push the new page in the trace.
 
+			var eventID = reportEvent({type:'searchRequested'});	// Report the event.
+			newPage.eventID = eventID;
+
 			// Then update the UI
 			createSearchPage(newPage);
 			$('#pw_mainArea').append(
@@ -196,10 +199,6 @@ function createInContextWindow(){
 				'</div>'
 			);
 			if(cached) addResponseToRequest(newPage);
-			
-			var eventID = reportEvent({type:'searchRequested'});	// Report the event.
-			newPage.eventID = eventID;
-			
 		}
 	});
 	
@@ -272,19 +271,20 @@ function createInContextWindow(){
 			if (!sourceIsTop) trace.pop();			// Push the new page in the trace.
 			trace.push(newPage);
 
-			
-			// Then update the UI
-			if (w == 'pw') showSecondaryWindow();
-			else createMorePagesLikePage(source);
-			createDetailedPage(suggestion);
-			if(cached) addResponseToRequest(newPage);		// If cached already show the suggestions.
-
 			var eventID = reportEvent({				// Report the event.
 				type:'moreLikeThisRequested', 
 				relatedID:source.eventID,
 				suggestionIdx:idx, 
 			});
 			newPage.eventID = eventID;
+
+			
+			// Then update the UI
+			if (w == 'pw') showSecondaryWindow();
+			else createMorePagesLikePage(source);
+			createDetailedPage(suggestion);
+			if(cached) addResponseToRequest(newPage);		// If cached already show the suggestions.
+			
 		}, moreLikeThisDelay);
 	});
 	
