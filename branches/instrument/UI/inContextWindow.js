@@ -593,15 +593,34 @@ function addRating(source, i, w) {
 		$('#'+w+'_rating_'+question+'_'+i).raty({
 			path: path,
 			start: start,  
-			click: makeClickRatingListener(suggestion, question),
+			click: makeClickRatingListener(source, suggestion, i, question),
 		});
 	}
 }
 
-function makeClickRatingListener(suggestion, question) {
+function makeClickRatingListener(source, suggestion, suggestionIdx, question) {
 	var listener = function(score){
 		if (suggestion.rating == null) suggestion.rating = {};
 		suggestion.rating[question] = score;
+		
+		// If all ratings filled, report them.
+		var ratings;
+		if (source.type == 'initial') {
+			if ((suggestion.rating.relat != null) && (suggestion.rating.inter != null) && (suggestion.rating.relev != null)) 
+				ratings = suggestion.rating.relat + ', ' + suggestion.rating.inter + ', ' + suggestion.rating.relev + ', ';
+		}
+		else 
+			if ((suggestion.rating.usefu != null) && (suggestion.rating.inter != null)) 
+				ratings = ', ' + suggestion.rating.inter + ', , ' + suggestion.rating.usefu;
+		if(ratings != null) {
+			reportEvent({
+				type: source.type + 'SuggestionsRated',
+				relatedID: source.eventID,
+				suggestionIdx: suggestionIdx,
+				ratings: ratings,
+			});
+		}
+
 	};
 	return listener;
 }
@@ -609,54 +628,37 @@ function makeClickRatingListener(suggestion, question) {
 function addBeforeUnloadFeedbackCheck() {
 	window.onbeforeunload = function(){
 		// Check if feedback has been given.
-		var primaryPage = trace[0], secondaryPage, primaryRatings, secondaryRatings, ready = true;
-		
-		primaryRatings = checkRatingsAvailableForPage(primaryPage, 5, true);
-		if(primaryRatings == null) ready = false;
-		else {
-			for(var i=0; (i<primaryPage.scores.length) && (i < 5); i++) {
-				secondaryPage = recentPages[primaryPage.url + ' -> ' + primaryPage.scores[i].url];
-				if(secondaryPage != null) secondaryRatings = checkRatingsAvailableForPage(secondaryPage, 4, false);
-				if(secondaryRatings != null) break;  
-			}
-			if(secondaryRatings == null) ready = false;
+		var initialRatings = false, moreRatings = false, ready;
+		for (url in recentPages) {
+			var page = recentPages[url];
+			if (checkFilled(page)) 
+				if (page.type == 'initial') initialRatings = true;
+				else if (page.type == 'more') moreRatings = true;
 		}
+		ready = initialRatings && moreRatings;
 		
-		if (ready) {
-			reportEvent({
-				type: 'primarySuggestionsRated',
-				relatedID: primaryPage.eventID,
-				ratings: primaryRatings,
-			});
-			reportEvent({
-				type: 'secondarySuggestionsRated',
-				relatedID: secondaryPage.eventID,
-				ratings: secondaryRatings,
-			});
-		}
-		else 
-			return 'Please provide feedback before navigating away!';
+		if(!ready) return 'Please provide feedback before navigating away!';
 	};
 }
 
-function checkRatingsAvailableForPage(page, nMax, primaryPage) {
-	var ratings = "", filled = true;
-	for (var i = 0; (i < page.scores.length) && (i < nMax); i++) {
+function checkFilled(page) {
+	var filled = true;
+	var nMax = (page.type == 'initial') ? 5 : 4;
+	
+	for (var i = 0; (i < page.scores.length) && (i<nMax); i++) {		
 		var suggestion = page.scores[i];
-		if(primaryPage) 
-			if ((suggestion.rating == null) || (suggestion.rating.relat == null) || (suggestion.rating.inter == null) || (suggestion.rating.relev == null)) {
+		if (page.type == 'initial') {
+			if ((suggestion.rating == null) || (suggestion.rating.relat == null) ||
+				(suggestion.rating.inter == null) || (suggestion.rating.relev == null)) 
 				filled = false;
-				break;
-			} else ratings += suggestion.rating.relat + ', ' + suggestion.rating.inter + ', ' + suggestion.rating.relev + ', ';
-		else 
-			if ((suggestion.rating == null) || (suggestion.rating.usefu == null) || (suggestion.rating.inter == null)) {
+		} else 
+			if ((suggestion.rating == null) || (suggestion.rating.usefu == null) || 
+				(suggestion.rating.inter == null)) 
 				filled = false;
-				break;
-			} else ratings += suggestion.rating.usefu + ', ' + suggestion.rating.inter;
+		if(!filled) break;
 	}
 
-	if(!filled) return null;
-	else return ratings;
+	return filled;
 }
 
 /*
