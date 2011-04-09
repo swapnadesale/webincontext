@@ -3,6 +3,7 @@
  * =========
  */
 var rootID, lastEventID = 0, userFeedback;
+var recentPages = new Array();
 var date = new Date();
 
 var primaryWindow, secondaryWindow, loaderWindow;
@@ -91,29 +92,7 @@ function createInContextWindow(){
 	primaryWindow = $('#primaryWindow');
 	if (userFeedback) {
 		primaryWindow.addClass('userFeedback');
-		window.onbeforeunload = function(){
-			// Check if feedback has been given.
-			var page = trace[0], ratings = "", ready = true;
-			for (var i = 0; (i < page.scores.length) && (i < 5); i++) {
-				var suggestion = page.scores[i];
-				if((suggestion.rating == null) || (suggestion.rating.relat == null) ||  
-					(suggestion.rating.inter == null) || (suggestion.rating.relev == null)) {
-					ready = false;
-					break;	
-				} else
-					ratings += suggestion.rating.relat + ', ' + suggestion.rating.inter + ', ' + 
-					suggestion.rating.relev + ', ';
-			}
-			if(ready) {
-				reportEvent({
-					type:'suggestionsRated', 
-					relatedID:trace[0].eventID,
-					ratings:ratings,					
-				});
-			}
-			else 
-				return 'Please provide feedback on the suggestions presented before navigating away!';
-		};
+		addBeforeUnloadFeedbackCheck();
 	}
 	
 	primaryWindow
@@ -182,38 +161,44 @@ function createInContextWindow(){
 	$('#pw_searchBar input').live('keydown', function(event){
 		if (event.keyCode == 13) {
 			event.preventDefault();
-			
-			var query = event.target.value;
-			var searchPage = {
-				url: trace[0].url + " -> " + query,
-				title: trace[0].title + " -> " + query,
-				type: 'search',
-				ready: false
-			};
-			
-			// First update the UI
+
 			hideSecondaryWindow();
-			createSearchPage(searchPage);
+
+			// First construct the new page.
+			var query = event.target.value;
+			var newURL = trace[0].url + " -> " + query;
+			var newPage = recentPages[newURL];		// Try to get it from cache.
+			var cached = true;
+			if (newPage == null) { 					// Else request it.
+				cached = false;
+				var newPage = {
+					url: trace[0].url + " -> " + query,
+					title: trace[0].title + " -> " + query,
+					type: 'search',
+					ready: false
+				};
+				
+				chrome.extension.sendRequest({
+					action: 'searchRequested',
+					url: trace[0].url,
+					query: query,
+				});
+			}
+			for (var i = trace.length - 1; i > 0; i--) 	trace.pop(); 
+			trace.push(newPage);					// Push the new page in the trace.
+
+			// Then update the UI
+			createSearchPage(newPage);
 			$('#pw_mainArea').append(
 				'<div class="load_spinner">' +
 					'Loading: ' +
 					'<img src="' + chrome.extension.getURL('UI/load_spinner.gif') + '"></img>' +
 				'</div>'
 			);
+			if(cached) addResponseToRequest(newPage);
 			
-			// Then send the request for data.
-			for (var i = trace.length - 1; i > 0; i--) 
-				trace.pop(); // Only keep the original suggestions.
-			trace.push(searchPage);
-			
-			chrome.extension.sendRequest({
-				action: 'searchRequested',
-				url: trace[0].url,
-				query: query,
-			});
-			
-			var eventID = reportEvent({type:'searchRequested'});
-			trace[1].eventID = eventID;
+			var eventID = reportEvent({type:'searchRequested'});	// Report the event.
+			newPage.eventID = eventID;
 			
 		}
 	});
@@ -264,36 +249,42 @@ function createInContextWindow(){
 			return;
 		
 		timerMoreLikeThis = setTimeout(function(){
-			// First update the UI
-			if (w == 'pw') 
-				showSecondaryWindow();
-			else 
-				createMorePagesLikePage(source);
+			// First construct the new page.
+			var newURL = source.url + " -> " + suggestion.url;
+			var newPage = recentPages[newURL];		// Try to get it from cache.
+			var cached = true;
+			if (newPage == null) {					// Else request it.
+				cached = false;
+				newPage = {
+					url: source.url + " -> " + suggestion.url,
+					title: source.title + " -> " + suggestion.title,
+					type: 'more',
+					ready: false
+				};
+				
+				chrome.extension.sendRequest({
+					action: 'moreLikeThisRequested',
+					sourceURL: source.url,
+					suggestionURL: suggestion.url,
+					userFeedback: userFeedback,
+				});
+			}
+			if (!sourceIsTop) trace.pop();			// Push the new page in the trace.
+			trace.push(newPage);
+
+			
+			// Then update the UI
+			if (w == 'pw') showSecondaryWindow();
+			else createMorePagesLikePage(source);
 			createDetailedPage(suggestion);
-			
-			// Then send the request for data.
-			if (!sourceIsTop) 
-				trace.pop();
-			trace.push({
-				url: source.url + " -> " + suggestion.url,
-				title: source.title + " -> " + suggestion.title,
-				type: 'more',
-				ready: false
-			});
-			
-			chrome.extension.sendRequest({
-				action: 'moreLikeThisRequested',
-				sourceURL: source.url,
-				suggestionURL: suggestion.url,
-				userFeedback: userFeedback,
-			});
-			
-			var eventID = reportEvent({
+			if(cached) addResponseToRequest(newPage);		// If cached already show the suggestions.
+
+			var eventID = reportEvent({				// Report the event.
 				type:'moreLikeThisRequested', 
 				relatedID:source.eventID,
 				suggestionIdx:idx, 
 			});
-			trace[trace.length-1].eventID = eventID;
+			newPage.eventID = eventID;
 		}, moreLikeThisDelay);
 	});
 	
@@ -382,31 +373,9 @@ function createInContextWindow(){
 			lastTraceEntry.scores = msg.scores;
 			lastTraceEntry.randomSuggestions = msg.randomSuggestions;
 			lastTraceEntry.ready = true;
+			recentPages[lastTraceEntry.url] = lastTraceEntry;	// Cache page.
 			
-			
-			$('.load_spinner').remove();
-			showHideRandomIndicator(msg.randomSuggestions);
-			
-			var type = lastTraceEntry.type;
-			switch (type) {
-				case 'initial':
-					addSuggestions(lastTraceEntry, 5, 'pw');
-					break;
-				case 'search':
-					addSuggestions(lastTraceEntry, 4, 'pw');
-					$('#pw_mainArea ul').addClass('search');
-					break;
-				case 'more':
-					addSuggestions(lastTraceEntry, 4, 'sw');
-					break;
-			};
-			
-			var eventID = reportEvent({
-				type:'showSuggestions',
-				relatedID:lastTraceEntry.eventID,	// The request ID.
-				nrSuggestions:lastTraceEntry.scores.length, 
-			});
-			lastTraceEntry.eventID = eventID;	// Replace with the response ID.
+			addResponseToRequest(lastTraceEntry);
 		}
 	});
 }
@@ -499,41 +468,30 @@ function createDetailedPage(suggestion) {
 		);
 }
 
-function suggestionString(source, i, w) {
-	var s = '<li id="'+w+'_more'+i+'" class = "suggestion">' +
-				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
-					source.scores[i].title +
-				'</a>' +
-				'<img class="suggestionMore" src="' + chrome.extension.getURL('UI/arrow2.gif') + '"></img>';
-	/*
-	* User study
-	*/
-	if(userFeedback) {
-		if(source.type == 'initial')
-			s+='<div class="helperText ht_rating">' +
-					'Related: ' +
-					'<div id="'+w+'_rating_relat_'+i+'" class="rating"></div>' +
-				'</div>' + 
-				'<div class="helperText ht_rating">' +
-					'Interesting: ' + 
-					'<div id="'+w+'_rating_inter_'+i+'" class="rating"></div>' + 
-				'</div>' +
-				'<div class="helperText ht_rating">' +
-					'Relevant: ' +
-					'<div id="'+w+'_rating_relev_'+i+'" class="rating"></div>' +
-				'</div>';
-		else 
-			s+='<div class="helperText ht_rating">' +
-					'Useful: ' +
-					'<div id="'+w+'_rating_usefu_'+i+'" class="rating"></div>' +
-				'</div>' + 
-				'<div class="helperText ht_rating">' +
-					'Interesting: ' +
-					'<div id="'+w+'_rating_inter_'+i+'" class="rating"></div>' +
-				'</div>';
-	}
-	s +=	'</li>';
-	return s;
+function addResponseToRequest(page) {
+	$('.load_spinner').remove();
+	showHideRandomIndicator(page.randomSuggestions);
+			
+	var type = page.type;
+	switch (type) {
+		case 'initial':
+			addSuggestions(page, 5, 'pw');
+			break;
+		case 'search':
+			addSuggestions(page, 4, 'pw');
+			$('#pw_mainArea ul').addClass('search');
+			break;
+		case 'more':
+			addSuggestions(page, 4, 'sw');
+			break;
+	};
+			
+	var eventID = reportEvent({
+		type:'showSuggestions',
+		relatedID:page.eventID,	// The request ID.
+		nrSuggestions:page.scores.length, 
+	});
+	page.eventID = eventID;	// Replace with the response ID.
 }
 
 function addSuggestions(source, nMax, w){
@@ -541,42 +499,42 @@ function addSuggestions(source, nMax, w){
 	
 	if (source.scores.length > 0) {
 		$(wDiv).append('<ul></ul>');
-		for (var i = 0; (i < source.scores.length) && (i < nMax); i++) 
+		for (var i = 0; (i < source.scores.length) && (i < nMax); i++) {
 			$(wDiv + ' ul').append(suggestionString(source, i, w));
+			if (userFeedback) addRating(source, i, w);
+		}	
 		$(wDiv).append('<p class = "helperText ht_evenMore"> Even more.. </p>');
 	} else
 		$(wDiv).append('<div class="helperText ht_noSimilarPages">No similar pages to show!</div>');
-	
-	if (userFeedback) {
-		var path = chrome.extension.getURL('libraries/rate/img');
-		$(wDiv + ' .rating').raty({
-			path: path, 
-			click:function(score) {
-				var id = this[0].id;
-				var w = id.slice(0, 2);
-				var sourceIsTop = ((w == 'sw') || (!swVisible));
-				var source = sourceIsTop ? trace[trace.length - 1] : trace[trace.length - 2];
-				var question = id.slice(10, 15);
-				var idx = parseInt(id.slice(16));
-				var suggestion = source.scores[idx];
-				
-				if(suggestion.rating == null) suggestion.rating = {};
-				suggestion.rating[question] = score;
-			}
-		});
-	}
 };
 
 function addMoreSuggestions(source, w) {
 	var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
 	var nExisting = $(wDiv + ' ul li').length;
-	for (var i = nExisting; (i < source.scores.length) && (i < 100); i++)
+	for (var i = nExisting; (i < source.scores.length) && (i < 100); i++) {
 		$(wDiv + ' ul').append(suggestionString(source, i, w));
+		if (userFeedback) addRating(source, i, w);
+	}
 }
 
-function getCSSSizeValue(node, property) {
-	var s = node.css(property);
-	return parseInt(s.substr(0, s.length - 2));
+function suggestionString(source, i, w) {
+	var s = '<li id="'+w+'_more'+i+'" class = "suggestion">' +
+				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
+					source.scores[i].title +
+				'</a>' +
+				'<img class="suggestionMore" src="' + chrome.extension.getURL('UI/arrow2.gif') + '"></img>' +
+			'</li>';
+	return s;
+}
+
+
+/*
+* User study
+*/
+function showHideRandomIndicator(randomSuggestions) {
+	var w = swVisible ? "#secondaryWindow" : "#primaryWindow";
+	if (randomSuggestions) $(w + ' .randomIndicator').show();
+	else $(w + ' .randomIndicator').hide();
 }
 
 function reportEvent(event) {
@@ -594,11 +552,119 @@ function reportEvent(event) {
 	return eventID;
 }
 
-/*
-* User study
-*/
-function showHideRandomIndicator(randomSuggestions) {
-	var w = swVisible ? "#secondaryWindow" : "#primaryWindow";
-	if (randomSuggestions) $(w + ' .randomIndicator').show();
-	else $(w + ' .randomIndicator').hide();
+function addRating(source, i, w) {
+	if (source.type == 'initial') 
+		$('#' + w + '_more' + i).append(
+			'<div class="helperText ht_rating">' +
+				'Related: ' +
+				'<div id="'+w +'_rating_relat_'+i+'" class="rating"></div>' +
+			'</div>' +
+			'<div class="helperText ht_rating">' +
+				'Interesting: ' +
+				'<div id="'+w+'_rating_inter_'+i+'" class="rating"></div>' +
+			'</div>' +
+				'<div class="helperText ht_rating">' +
+				'Relevant: ' +
+				'<div id="'+w+'_rating_relev_'+i+'" class="rating"></div>' +
+			'</div>'
+		);
+	else 
+		$('#' + w + '_more' + i).append(
+			'<div class="helperText ht_rating">' +
+				'Useful: ' +
+				'<div id="'+w+'_rating_usefu_'+i +'" class="rating"></div>' +
+			'</div>' +
+			'<div class="helperText ht_rating">' +
+				'Interesting: ' +
+				'<div id="'+w+'_rating_inter_'+i+'" class="rating"></div>' +
+			'</div>'
+		);
+
+
+	var path = chrome.extension.getURL('libraries/rate/img');
+	var sourceIsTop = ((w == 'sw') || (!swVisible));
+	var source = sourceIsTop ? trace[trace.length - 1] : trace[trace.length - 2];
+	var suggestion = source.scores[i];
+	var questions = ['relat', 'inter', 'relev', 'usefu'];
+	for (var j=0; j<questions.length; j++) {
+		var question = questions[j];
+		var start = ((suggestion.rating == null) || (suggestion.rating[question] == null)) ? 0 : 
+			suggestion.rating[question];
+		$('#'+w+'_rating_'+question+'_'+i).raty({
+			path: path,
+			start: start,  
+			click: makeClickRatingListener(suggestion, question),
+		});
+	}
 }
+
+function makeClickRatingListener(suggestion, question) {
+	var listener = function(score){
+		if (suggestion.rating == null) suggestion.rating = {};
+		suggestion.rating[question] = score;
+	};
+	return listener;
+}
+
+function addBeforeUnloadFeedbackCheck() {
+	window.onbeforeunload = function(){
+		// Check if feedback has been given.
+		var primaryPage = trace[0], secondaryPage, primaryRatings, secondaryRatings, ready = true;
+		
+		primaryRatings = checkRatingsAvailableForPage(primaryPage, 5, true);
+		if(primaryRatings == null) ready = false;
+		else {
+			for(var i=0; (i<primaryPage.scores.length) && (i < 5); i++) {
+				secondaryPage = recentPages[primaryPage.url + ' -> ' + primaryPage.scores[i].url];
+				if(secondaryPage != null) secondaryRatings = checkRatingsAvailableForPage(secondaryPage, 4, false);
+				if(secondaryRatings != null) break;  
+			}
+			if(secondaryRatings == null) ready = false;
+		}
+		
+		if (ready) {
+			reportEvent({
+				type: 'primarySuggestionsRated',
+				relatedID: primaryPage.eventID,
+				ratings: primaryRatings,
+			});
+			reportEvent({
+				type: 'secondarySuggestionsRated',
+				relatedID: secondaryPage.eventID,
+				ratings: secondaryRatings,
+			});
+		}
+		else 
+			return 'Please provide feedback before navigating away!';
+	};
+}
+
+function checkRatingsAvailableForPage(page, nMax, primaryPage) {
+	var ratings = "", filled = true;
+	for (var i = 0; (i < page.scores.length) && (i < nMax); i++) {
+		var suggestion = page.scores[i];
+		if(primaryPage) 
+			if ((suggestion.rating == null) || (suggestion.rating.relat == null) || (suggestion.rating.inter == null) || (suggestion.rating.relev == null)) {
+				filled = false;
+				break;
+			} else ratings += suggestion.rating.relat + ', ' + suggestion.rating.inter + ', ' + suggestion.rating.relev + ', ';
+		else 
+			if ((suggestion.rating == null) || (suggestion.rating.usefu == null) || (suggestion.rating.inter == null)) {
+				filled = false;
+				break;
+			} else ratings += suggestion.rating.usefu + ', ' + suggestion.rating.inter;
+	}
+
+	if(!filled) return null;
+	else return ratings;
+}
+
+/*
+ * Util
+ * ====
+ */
+function getCSSSizeValue(node, property) {
+	var s = node.css(property);
+	return parseInt(s.substr(0, s.length - 2));
+}
+

@@ -70,9 +70,9 @@ History.prototype = {
 
 		
 		// User study 
-		this.percentUserFeedback = merge(1.0, opts.percentUserFeedback);
-		this.percentRandomSuggestionsNoFeedback = merge(0.25, opts.percentRandomSuggestionsNoFeedback);
-		this.percentRandomSuggestionsFeedback = merge(0.1, opts.percentRandomSuggestionsFeedback);
+		this.percentUserFeedback = merge(1, opts.percentUserFeedback);
+		this.percentRandomSuggestionsNoFeedback = merge(0, opts.percentRandomSuggestionsNoFeedback);
+		this.percentRandomSuggestionsFeedback = merge(0, opts.percentRandomSuggestionsFeedback);
 	},
 	
 	loadHistory: function(callback){
