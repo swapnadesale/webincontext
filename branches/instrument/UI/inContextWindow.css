@@ -20,7 +20,7 @@
 
 #primaryWindow, #secondaryWindow {
 	width:260px; 
-	height:290px;
+	height:284px;
 	border-style:solid;
 	border-width:2px 2px 5px 2px;
 	border-radius:7px 7px 2px 2px;
@@ -49,13 +49,9 @@
 	background-color:rgb(255, 255, 255);
 }
 
-#primaryWindow .suggestion {
-	height:30px;
-	padding:4px 0px;
-}
-
 #primaryWindow .suggestion>div {
 	margin:0px 10px;
+	padding:4px 0px;
 	border-bottom-color:rgb(235, 235, 235);
 	border-bottom-style:solid;
 	border-bottom-width:1px;
@@ -163,7 +159,7 @@
 
 #primaryWindow #pw_mainArea ul.morePagesLike,
 	#primaryWindow #pw_mainArea ul.search {
-	height:156px; 	/* One suggestion less */
+	height:160px; 	
 	list-style-type:none;
 }
 
@@ -185,8 +181,6 @@
 /*
  * Secondary window
  * ================
- * Total height: 280 = 95px (detailedPage + margins) + 4 * 37px (suggestions + margins) + 
- * 		2*15 (helperText) + 3+4 (extraPadding) 
  */
 
 #secondaryWindow {
@@ -197,7 +191,7 @@
 
 #secondaryWindow #sw_detailedPage {
 	padding:5px 5px 10px 5px;
-	height:75px;	/* total: 95px */ 
+	height:75px;
 }
 
 #secondaryWindow #sw_detailedPage .detailedPageTitle {
@@ -214,7 +208,7 @@
 }
 
 #secondaryWindow #sw_similarPages ul {
-	height:156px;
+	height:155px;
 }
 
 #secondaryWindow .ht_morePagesLikeThis {
@@ -236,24 +230,20 @@
 }
 
 #primaryWindow.userFeedback, #primaryWindow.userFeedback #secondaryWindow {
-	height:550px;	/* Add 270px, 54px per suggestion */
+	height:539px;	/* Add 255px, 51px per suggestion */
 }
 
 #primaryWindow.userFeedback #pw_mainArea ul {
-	height:465px;	
+	height:450px;	
 }
 
 #primaryWindow.userFeedback #pw_mainArea ul.morePagesLike,
 	#primaryWindow.userFeedback #pw_mainArea ul.search {
-	height:428px; 	/* One suggestion less */
+	height:415px;
 }
 
 #primaryWindow.userFeedback #sw_similarPages ul {
-	height:420px;
-}
-
-#primaryWindow.userFeedback .suggestion {
-	height:84px;
+	height:410px;
 }
 
 #primaryWindow.userFeedback .ht_rating {
@@ -272,7 +262,7 @@
  * =============
  */
 
-.ui-progressbar {
+#progressbar.ui-progressbar {
 	position:fixed;
 	right:265px;
 	bottom:5px;
@@ -283,9 +273,35 @@
 	border-radius:5px;
 }
 
-.ui-progressbar-value {
+#progressbar .ui-progressbar-value {
+	position:absolute;
+	left:0px;
+	top:0px;
 	height:100%;
+	overflow:hidden;
 }
+
+#progressbar .ht_loaderUnloaded, #progressbar .ht_loaderLoaded {
+	width:260px;
+	height:15px;
+	padding-left:5px;
+	font-family: 'Helvetica Neue', Arial, Helvetica, 'Liberation Sans', FreeSans, sans-serif;
+	font-size:14px;
+	font-weight:bold;
+	font-style:italic;
+}
+
+#progressbar .ht_loaderUnloaded {
+	position:absolute;
+	left:0px;
+	top:0px;
+	color:rgb(51, 51, 51);
+}
+
+#progressbar .ht_loaderLoaded {
+	color:rgb(255, 255, 255);	
+}
+
 
 /*
  * Scrollbars

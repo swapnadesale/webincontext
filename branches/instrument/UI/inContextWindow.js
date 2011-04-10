@@ -71,6 +71,8 @@ function createLoaderWindow(percentLoaded) {
 	loaderWindow.progressbar({
 		value: percentLoaded
 	});
+	$('#progressbar').prepend('<div class="ht_loaderUnloaded">Loading inContext...</div>')
+	$('#progressbar .ui-progressbar-value').append('<div class="ht_loaderLoaded">Loading inContext...</div>')
 }
 
 function updatePercentLoaded(percentLoaded) {
@@ -411,15 +413,15 @@ function createSearchPage(source) {
 		.empty()
 		.append(
 			'<div class="ht_morePagesLikeDiv">' +
+				'<div class="helperText ht_goBack">' +
+					'\u2190 Back' +
+				'</div>' +
 				'<div class="helperText ht_morePagesLikeHelperText">' +
 					'Pages<br>related to:' + 
 				'</div>' +
 				'<div class="helperText ht_morePagesLikeTitle">' +
 					query +
 				'</div><br>' +
-				'<div class="helperText ht_goBack">' +
-					'<-- Go back' +
-				'</div>' +
 			'</div>'
 		);
 }
@@ -536,7 +538,7 @@ function reportEvent(event) {
 
 function addRating(source, i, w) {
 	if (source.type == 'initial') 
-		$('#' + w + '_more' + i).append(
+		$('#' + w + '_more' + i + '>div').append(
 			'<div class="helperText ht_rating">' +
 				'Related: ' +
 				'<div id="'+w +'_rating_relat_'+i+'" class="rating"></div>' +
@@ -551,7 +553,7 @@ function addRating(source, i, w) {
 			'</div>'
 		);
 	else 
-		$('#' + w + '_more' + i).append(
+		$('#' + w + '_more' + i + '>div').append(
 			'<div class="helperText ht_rating">' +
 				'Useful: ' +
 				'<div id="'+w+'_rating_usefu_'+i +'" class="rating"></div>' +
