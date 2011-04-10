@@ -738,10 +738,39 @@ History.prototype = {
 			sentenceScoresC = new Array();
 		for(var i=0; i<suggestion.text.length; i++) {
 			var t = suggestion.text[i];
-			var sentences = t.split(/[\056;!?]/);
+			var sentences = new Array(), t1 = t, pos = 0;
+			for(var j=0; j<t.length;) {
+				var start = t1.search(/[a-z'"]/i);
+				if(start == -1) break;
+				t1 = t1.slice(start);
+
+				var end = t1.search(/[\056;!?]/);
+				if (end == -1) {
+					sentences.push({
+						start: pos + start,
+						end: pos + t1.length - 1,
+					});
+					break;
+				}
+				else {
+					sentences.push({
+						start: pos + start,
+						end: pos + start + end
+					});
+					
+					t1 = t1.slice(end + 1);
+					pos = pos + start + end + 1;
+				} 
+			}
+
 			for(var j=0; j<sentences.length; j++) {
-				var sentence = sentences[j].slice(0, 135);
-				var v = this.computeTfidfFromString(sentence, false);
+				var candidate = '';
+				for(var k=j; k<sentences.length; k++) {
+					candidate += t.slice(sentences[k].start, sentences[k].end+1);
+					if(candidate.length > 80) break;
+				}
+
+				var v = this.computeTfidfFromString(candidate, false);
 				// Similarity to query.
 				var v2 = page.tfidf;
 				var sQ = 0;
@@ -756,17 +785,17 @@ History.prototype = {
 						sD += v[word] * v2[word];
 				// Combined Similarity
 				sentenceScoresC.push({
-					sentence: sentence,
+					sentence: candidate,
 					score: 0.7 * sQ + 0.3 * sD,
 				});
 			}
 		}
 		sentenceScoresC.sort(function(a, b){ return b.score - a.score });
 
-//		detailsPage.document.write('<br>Summaries: <br>');
-//		for(var i=0; (i<2) && (i<sentenceScoresC.length); i++)
-//			detailsPage.document.write(sentenceScoresC[i].score.toFixed(3) + ': ' + sentenceScoresC[i].sentence + '<br>');
-//		detailsPage.document.write("<br><br>");
+		detailsPage.document.write('<br>Summaries: <br>');
+		for(var i=0; (i<4) && (i<sentenceScoresC.length); i++)
+			detailsPage.document.write(sentenceScoresC[i].score.toFixed(3) + ': ' + sentenceScoresC[i].sentence + '<br>');
+		detailsPage.document.write("<br><br>");
 
 		return sentenceScoresC[0].sentence;
 	},
