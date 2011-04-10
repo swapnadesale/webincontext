@@ -34,7 +34,7 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 
 		// Default properties
-		this.maxHistoryEntries = merge(500, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(3000, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -273,8 +273,11 @@ History.prototype = {
 					that.lastProcessedHistoryEntry = (new Date).getTime();
 					
 					var t = findTab('tId', tId) 
-					if (t!= null) t.requests = [];
-					else log('Tab updated failed for id: '+ tId + '! Tab not found.');
+					if (t != null) {
+						t.requests = [];
+						if (changeInfo.url != null) // URL changed
+							t.lastLoadedURL = changeInfo.url;
+					} else log('Tab updated failed for id: ' + tId + '! Tab not found.');
 				}
 			});
 
@@ -282,14 +285,14 @@ History.prototype = {
 			// =======================================================================================================================
 			var sendResults = function(pg, tId) {
 				try {
-					chrome.tbs.sendRequest(tId, {
+					chrome.tabs.sendRequest(tId, {
 						type:'result', 
 						url:pg.url, 
 						scores:pg.mmrScores,
 						randomSuggestions:pg.randomSuggestions,
 					});
 				} catch(err) {
-					log('Error in sending results to tab: ' + tId + '! ' + err.description);
+					log('Error in sending results to tab: ' + tId + '! ' + err.message);
 				}
 			}
 			var addRequest = function(pg, tId, onFail) {
@@ -347,7 +350,7 @@ History.prototype = {
 								userFeedback: userFeedback
 							});
 						} catch(err) {
-							log('Error in sending history state to tab: ' + tId + '! ' + err.description);
+							log('Error in sending history state to tab: ' + sender.tab.id + '! ' + err.message);
 						}
 						break;
 						
@@ -387,7 +390,7 @@ History.prototype = {
 						}
 						break;
 						
-					case 'Requested':
+					case 'moreLikeThisRequested':
 						var resultURL = msg.sourceURL + ' -> ' + msg.suggestionURL; 
 						if(that.recentPages[resultURL] != null) 
 							addRequest({url:resultURL}, sender.tab.id, sendResults);
