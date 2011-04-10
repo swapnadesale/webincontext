@@ -318,6 +318,20 @@ StoreWrapper.prototype = {
 		});
 	},
 	
+	getAllEvents: function(callback) {
+		var that = this;
+		this.db.transaction(function(t){
+			t.executeSql("SELECT * FROM " + that.logTable, [], function(tx, results){
+				var s = '';
+				for(var i=0; i<results.rows.length; i++) 
+					s += results.rows.item(i).entry + "<br>";
+				callback(s);	
+			}, function(tx, error) {
+					detailsPage.document.write('Error in getAllEvents: ' + error.message + "<br>");
+			});
+		});
+	},
+	
 	numberStoredPages: function(callback) {
 		var that = this;
 		this.db.transaction(function(t){

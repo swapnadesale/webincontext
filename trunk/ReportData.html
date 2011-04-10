@@ -1,0 +1,14 @@
+<html>
+	<title>
+		Log data
+	</title>
+	<body>
+		<script>
+			var bg = chrome.extension.getBackgroundPage();
+			var store = bg.hist.store;
+			store.getAllEvents(function(events){
+				document.write(events);
+			});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,13 @@
+body {
+	width:100px;	
+}
+
+#reportData {
+	font-family: 'Helvetica Neue', Arial, Helvetica, 'Liberation Sans', FreeSans, sans-serif;
+	font-size:14px;
+	cursor:pointer;
+}
+
+#reportData:hover {
+	text-decoration:underline;	
+}
