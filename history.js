@@ -34,7 +34,7 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 
 		// Default properties
-		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(500, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -69,9 +69,11 @@ History.prototype = {
 
 		
 		// User study 
-		this.percentUserFeedback = merge(0.5, opts.percentUserFeedback);
-		this.percentRandomSuggestionsNoFeedback = merge(0.25, opts.percentRandomSuggestionsNoFeedback);
-		this.percentRandomSuggestionsFeedback = merge(0.10, opts.percentRandomSuggestionsFeedback);
+		this.percentUserFeedback = merge(0.0, opts.percentUserFeedback);
+		this.percentRandomSuggestionsFeedback = merge(0.25, opts.percentRandomSuggestionsFeedback);
+		this.percentRandomSuggestionsNoFeedback = merge(0.0, opts.percentRandomSuggestionsNoFeedback);
+		this.randomSuggestionsDelay = merge(5000, opts.randomSuggestionsDelay);
+
 	},
 	
 	loadHistory: function(callback){
@@ -230,10 +232,11 @@ History.prototype = {
 			}
 			var findTab = function(key, value){
 				var t = findTabInArray(that.selectedTabs, key, value);
-				if (t == null) {
+				if (t != null) t.selected = true;
+				else { 
 					t = findTabInArray(that.openTabs, key, value);
-					t.selected = false;		// Note: the select property cannot be guaranteed to be present/correct at any other time besides immediatelly after a find call.
-				} else t.selected = true;
+					if(t != null) t.selected = false;		// Note: the select property cannot be guaranteed to be present/correct at any other time besides immediatelly after a find call.
+				}
 				return t;
 				
 			}
@@ -241,31 +244,6 @@ History.prototype = {
 				var t = extractTabFromArray(that.selectedTabs, key, value);
 				if(t == null) t = extractTabFromArray(that.openTabs, key, value);
 				return t;
-			}
-			var addRequest = function(pg, tId) {
-				if (that.recentPages[pg.url] == null) {
-					pg.tfidfScores = new Array();
-					pg.nextBatch = 0;
-					that.recentPages[pg.url] = pg;
-				}
-				var t = findTab('tId', tId);
-				t.requests.push(pg.url);
-				if(t.selected) that.selectedTabs.nextToProcess = t.idx;
-				
-				detailsPage.document.write('Request added for URL: ' + pg.url + '.<br>');
-			}
-			var removeRequest = function(pg, tId) {
-				var t = findTab('tId', tId);
-				var i;
-				for(i = t.requests.length-1; i>=0; i--) {
-					if(t.requests[i] == pg.url) {
-						t.requests.splice(i, 1);
-						break;
-					}
-				}
-				if(i == t.requests.length)	// If removing top of stack request.
-					if(t.selected) that.selectedTabs.nextToProcess = (t.idx + 1) % that.selectedTabs.length;
-					else that.openTabs.nextToProcess = (t.idx + 1) % that.openTabs.length;
 			}
 			// 2. Set up listeners for window and tab events: resets requests when new page is loaded, or tab is closed.
 			// =========================================================================================================
@@ -277,25 +255,78 @@ History.prototype = {
 				});
 			});
 			chrome.tabs.onRemoved.addListener(function(tId) {
-				extractTab('tId', tId);
+				t = extractTab('tId', tId);
+				if(t == null) log('Tab removed failed for id: '+ tId);
 			});
 			chrome.tabs.onSelectionChanged.addListener(function(tId, selectInfo) {
 				var tOld = extractTabFromArray(that.selectedTabs, 'wId', selectInfo.windowId);
 				if(tOld != null) that.openTabs.push(tOld);
+				
 				var t = extractTab('tId', tId);
-				that.selectedTabs.push(t);
-				that.selectedTabs.nextToProcess = that.selectedTabs.length - 1;
+				if (t != null) {
+					that.selectedTabs.push(t);
+					that.selectedTabs.nextToProcess = that.selectedTabs.length - 1;
+				} else log('Tab selection changed failed for id: '+ tId + '! Tab not found.');
 			});
 			chrome.tabs.onUpdated.addListener(function(tId, changeInfo){
 				if (changeInfo.status == 'loading') {
 					that.lastProcessedHistoryEntry = (new Date).getTime();
+					
 					var t = findTab('tId', tId) 
-					t.requests = [];
+					if (t!= null) t.requests = [];
+					else log('Tab updated failed for id: '+ tId + '! Tab not found.');
 				}
 			});
 
 			// 3. Set up listeners for messages from inContext windows: prepares and adds incoming requests from the inContext window.
 			// =======================================================================================================================
+			var sendResults = function(pg, tId) {
+				try {
+					chrome.tbs.sendRequest(tId, {
+						type:'result', 
+						url:pg.url, 
+						scores:pg.mmrScores,
+						randomSuggestions:pg.randomSuggestions,
+					});
+				} catch(err) {
+					log('Error in sending results to tab: ' + tId + '! ' + err.description);
+				}
+			}
+			var addRequest = function(pg, tId, onFail) {
+				if (that.recentPages[pg.url] == null) {
+					pg.tfidfScores = new Array();
+					pg.nextBatch = 0;
+					pg.mmrScores = new Array();
+					that.recentPages[pg.url] = pg;
+				}
+				var t = findTab('tId', tId);
+				if (t != null) {
+					t.requests.push(pg.url);
+					if (t.selected) that.selectedTabs.nextToProcess = t.idx;
+					log('Request added for URL: ' + pg.url);
+				} else {
+					log('Request add for URL: ' + pg.url + ' failed! Tab with id: ' + tId + ' not found!');
+					onFail(pg, tId);
+				}
+			}
+			var removeRequest = function(pg, tId) {
+				var t = findTab('tId', tId);
+				if (t != null) {
+					var i;
+					for (i = t.requests.length - 1; i >= 0; i--) {
+						if (t.requests[i] == pg.url) {
+							t.requests.splice(i, 1);
+							break;
+						}
+					}
+					if (i == t.requests.length) // If removing top of stack request.
+						if (t.selected) that.selectedTabs.nextToProcess = (t.idx + 1) % that.selectedTabs.length;
+						else that.openTabs.nextToProcess = (t.idx + 1) % that.openTabs.length;
+				} else {
+					log('Request remove for URL: ' + pg.url + ' failed! Tab with id: ' + tId + ' not found!');
+				}
+			}
+
 			chrome.extension.onRequest.addListener(function(msg, sender, sendResponse){
 				var startTime = (new Date()).getTime();
 				var pg;
@@ -309,11 +340,15 @@ History.prototype = {
 						*/
 						var userFeedback = (Math.random() < that.percentUserFeedback);
 						
-						sendResponse({
-							historyLoaded:true, 
-							id:id, 
-							userFeedback:userFeedback
-						});
+						try {
+							sendResponse({
+								historyLoaded: true,
+								id: id,
+								userFeedback: userFeedback
+							});
+						} catch(err) {
+							log('Error in sending history state to tab: ' + tId + '! ' + err.description);
+						}
 						break;
 						
 					case 'pageLoaded':
@@ -346,16 +381,16 @@ History.prototype = {
 							pg.randomSuggestions = msg.userFeedback ? (Math.random() < that.percentRandomSuggestionsFeedback) :
 								(Math.random() < that.percentRandomSuggestionsNoFeedback);
 							pg.state = pg.randomSuggestions ? 'computingRandomSuggestions' : 'computingTfidfScores';
-							detailsPage.document.write(pg.randomSuggestions + " - " + pg.url + "<br>");
+							log(pg.randomSuggestions + " - " + pg.url);
 
-							addRequest(pg, sender.tab.id);
+							addRequest(pg, sender.tab.id, sendResults);
 						}
 						break;
 						
-					case 'moreLikeThisRequested':
+					case 'Requested':
 						var resultURL = msg.sourceURL + ' -> ' + msg.suggestionURL; 
 						if(that.recentPages[resultURL] != null) 
-							addRequest({url:resultURL}, sender.tab.id);
+							addRequest({url:resultURL}, sender.tab.id, sendResults);
 						else 
 							that.computeMoreLikeThisPage(msg.sourceURL, msg.suggestionURL, function(pg){
 								pg.startTime = startTime;
@@ -365,16 +400,16 @@ History.prototype = {
 							 	*/
 								pg.randomSuggestions = msg.userFeedback? (Math.random() < that.percentRandomSuggestionsFeedback) : false; 
 								pg.state = pg.randomSuggestions ? 'computingRandomSuggestions' : 'computingTfidfScores';
-								detailsPage.document.write(pg.randomSuggestions + " - " + pg.url + "<br>");
+								log(pg.randomSuggestions + " - " + pg.url);
 								
-								addRequest(pg, sender.tab.id);							
+								addRequest(pg, sender.tab.id, sendResults);							
 							});
 						break;
 						
 					case 'searchRequested':
 						var resultURL = msg.url + ' -> ' + msg.query;
 						if (that.recentPages[resultURL] != null) 
-							addRequest({url:resultURL}, sender.tab.id);
+							addRequest({url:resultURL}, sender.tab.id, sendResults);
 						else {
 							pg = that.computeSearchQueryPage(msg.url, msg.query);
 							pg.startTime = startTime;
@@ -385,7 +420,7 @@ History.prototype = {
 							pg.randomSuggestions = false;
 							pg.state = 'computingTfidfScores';
 							
-							addRequest(pg, sender.tab.id);
+							addRequest(pg, sender.tab.id, sendResults);
 						}
 						break;
 					
@@ -404,7 +439,7 @@ History.prototype = {
 				if(that.selectedTabs.length > 0) {	// Prioritize selected tabs.
 					for (var i = 0; i < that.selectedTabs.length; i++) { // Try out all selected tabs for a request to service. 
 						var t = that.selectedTabs[that.selectedTabs.nextToProcess];
-						if (t.requests.length > 0) {
+						if ((t.requests != null) && (t.requests.length > 0)) {
 							url = t.requests[t.requests.length - 1]; // Found one!
 							tId = t.tId; 
 							break;
@@ -415,7 +450,7 @@ History.prototype = {
 				if(url == null) {	// If still no request found, try other open pages. 
 					for (var i = 0; i < that.openTabs.length; i++) { // Try out all open tabs for a request to service. 
 						var t = that.openTabs[that.openTabs.nextToProcess];
-						if (t.requests.length > 0) {
+						if ((t.requests != null) && (t.requests.length > 0)) {
 							url = t.requests[t.requests.length - 1]; // Found one! 
 							tId = t.tId;
 							break;
@@ -429,19 +464,11 @@ History.prototype = {
 					setTimeout(function(){loop();}, 100);	// Wait a bit and try again
 					return;
 				}
-//				detailsPage.document.write('Servicing: ' + url + '. <br>');
+//				log('Servicing: ' + url);
 				
 				// 4.2. Service the request.
 				// =========================
 				var pg = that.recentPages[url];
-				var sendResults = function(pg, tId) {
-					chrome.tabs.sendRequest(tId, {
-						type:'result', 
-						url:pg.url, 
-						scores:pg.mmrScores,
-						randomSuggestions:pg.randomSuggestions,
-					});
-				}
 				switch(pg.state){
 					case 'computingTfidfScores':
        					that.computeTfidfScoresBatched(pg, function(done){
@@ -459,7 +486,7 @@ History.prototype = {
 					case 'computingMmrScores':
 						that.computeMMRScores(pg, function(){
 							pg.duration = ((new Date()).getTime() - pg.startTime) / 1000;
-							detailsPage.document.write(pg.duration.toFixed(3) + ': ' + pg.url + "<br>");
+							log(pg.duration.toFixed(3) + ': ' + pg.url);
 
 							pg.state = 'ready';
 							sendResults(pg, tId);
@@ -545,7 +572,6 @@ History.prototype = {
 			}
 			delete part;
 		}
-
 		this.nrProcessed++;
 		
 		var tfs, text;
@@ -554,6 +580,9 @@ History.prototype = {
 		page.tfs = tfs;
 		page.tfidf = new Array();
 		page.text = text;
+		
+		if(tfsGeneral.length == 0) 
+			log('No words found in page with URL: ' + page.url);
 	},
 
 	updateLogIdfs: function() {
@@ -568,7 +597,7 @@ History.prototype = {
 	updateTfidfsBatched: function(batch, callback) {
     	var that = this;
         this.store.getTfsBatch(batch, function(pageBatch) {
-        	if(pageBatch.length == 0) { callback(); return; }
+        	if((pageBatch == null) || (pageBatch.length == 0)) { callback(); return; }
                         
 			var startI = Math.max(0, that.lastComputedTfidfs - batch * that.batchSize);
 			var updatedPageBatch = new Array();
@@ -597,7 +626,7 @@ History.prototype = {
 			v[word] = page.tfs[word] * this.logIdfs[word];
 			avg += v[word];
 		}
-		avg /= page.tfs.length;
+		if(page.tfs.length > 0) avg /= page.tfs.length;
 		
 		// Apply feature seletion to obtain short tfidf 
 		var l = 0;
@@ -608,7 +637,7 @@ History.prototype = {
 		l = Math.sqrt(l);
 		
 		// Normalize
-		for (var word in v) v[word] /= l;
+		if(l > 0) for (var word in v) v[word] /= l;
 		
 		page.tfidf = v; 
 	},
@@ -622,6 +651,7 @@ History.prototype = {
 
         // Compute tfidf scores for the current page
         this.store.getTfidfBatch(page.nextBatch, function(pageBatch){
+			if(pageBatch == null) { callback(false); return; }
         	if (pageBatch.length == 0) { callback(true); return; }
 
 			var v1 = page.tfidf;
@@ -650,13 +680,14 @@ History.prototype = {
 	computeMMRScores: function(page, callback) {
 		var that = this;
 		
-		page.mmrScores = new Array();
 		if(page.tfidfScores.length == 0) { callback(); return; }
 
 		var lambda = 1 - 2/3 * page.tfidfScores[Math.min(page.tfidfScores.length, this.nTopResultsShown)-1].score;
 		var urls = new Array();
 		for(var i=0; i<page.tfidfScores.length; i++) urls.push(page.tfidfScores[i].url);	
 		this.store.getTfidfAndTextForURLs(urls, function(tfidfs) {
+			if(tfidfs == null) { callback(); return; }
+			
 			// Tag tfidfs with score. 
 			var s = new Array();
 			for(var i=0; i<urls.length; i++) s[page.tfidfScores[i].url] = page.tfidfScores[i].score;
@@ -817,7 +848,8 @@ History.prototype = {
 		for (var word in v) 
 			if (v[word] > 0) { avgP += v[word]; nP++; }
 			else { avgM += v[word]; nM++; }
-		avgP /= nP; avgM /= nM;
+		if(nP > 0) avgP /= nP; 
+		if(nM > 0) avgM /= nM;
 		
 		var l = 0;
 		for (var word in v) {
@@ -827,7 +859,7 @@ History.prototype = {
 		l = Math.sqrt(l);
 		
 		// Normalize
-		for (var word in v) v[word] /= l;
+		if(l > 0) for (var word in v) v[word] /= l;
 		
 		return v;
 	},
@@ -848,12 +880,16 @@ History.prototype = {
 		
 		that.store.getTfidf(clickedURL, function(clickedTfidf) {
 			that.store.getTfidfForURLs(otherSeenURLs, function(otherSeenTfidfs) {
-				var query = pg.tfidf;
-				var positive = clickedTfidf.tfidf;
-				var negative = new Array();
-				for (var i = 0; i < otherSeenTfidfs.length; i++) 
-					negative.push(otherSeenTfidfs[i].tfidf);
-				var v = that.adjustQuery(query, positive, negative, that.feedbackParamsSimilarSuggestions);
+				var v;
+				if ((clickedTfidf != null) && (otherSeenTfidfs != null)) {
+					var query = pg.tfidf;
+					var positive = clickedTfidf.tfidf;
+					var negative = new Array();
+					for (var i = 0; i < otherSeenTfidfs.length; i++) 
+						negative.push(otherSeenTfidfs[i].tfidf);
+					v = that.adjustQuery(query, positive, negative, that.feedbackParamsSimilarSuggestions);
+				} else 
+					v = new Array(); 
 				
 				var page = {
 					url: pg.url + " -> " + clickedURL,
@@ -904,7 +940,13 @@ History.prototype = {
 	computeRandomSuggestions: function(page, callback) {
 		var that = this;
 		
+		page.mmrScores = new Array();
 		this.store.numberStoredPages(function(numberStoredPages){
+			if(numberStoredPages == -1) {
+				setTimeout(callback, that.randomSuggestionsDelay);
+				return;
+			}
+			
 			var randomPageNumbers = new Array();
 			for(var i=0; i<20;) {
 				var r = Math.floor(Math.random()*numberStoredPages);
@@ -917,7 +959,11 @@ History.prototype = {
 			for(var r in randomPageNumbers) pageNumbers.push(r);
 			
 			that.store.getTfidfAndTextForPageNumbers(pageNumbers, function(randomPages) {
-				page.mmrScores = new Array();
+				if(randomPages == null) {
+					setTimeout(callback, that.randomSuggestionsDelay);
+					return;
+				}
+			
 				for (var i = 0; i < randomPages.length; i++) {
 					var randomPage = randomPages[i];
 					var suggestion = {
@@ -929,7 +975,7 @@ History.prototype = {
 				}
 				
 				// Wait for 10s before returning suggestions, to seem realistic.
-				setTimeout(callback, 10000);
+				setTimeout(callback, that.randomSuggestionsDelay);
 			});
 		});
 	},

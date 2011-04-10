@@ -1,0 +1,42 @@
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="UI/popup.css" />
+		<script LANGUAGE="JavaScript" SRC="libraries/jquery-1.5.1.js"></script>
+		
+		<script>
+			var bg = chrome.extension.getBackgroundPage();
+			
+			function reportData(){
+				chrome.tabs.create({
+					url: chrome.extension.getURL("ReportData.html")
+				});
+			}
+			
+			var userFeedbackEnabled = (bg.hist.percentUserFeedback == 1.0);
+			function enableDisableUserFeedback() {
+				if(!userFeedbackEnabled) {
+					userFeedbackEnabled = true;
+					bg.hist.percentUserFeedback = 1.0;
+					$('#enableDisableUserFeedback')[0].innerHTML = 'Disable feedback';
+				} else {
+					userFeedbackEnabled = false;
+					bg.hist.percentUserFeedback = 0.0;
+					$('#enableDisableUserFeedback')[0].innerHTML = 'Enable feedback';
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div id="menu">
+			<div id="enableDisableUserFeedback" class="menuItem" onclick="enableDisableUserFeedback();">
+				<script>
+					if(userFeedbackEnabled) document.write('Disable feedback');
+					else document.write('Enable feedback');
+				</script>			
+			</div>
+			<div class="menuItem" onclick="reportData();">
+				Report data			
+			</div>
+		</div>
+	</body>
+</html>
