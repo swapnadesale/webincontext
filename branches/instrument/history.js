@@ -34,11 +34,11 @@ History.prototype = {
 		this.selectedTabs.nextToProcess = 0;
 
 		// Default properties
-		this.maxHistoryEntries = merge(500, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(20000, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
-		this.batchSize = merge(100, opts.batchSize);
+		this.batchSize = merge(500, opts.batchSize);
 		this.shortPartSize = merge(15, opts.shortPartSize);
 		this.longPartSize = merge(50, opts.longPartSize);
 		
@@ -70,9 +70,9 @@ History.prototype = {
 
 		
 		// User study 
-		this.percentUserFeedback = merge(1, opts.percentUserFeedback);
-		this.percentRandomSuggestionsNoFeedback = merge(0, opts.percentRandomSuggestionsNoFeedback);
-		this.percentRandomSuggestionsFeedback = merge(0, opts.percentRandomSuggestionsFeedback);
+		this.percentUserFeedback = merge(0.01, opts.percentUserFeedback);
+		this.percentRandomSuggestionsNoFeedback = merge(0.01, opts.percentRandomSuggestionsNoFeedback);
+		this.percentRandomSuggestionsFeedback = merge(0.01, opts.percentRandomSuggestionsFeedback);
 	},
 	
 	loadHistory: function(callback){

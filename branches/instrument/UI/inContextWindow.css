@@ -1,13 +1,30 @@
-#primaryWindow, #secondaryWindow, #minimizedWindow, #progressbar, #primaryWindow .randomIndicator, #secondaryWindow .randomIndicator {
+#primaryWindow, #secondaryWindow, #minimizedWindow, .ui-progressbar, #primaryWindow .randomIndicator, #secondaryWindow .randomIndicator {
 	z-index:10000;	
+}
+
+#primaryWindow * {
+	margin:0px;
+	padding:0px;
+	overflow:hidden;
+	line-height:15px;
+	font-family: 'Helvetica Neue', Arial, Helvetica, 'Liberation Sans', FreeSans, sans-serif;
+	font-size:14px;
+	font-weight:none;
+	text-decoration:none;
+	text-align:left;
+	background-image:none;
+	background-color:rgba(0, 0, 0, 0);
+	color:rgb(23, 31, 32);
+	list-style-type:none;
 }
 
 #primaryWindow, #secondaryWindow {
 	width:260px; 
-	height:280px;
+	height:290px;
 	border-style:solid;
 	border-width:2px 2px 5px 2px;
 	border-radius:7px 7px 2px 2px;
+	background-color:rgb(245, 245, 245);
 }
 
 #minimizedWindow {
@@ -19,45 +36,40 @@
     border-radius:4px 4px 0px 0px;
 }
 
-#primaryWindow * {
-	margin:0px;
-	padding:0px;
-	overflow:hidden;
-	line-height:15px;
-	font-family:Arial, Helvetica, sans-serif;
-	font-size:12px;
-	font-weight:none;
-	text-decoration:none;
-	text-align:left;
-	background-image:none;
-	background-color:rgb(250, 249, 244);
-	color:rgb(23, 31, 32);
-	list-style-type:none;
-}
-
-#primaryWindow, #secondaryWindow, #progressbar, #primaryWindow #pw_searchBar {
-	background-color:rgb(250, 249, 244);
-	border-color:rgb(47, 78, 84);
+#primaryWindow, #secondaryWindow, .ui-progressbar, #primaryWindow #pw_searchBar {
+	border-color:rgb(51, 51, 51);
 }
 
 #minimizedWindow, #primaryWindow #pw_titleBar, #primaryWindow .randomIndicator, #secondaryWindow .randomIndicator,
-	#primaryWindow .jspDrag, #secondaryWindow .jspDrag, #progressbar .ui-progressbar-value {
-	background-color:rgb(47, 78, 84);
+	#primaryWindow .jspDrag, #secondaryWindow .jspDrag, .ui-progressbar-value {
+	background-color:rgb(51, 51, 51);
+}
+
+#primaryWindow ul, .ui-progressbar{
+	background-color:rgb(255, 255, 255);
 }
 
 #primaryWindow .suggestion {
-	margin:7px 0px;
 	height:30px;
+	padding:4px 0px;
 }
 
-#primaryWindow .suggestion:hover, #primaryWindow .suggestion:hover * {
-	background-color:rgb(245, 243, 229);
+#primaryWindow .suggestion>div {
+	margin:0px 10px;
+	border-bottom-color:rgb(235, 235, 235);
+	border-bottom-style:solid;
+	border-bottom-width:1px;
+}
+
+#primaryWindow .suggestion:hover, #primaryWindow .suggestion.selected {
+	background-color:rgba(221, 238, 246, 0.6);
 }
 
 #primaryWindow .suggestionTitle {
 	display:inline-block;
-	font-weight:bold;
+	width:215px;
 	height:30px;
+	padding-left:5px;
 }
 
 #primaryWindow .suggestionMore {
@@ -65,39 +77,28 @@
 	vertical-align:top;
 	width:16px;
 	height:16px;
-	padding:7px 10px 7px 4px;
-}
-#primaryWindow .load_spinner, #primaryWindow .ht_noSimilarPages {
-	padding-left:10px;
+	padding:7px 0px 7px 4px;
+	cursor:pointer;
 }
 
 #primaryWindow .helperText {
+	padding:0px 5px;
 	height:17px;
+	font-size:13px;
 } 
+
+#primaryWindow .load_spinner, #primaryWindow .ht_noSimilarPages {
+	padding-left:15px;
+}
 
 #primaryWindow .ht_evenMore {
 	position:absolute;
 	right:0px;
+	cursor:pointer;
 }
 
 #primaryWindow .ht_evenMore:hover {
 	text-decoration:underline;
-}
-
-
-/*
- * Loader Window
- * =============
- */
-
-#progressbar {
-	position:fixed;
-	right:265px;
-	bottom:5px;
-	width:260px;
-	height:20px;
-	border-width:2px;
-	border-radius:5px;
 }
 
 /* 
@@ -113,51 +114,22 @@
 
 #primaryWindow #pw_titleBar {
 	height:20px;
-	padding-right:10px;
+	padding-left:3px;
 	border-radius:4px 4px 0px 0px;
-	color:rgb(250, 249, 244);
-}
-
-#primaryWindow #pw_searchBar {
-	position:absolute;
-	bottom:0px;
-	left:0px;
-	width:220px;
-	height:18px;	/* total: 25px */ 
-	padding:3px 20px 4px 20px;
-	border-style:solid;
-	border-width:2px 0px 0px 0px;
-}
-
-#primaryWindow #pw_mainArea ul {
-	height:195px;	/* 235px (mainArea) - 23px (ht_initial) - 17px (ht_evenMore) */
-	list-style-type:none;	
-}
-
-#primaryWindow #pw_mainArea ul.morePagesLike,
-	#primaryWindow #pw_mainArea ul.search {
-	height:158px; 	/* One suggestion less */
-	list-style-type:none;
-}
-
-#primaryWindow #pw_mainArea .suggestion {
-	padding-left:15px;
-}
-
-#primaryWindow #pw_mainArea .suggestionTitle {
-	width:215px;
-}
-
-#primaryWindow #pw_searchBar input {
-	color:rgb(100, 120, 125);
+	font-size:13px;
+	font-weight:bold;
+	font-style:italic;
+	color:rgb(255, 255, 255);
 }
 
 #primaryWindow #pw_mainArea .ht_initial {
-	margin:5px 0px 0px 3px;
+	padding-top:5px;
+	padding-bottom:5px;
 }
 
 #primaryWindow #pw_mainArea .ht_morePagesLikeDiv {
-	margin:10px 5px 2px 5px;
+	padding-top:5px;
+	padding-bottom:10px;
 	height:47px;
 }
 
@@ -170,13 +142,44 @@
 #primaryWindow #pw_mainArea .ht_morePagesLikeTitle {
 	display:inline-block;
 	vertical-align:top;
-	width:175px;
+	width:160px;
 	height:30px;
 	font-weight:bold;
 }
 
+#primaryWindow .ht_goBack {
+	cursor:pointer;
+}
+
 #primaryWindow .ht_goBack:hover {
 	text-decoration:underline;
+}
+
+#primaryWindow #pw_mainArea ul {
+	height:195px;	/* 5*39px per suggestion */	
+	list-style-type:none;	
+	overflow:hidden;
+}
+
+#primaryWindow #pw_mainArea ul.morePagesLike,
+	#primaryWindow #pw_mainArea ul.search {
+	height:156px; 	/* One suggestion less */
+	list-style-type:none;
+}
+
+#primaryWindow #pw_searchBar {
+	position:absolute;
+	bottom:0px;
+	left:0px;
+	width:245px;
+	height:18px;	/* total: 25px */ 
+	padding:3px 0px 4px 15px;
+	border-style:solid;
+	border-width:2px 0px 0px 0px;
+}
+
+#primaryWindow #pw_searchBar input {
+	color:rgb(100, 120, 125);
 }
 
 /*
@@ -188,42 +191,35 @@
 
 #secondaryWindow {
 	position:absolute;	/* Relative to primaryWindow*/
-	top:0px;
+	top:-2px;
 	left:260px;
 }
 
 #secondaryWindow #sw_detailedPage {
-	padding:5px 10px 15px 10px;
+	padding:5px 5px 10px 5px;
 	height:75px;	/* total: 95px */ 
 }
 
 #secondaryWindow #sw_detailedPage .detailedPageTitle {
 	display:inline-block;
 	height:30px;
+	font-size:13px;
 	font-weight:bold;
 }
 
 #secondaryWindow #sw_detailedPage .detailedPageSummary {
 	height:45px;
-	margin-left:10px;
+	padding-left:10px;
+	font-size:13px;
 }
 
 #secondaryWindow #sw_similarPages ul {
-	height:150px;
+	height:156px;
 }
 
-#secondaryWindow #sw_similarPages .suggestion {
-	padding-left:25px;
+#secondaryWindow .ht_morePagesLikeThis {
+	padding-bottom:5px;
 }
-
-#secondaryWindow #sw_similarPages .suggestionTitle {
-	width:205px;
-}
-
-#secondaryWindow #sw_similarPages .ht_morePagesLikeThis {
-	margin-right:10px;
-}
-
 
 /*
  * User study 
@@ -271,6 +267,25 @@
 	height:17px;
 }
 
+/*
+ * Loader Window
+ * =============
+ */
+
+.ui-progressbar {
+	position:fixed;
+	right:265px;
+	bottom:5px;
+	width:260px;
+	height:20px;
+	border-style:solid;
+	border-width:2px;
+	border-radius:5px;
+}
+
+.ui-progressbar-value {
+	height:100%;
+}
 
 /*
  * Scrollbars
@@ -292,9 +307,13 @@
 	right: 0;
 	margin: 0;
 	padding: 0;
-	width: 8px;
-	height: 100%;
+	width: 12px;
 	background: red;
+	border-style:solid;
+	border-left-width: 1px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
+	border-color: rgb(225, 225, 225);
 }
 
 #primaryWindow .jspCap, #secondaryWindow .jspCap {
@@ -303,8 +322,8 @@
 }
 
 #primaryWindow .jspTrack, #secondaryWindow .jspTrack {
-	background-color:rgb(220, 230, 235);
 	position: relative;
+	background-color:rgb(245, 245, 245);
 }
 
 #primaryWindow .jspDrag, #secondaryWindow .jspDrag {
@@ -312,6 +331,7 @@
 	top: 0;
 	left: 0;
 	cursor: pointer;
+	border-radius:2px;
 }
 
 #primaryWindow .jspArrow, #secondaryWindow .jspArrow {
