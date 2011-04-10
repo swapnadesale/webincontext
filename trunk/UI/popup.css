@@ -1,13 +1,20 @@
 body {
-	width:100px;	
+	width:140px;	
 }
 
-#reportData {
+.menuItem {
 	font-family: 'Helvetica Neue', Arial, Helvetica, 'Liberation Sans', FreeSans, sans-serif;
 	font-size:14px;
 	cursor:pointer;
+	margin-left:10px;
+	margin-right:10px;
+	padding-top:3px;
+	padding-bottom:3px;
+	border-bottom-style:solid;
+	border-bottom-width:1px;
+	border-bottom-color:rgb(235, 235, 235);
 }
 
-#reportData:hover {
+.menuItem:hover {
 	text-decoration:underline;	
 }

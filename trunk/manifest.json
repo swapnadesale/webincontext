@@ -6,7 +6,7 @@
   "browser_action": {
     "default_icon": "UI/icon.jpg", 
     "default_title": "inContext",
-    "default_popup": "UI/popup.html"
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {

@@ -71,7 +71,8 @@ StoreWrapper.prototype = {
 				}
 				callback();
 			}, function(tx, error){
-				detailsPage.document.write('Error in loadParams: ' + error.message + "<br>");
+				log('Error in loadParams: ' + error.message);
+				callback();
 			});
 		});
 	},
@@ -80,18 +81,19 @@ StoreWrapper.prototype = {
 		var that = this;
 		this.db.transaction(function(t){
 			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastProcessedHistoryEntry, history.lastProcessedHistoryEntry], 
-				function() {}, function() { detailsPage.document.write('Error in storeParams - lastProcessedHistoryEntry: ' + error.message + "<br>"); });
+				function() {}, function() { log('Error in storeParams - lastProcessedHistoryEntry: ' + error.message); });
 				
 			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyNrProcessed, history.nrProcessed], 
-				function() {}, function() { detailsPage.document.write('Error in storeParams - nrProcessed: ' + error.message + "<br>"); });
+				function() {}, function() { log('Error in storeParams - nrProcessed: ' + error.message); });
 				
 			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyDfs, serializeIntArray(history.dfs)], 
-				function() {}, function() { detailsPage.document.write('Error in storeParams - dfs: ' + error.message + "<br>"); });
+				function() {}, function() { log('Error in storeParams - dfs: ' + error.message); });
 				
 			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keyLastComputedTfidfs, history.lastComputedTfidfs], 
-				function() {}, function() { detailsPage.document.write('Error in storeParams - lastComputedTfidfs: ' + error.message + "<br>"); });
+				function() {}, function() { log('Error in storeParams - lastComputedTfidfs: ' + error.message); });
 		}, function(error){ 
-			detailsPage.document.write('Error in storeParams:' + error.message + "<br>"); 
+			log('Error in storeParams:' + error.message);
+			callback();
 		}, callback);
 	},
 	
@@ -99,7 +101,7 @@ StoreWrapper.prototype = {
 		var that = this;
 		this.db.transaction(function(t){
 			t.executeSql('REPLACE INTO ' + that.paramTable + ' VALUES( ? , ? )', [that.keySessionID, sessionID], function() {}, function() { 
-				detailsPage.document.write('Error in storeSessionID: ' + error.message + "<br>"); 
+				log('Error in storeSessionID: ' + error.message); 
 			});
 		});
 	},
@@ -114,7 +116,8 @@ StoreWrapper.prototype = {
 			t.executeSql("SELECT url, tfs FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
 				callback(that.parseTfsResults(results));
 			}, function(tx, error){
-				detailsPage.document.write('Error in getPagesBatch: ' + error.message + "<br>");
+				log('Error in getPagesBatch: ' + error.message);
+				callback(null);
 			});
 		});
 	},
@@ -128,7 +131,8 @@ StoreWrapper.prototype = {
 			t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " WHERE url= ? ", [url], function(tx, results){
 				callback(that.parseTfidfResults(results)[0]);
 			}, function(tx, error){
-				detailsPage.document.write('Error in getTfidf: ' + error.message + "<br>");
+				log('Error in getTfidf: ' + error.message);
+				callback(null);
 			});
 		});
 
@@ -144,7 +148,8 @@ StoreWrapper.prototype = {
 			t.executeSql("SELECT url, title, tfidf FROM " + that.pagesTable + " ASC LIMIT ? OFFSET ?", [that.batchSize, offset], function(tx, results){
 				callback(that.parseTfidfResults(results));
 			}, function(tx, error){
-				detailsPage.document.write('Error in getTfidfBatch: ' + error.message + "<br>");
+				log('Error in getTfidfBatch: ' + error.message);
+				callback(null);
 			});
 		});
 	}, 
@@ -162,11 +167,12 @@ StoreWrapper.prototype = {
 						pages.push(that.parseTfidfResult(results.rows.item(0)));
 					},
 					function(tx, error) {
-						detailsPage.document.write('Error in getTfidfForURLs - url: ' + urls[i] + " - " + error.message + "<br>");
+						log('Error in getTfidfForURLs - url: ' + urls[i] + " - " + error.message);
 					});
 			}
 		}, function(error){
-			detailsPage.document.write('Error in getTfidfForURLs: ' + error.message + "<br>");
+			log('Error in getTfidfForURLs: ' + error.message);
+			callback(null);
 		}, function() { callback(pages); });
 	},
 
@@ -183,11 +189,12 @@ StoreWrapper.prototype = {
 						pages.push(that.parseTfidfAndTextResult(results.rows.item(0)));
 					},
 					function(tx, error) {
-						detailsPage.document.write('Error in getTfidfAndTextForURLs - url: ' + urls[i] + " - " + error.message + "<br>");
+						log('Error in getTfidfAndTextForURLs - url: ' + urls[i] + " - " + error.message);
 					});
 			}
 		}, function(error){
-			detailsPage.document.write('Error in getTfidfAndTextForURLs: ' + error.message + "<br>");
+			log('Error in getTfidfAndTextForURLs: ' + error.message);
+			callback(null);
 		}, function() { callback(pages); });
 	},
 
@@ -203,7 +210,8 @@ StoreWrapper.prototype = {
 					that.storeParams(history, callback);
 				}, 
 				function(tx, error) {
-					detailsPage.document.write('Error in storePage: ' + error.message + "<br>");
+					log('Error in storePage: ' + error.message);
+					callback();
 				});
 		});
 	},
@@ -219,11 +227,12 @@ StoreWrapper.prototype = {
 				t.executeSql("REPLACE INTO " + that.pagesTable + " VALUES (?, ?, ?, ?, ?)", 
 					[page.url, escape(page.title), serializeIntArray(page.tfs), serializeFloatArray(page.tfidf, 3), that.serializePageText(page.text)], function() {}, 
 					function(){
-						detailsPage.document.write('Error in storeAllPages - url: ' + page.url + " - " + error.message + "<br>");	
+						log('Error in storeAllPages - url: ' + page.url + " - " + error.message);	
 					});
 			}
 		}, function() {
-			detailsPage.document.write('Error in storeAllPages: ' + error.message + "<br>");
+			log('Error in storeAllPages: ' + error.message);
+			callback();
 		}, function() {
 			that.storeParams(history, callback);
 		});
@@ -239,11 +248,12 @@ StoreWrapper.prototype = {
 				var page = pages[i];
 				t.executeSql("UPDATE " + that.pagesTable + " SET tfidf=? WHERE url=?", [serializeFloatArray(page.tfidf, 3), page.url], function() {}, 
 					function(){
-						detailsPage.document.write('Error in storeAllTfidfs - url: ' + page.url + " - " + error.message + "<br>");	
+						log('Error in storeAllTfidfs - url: ' + page.url + " - " + error.message);	
 					});
 			}
 		}, function() {
-			detailsPage.document.write('Error in storeAllTfidfs: ' + error.message + "<br>");
+			log('Error in storeAllTfidfs: ' + error.message);
+			callback();
 		}, function() {
 			that.storeParams(history, callback);
 		});
@@ -314,7 +324,7 @@ StoreWrapper.prototype = {
 		
 		this.db.transaction(function(t){
 			t.executeSql("INSERT INTO " + that.logTable + " VALUES (?)", [s], function(){}, function(tx, error) {
-					detailsPage.document.write('Error in storeEvent: ' + error.message + "<br>");
+					log('Error in storeEvent: ' + error.message);
 				});
 		});
 	},
@@ -328,7 +338,8 @@ StoreWrapper.prototype = {
 					s += results.rows.item(i).entry + "<br>";
 				callback(s);	
 			}, function(tx, error) {
-					detailsPage.document.write('Error in getAllEvents: ' + error.message + "<br>");
+					log('Error in getAllEvents: ' + error.message);
+					callback(null);
 			});
 		});
 	},
@@ -340,7 +351,8 @@ StoreWrapper.prototype = {
 					var n = results.rows.item(0)['COUNT(*)'];
 					callback(n); 
 				}, function(tx, error) {
-					detailsPage.document.write('Error in numberStoredPages: ' + error.message + "<br>");
+					log('Error in numberStoredPages: ' + error.message);
+					callback(-1);
 				});
 		});
 	},
@@ -358,11 +370,12 @@ StoreWrapper.prototype = {
 						pages.push(that.parseTfidfAndTextResult(results.rows.item(0)));
 					},
 					function(tx, error) {
-						detailsPage.document.write('Error in getTfidfAndTextForPageNumbers - pageNumber: ' + pageNumbers[i] + " - " + error.message + "<br>");
+						log('Error in getTfidfAndTextForPageNumbers - pageNumber: ' + pageNumbers[i] + " - " + error.message);
 					});
 			}
 		}, function(error){
-			detailsPage.document.write('Error in getTfidfAndTextForPageNumbers: ' + error.message + "<br>");
+			log('Error in getTfidfAndTextForPageNumbers: ' + error.message);
+			callback(null);
 		}, function() { callback(pages); });
 	},
 };
