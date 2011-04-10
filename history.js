@@ -55,7 +55,6 @@ History.prototype = {
 		if (opts.store == undefined || opts.store == null) this.store = new StoreWrapper({batchSize:this.batchSize});
 		else this.store = opts.store;
 
-
 		var that = this;		
 		this.extensionNotReadyListener = function(msg, sender, sendResponse) {
 			if (msg.action == 'stateRequested') {
@@ -70,9 +69,9 @@ History.prototype = {
 
 		
 		// User study 
-		this.percentUserFeedback = merge(1, opts.percentUserFeedback);
-		this.percentRandomSuggestionsNoFeedback = merge(0.01, opts.percentRandomSuggestionsNoFeedback);
-		this.percentRandomSuggestionsFeedback = merge(0.01, opts.percentRandomSuggestionsFeedback);
+		this.percentUserFeedback = merge(0.5, opts.percentUserFeedback);
+		this.percentRandomSuggestionsNoFeedback = merge(0.25, opts.percentRandomSuggestionsNoFeedback);
+		this.percentRandomSuggestionsFeedback = merge(0.10, opts.percentRandomSuggestionsFeedback);
 	},
 	
 	loadHistory: function(callback){
@@ -792,12 +791,8 @@ History.prototype = {
 		}
 		sentenceScoresC.sort(function(a, b){ return b.score - a.score });
 
-		detailsPage.document.write('<br>Summaries: <br>');
-		for(var i=0; (i<4) && (i<sentenceScoresC.length); i++)
-			detailsPage.document.write(sentenceScoresC[i].score.toFixed(3) + ': ' + sentenceScoresC[i].sentence + '<br>');
-		detailsPage.document.write("<br><br>");
-
-		return sentenceScoresC[0].sentence;
+		if(sentenceScoresC[0] == null) return '';
+		else return sentenceScoresC[0].sentence;
 	},
 	
 	adjustQuery: function(query, positive, negative, feedbackParams){
@@ -934,7 +929,7 @@ History.prototype = {
 				}
 				
 				// Wait for 10s before returning suggestions, to seem realistic.
-				setTimeout(callback, 100);		// TODO: Change to 10000
+				setTimeout(callback, 10000);
 			});
 		});
 	},

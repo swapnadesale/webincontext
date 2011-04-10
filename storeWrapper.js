@@ -307,6 +307,7 @@ StoreWrapper.prototype = {
 		
 		var s = event.eventID + ', ' + event.date + ', ' + event.time + ', ' + event.type + ', ';
 		if(event.relatedID != null) s += event.relatedID;	s += ', ';
+		if(event.randomSuggestions != null) s += event.randomSuggestions;	s += ', '; 
 		if(event.nrSuggestions != null) s += event.nrSuggestions;	s += ', ';
 		if(event.suggestionIdx != null) s += event.suggestionIdx;	s += ', ';
 		if(event.ratings != null) s += event.ratings;	

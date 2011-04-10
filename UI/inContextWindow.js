@@ -147,13 +147,21 @@ function createInContextWindow(){
 		primaryWindow.hide();
 		minimizedWindow.show();
 		pwVisible = false;
-		reportEvent({type:'minimize', relatedID:trace[trace.length-1].eventID});
+		reportEvent({
+			type:'minimize', 
+			relatedID:trace[trace.length-1].eventID,
+			randomSuggestions:trace[trace.length-1].randomSuggestions
+		});
 	});
 	minimizedWindow.bind('click', function(event){
 		primaryWindow.show();
 		minimizedWindow.hide();
 		pwVisible = true;
-		reportEvent({type:'maximize', relatedID:trace[trace.length-1].eventID});
+		reportEvent({
+			type:'maximize', 
+			relatedID:trace[trace.length-1].eventID,
+			randomSuggestions:trace[trace.length-1].randomSuggestions
+		});
 	});
 	
 	/*
@@ -248,8 +256,9 @@ function createInContextWindow(){
 			trace.push(newPage);
 
 			var eventID = reportEvent({				// Report the event.
-				type:'moreLikeThisRequested', 
+				type:'moreLikeThisRequested',
 				relatedID:source.eventID,
+				randomSuggestions:source.randomSuggestions,
 				suggestionIdx:idx, 
 			});
 			newPage.eventID = eventID;
@@ -288,6 +297,7 @@ function createInContextWindow(){
 		reportEvent({
 			type:'suggestionClicked',
 			relatedID:trace[trace.length-1].eventID,
+			randomSuggestions:trace[trace.length-1].randomSuggestions,
 			suggestionIdx:idx,
 		});
 	});
@@ -311,6 +321,7 @@ function createInContextWindow(){
 		reportEvent({
 			type:'evenMoreClicked',
 			relatedID:source.eventID,
+			randomSuggestions:source.randomSuggestions,
 		});
 	});
 	
@@ -341,6 +352,7 @@ function createInContextWindow(){
 		reportEvent({
 			type:'goBackClicked',
 			relatedID:oldSource.eventID,
+			randomSuggestions:oldSource.randomSuggestions,
 		});
 	});
 	
@@ -471,7 +483,8 @@ function addResponseToRequest(page) {
 	var eventID = reportEvent({
 		type:'showSuggestions',
 		relatedID:page.eventID,	// The request ID.
-		nrSuggestions:page.scores.length, 
+		nrSuggestions:page.scores.length,
+		randomSuggestions:page.randomSuggestions, 
 	});
 	page.eventID = eventID;	// Replace with the response ID.
 }
@@ -600,6 +613,7 @@ function makeClickRatingListener(source, suggestion, suggestionIdx, question) {
 			reportEvent({
 				type: source.type + 'SuggestionsRated',
 				relatedID: source.eventID,
+				randomSuggestions:source.randomSuggestions,
 				suggestionIdx: suggestionIdx,
 				ratings: ratings,
 			});
