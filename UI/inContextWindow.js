@@ -110,7 +110,7 @@ function createInContextWindow(){
 		.empty()
 		.append('<p class = "helperText ht_initial"> Similar pages: </p>')
 		.append(
-			'<div class="load_spinner">' +
+			'<div class="helperText load_spinner">' +
 				'Loading: ' +
 				'<img src="' + chrome.extension.getURL('UI/load_spinner.gif') + '"></img>' +
 			'</div>'
@@ -193,7 +193,7 @@ function createInContextWindow(){
 			// Then update the UI
 			createSearchPage(newPage);
 			$('#pw_mainArea').append(
-				'<div class="load_spinner">' +
+				'<div class="helperText load_spinner">' +
 					'Loading: ' +
 					'<img src="' + chrome.extension.getURL('UI/load_spinner.gif') + '"></img>' +
 				'</div>'
@@ -206,38 +206,12 @@ function createInContextWindow(){
 	 * Listen to mouse-over suggestion events.
 	 * =======================================
 	 */
-	$('.suggestion').live('mouseenter', function(event){
-		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
-		var id = target.id;
-		var w = id.slice(0, 2);
-		if (w == 'pw') clearTimeout(timerHoverPw)
-		else clearTimeout(timerHoverSw);
-		
-		w = (w == 'pw') ? '#primaryWindow' : '#secondaryWindow';
-		$(w + ' .suggestion').css('opacity', '0.65');
-		$(w + ' .suggestion:hover').css('opacity', '1.0');
-	});
-	
-	$('.suggestion').live('mouseleave', function(event){
-		var target = (event.target.nodeName == 'LI') ? event.target : event.target.parentNode;
-		var id = target.id;
-		var w = id.slice(0, 2);
-		if (w == 'pw') 
-			timerHoverPw = setTimeout(function(){
-				$('#primaryWindow .suggestion').css('opacity', '1.0');
-			}, hoverDelay);
-		else 
-			timerHoverSw = setTimeout(function(){
-				$('#secondaryWindow .suggestion').css('opacity', '1.0');
-			}, hoverDelay);
-	});
-	
 	
 	$('.suggestionMore').live('mouseenter', function(event){
 		clearTimeout(timerHideWindow);
 		
 		// Determine what suggestion was clicked
-		var id = event.target.parentNode.id;
+		var id = event.target.parentNode.parentNode.id;
 		var w = id.slice(0, 2);
 		var sourceIsTop = ((w == 'sw') || (!swVisible));
 		var source = sourceIsTop ? trace[trace.length - 1] : trace[trace.length - 2];
@@ -282,6 +256,8 @@ function createInContextWindow(){
 			// Then update the UI
 			if (w == 'pw') showSecondaryWindow();
 			else createMorePagesLikePage(source);
+			$('#primaryWindow .suggestion').removeClass('selected');
+			$('#primaryWindow #pw_more'+idx).addClass('selected');
 			createDetailedPage(suggestion);
 			if(cached) addResponseToRequest(newPage);		// If cached already show the suggestions.
 			
@@ -305,7 +281,7 @@ function createInContextWindow(){
 	
 	$('.suggestionTitle').live('click', function(event) {
 		// Determine what suggestion was clicked
-		var idx = parseInt(event.target.parentNode.id.slice(7));
+		var idx = parseInt(event.target.parentNode.parentNode.id.slice(7));
 		
 		reportEvent({
 			type:'suggestionClicked',
@@ -323,9 +299,12 @@ function createInContextWindow(){
 		// Readjust the width of the text to fit with the scroll bar.
 		var wDiv = (w == 'pw') ? '#pw_mainArea' : '#sw_similarPages';
 		var currentWidth = getCSSSizeValue($(wDiv + ' .suggestionTitle'), 'width');
-		$(wDiv + ' .suggestionTitle').css('width', currentWidth - 12);
+		$(wDiv + ' .suggestionTitle').css('width', currentWidth - 17);
 		
 		$(wDiv + ' ul').jScrollPane();
+		// Adjust for height to include borders fix.
+		var currentHeight = $(wDiv + ' .jspVerticalBar').height();
+		$(wDiv + ' .jspVerticalBar').height(currentHeight-2);
 		
 		reportEvent({
 			type:'evenMoreClicked',
@@ -397,6 +376,7 @@ function hideSecondaryWindow(){
 		trace.pop();
 		secondaryWindow.stop();
 		secondaryWindow.animate({width: 0}, animationLength, 'linear');
+		$('#primaryWindow .suggestion').removeClass('selected');
 	} else secondaryWindow.width(0);	// Useful for the first time to script is run.
 }
 
@@ -408,15 +388,15 @@ function createMorePagesLikePage(source) {
 		.empty()
 		.append(
 			'<div class="ht_morePagesLikeDiv">' +
+				'<div class="helperText ht_goBack">' +
+					'\u2190 Back' +
+				'</div>' +
 				'<div class="helperText ht_morePagesLikeHelperText">' +
 					'More pages like:' + 
 				'</div>' +
 				'<div class="helperText ht_morePagesLikeTitle">' +
 					sourceTitle +
 				'</div><br>' +
-				'<div class="helperText ht_goBack">' +
-					'<-- Go back' +
-				'</div>' +
 			'</div>'
 		);
 	addSuggestions(source, 4, 'pw');
@@ -461,7 +441,7 @@ function createDetailedPage(suggestion) {
 		.empty()
 		.append('<p class = "helperText ht_morePagesLikeThis"> More pages like this: </p>')
 		.append(
-			'<div class="load_spinner">' +
+			'<div class="helperText load_spinner">' +
 				'Loading: ' + 
 				'<img src="' + chrome.extension.getURL('UI/load_spinner.gif') + '"></img>' + 
 			'</div>' 
@@ -519,10 +499,12 @@ function addMoreSuggestions(source, w) {
 
 function suggestionString(source, i, w) {
 	var s = '<li id="'+w+'_more'+i+'" class = "suggestion">' +
-				'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
-					source.scores[i].title +
-				'</a>' +
-				'<img class="suggestionMore" src="' + chrome.extension.getURL('UI/arrow2.gif') + '"></img>' +
+				'<div>' +
+					'<a class="suggestionTitle" href="' + source.scores[i].url + '" target="_blank">' +
+						source.scores[i].title +
+					'</a>' +
+					'<img class="suggestionMore" src="' + chrome.extension.getURL('UI/arrow2.gif') + '"></img>' +
+				'</div>' +
 			'</li>';
 	return s;
 }
