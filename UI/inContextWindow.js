@@ -435,7 +435,7 @@ function createDetailedPage(suggestion) {
 			'</a>')
 		.append(			
 			'<p class="detailedPageSummary">' +
-				suggestion.summary + '...' +
+				suggestion.summary +
 			'</p>'
 		);
 	
