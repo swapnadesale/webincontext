@@ -2,24 +2,17 @@
 <head>
 	<script LANGUAGE="JavaScript" SRC="history.js"></script>
 	<script LANGUAGE="JavaScript" SRC="storeWrapper.js"></script>
-	<script LANGUAGE="JavaScript" SRC="stemmer.js"></script>
-	<script LANGUAGE="JavaScript" SRC="helperFunctions.js"></script>
-	<script LANGUAGE="JavaScript" SRC="seedrandom.js"></script>
+	<script LANGUAGE="JavaScript" SRC="libraries/stemmer.js"></script>
+	<script LANGUAGE="JavaScript" SRC="libraries/helperFunctions.js"></script>
+	<script LANGUAGE="JavaScript" SRC="libraries/seedrandom.js"></script>
 	
 	<script>
-		var log = "Starting.. <br>";
-		var detailsPage;
-		chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {});
-		
-		var hist;
+		var hist, detailsPage;
 		function run(){
-			hist = new History({});
-			// 1. Load existing state from disk.
-			hist.loadParametersFromDisk(function(){
-				detailsPage = chrome.extension.getViews()[1];
-				// 2. Load (+process&save) yet unprocessed URLs from history.
-				hist.loadUnprocessedHistoryEntries(function(){
-					hist.historyLoaded();
+			chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {
+				hist = new History({});
+				hist.loadHistory(function(){
+					detailsPage.document.write("Ready! <br><br>");
 				});
 			});
 		}
