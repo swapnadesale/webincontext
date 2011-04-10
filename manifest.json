@@ -3,6 +3,11 @@
   "version": "2.0",
   "description": "",
   "background_page": "bg.html",
+  "browser_action": {
+    "default_icon": "UI/icon.jpg", 
+    "default_title": "inContext",
+    "default_popup": "UI/popup.html"
+  },
   "content_scripts": [
     {
       "matches": ["http://*/*"],
