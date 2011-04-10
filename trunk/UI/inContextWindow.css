@@ -1,0 +1,374 @@
+#primaryWindow, #secondaryWindow, #minimizedWindow, .ui-progressbar, #primaryWindow .randomIndicator, #secondaryWindow .randomIndicator {
+	z-index:10000;	
+}
+
+#primaryWindow * {
+	margin:0px;
+	padding:0px;
+	overflow:hidden;
+	line-height:15px;
+	font-family: 'Helvetica Neue', Arial, Helvetica, 'Liberation Sans', FreeSans, sans-serif;
+	font-size:14px;
+	font-weight:none;
+	text-decoration:none;
+	text-align:left;
+	background-image:none;
+	background-color:rgba(0, 0, 0, 0);
+	color:rgb(23, 31, 32);
+	list-style-type:none;
+}
+
+#primaryWindow, #secondaryWindow {
+	width:260px; 
+	height:284px;
+	border-style:solid;
+	border-width:2px 2px 5px 2px;
+	border-radius:7px 7px 2px 2px;
+	background-color:rgb(245, 245, 245);
+}
+
+#minimizedWindow {
+	position:fixed;
+    right:265px;
+    bottom:5px;
+    width:260px;
+    height:20px;
+    border-radius:4px 4px 0px 0px;
+}
+
+#primaryWindow, #secondaryWindow, .ui-progressbar, #primaryWindow #pw_searchBar {
+	border-color:rgb(51, 51, 51);
+}
+
+#minimizedWindow, #primaryWindow #pw_titleBar, #primaryWindow .randomIndicator, #secondaryWindow .randomIndicator,
+	#primaryWindow .jspDrag, #secondaryWindow .jspDrag, .ui-progressbar-value {
+	background-color:rgb(51, 51, 51);
+}
+
+#primaryWindow ul, .ui-progressbar{
+	background-color:rgb(255, 255, 255);
+}
+
+#primaryWindow .suggestion>div {
+	margin:0px 10px;
+	padding:4px 0px;
+	border-bottom-color:rgb(235, 235, 235);
+	border-bottom-style:solid;
+	border-bottom-width:1px;
+}
+
+#primaryWindow .suggestion:hover, #primaryWindow .suggestion.selected {
+	background-color:rgba(221, 238, 246, 0.6);
+}
+
+#primaryWindow .suggestionTitle {
+	display:inline-block;
+	width:215px;
+	height:30px;
+	padding-left:5px;
+}
+
+#primaryWindow .suggestionMore {
+	display:inline-block;
+	vertical-align:top;
+	width:16px;
+	height:16px;
+	padding:7px 0px 7px 4px;
+	cursor:pointer;
+}
+
+#primaryWindow .helperText {
+	padding:0px 5px;
+	height:17px;
+	font-size:13px;
+} 
+
+#primaryWindow .load_spinner, #primaryWindow .ht_noSimilarPages {
+	padding-left:15px;
+}
+
+#primaryWindow .ht_evenMore {
+	position:absolute;
+	right:0px;
+	cursor:pointer;
+}
+
+#primaryWindow .ht_evenMore:hover {
+	text-decoration:underline;
+}
+
+/* 
+ * Primary Window
+ * ==============
+ */
+
+#primaryWindow {
+	position:fixed;
+	right:265px;
+	bottom:5px;
+}
+
+#primaryWindow #pw_titleBar {
+	height:20px;
+	padding-left:3px;
+	border-radius:4px 4px 0px 0px;
+	font-size:13px;
+	font-weight:bold;
+	font-style:italic;
+	color:rgb(255, 255, 255);
+}
+
+#primaryWindow #pw_mainArea .ht_initial {
+	padding-top:5px;
+	padding-bottom:5px;
+}
+
+#primaryWindow #pw_mainArea .ht_morePagesLikeDiv {
+	padding-top:5px;
+	padding-bottom:10px;
+	height:47px;
+}
+
+#primaryWindow #pw_mainArea .ht_morePagesLikeHelperText {
+	display:inline-block;
+	width:75px;
+	height:30px;
+}
+
+#primaryWindow #pw_mainArea .ht_morePagesLikeTitle {
+	display:inline-block;
+	vertical-align:top;
+	width:160px;
+	height:30px;
+	font-weight:bold;
+}
+
+#primaryWindow .ht_goBack {
+	cursor:pointer;
+}
+
+#primaryWindow .ht_goBack:hover {
+	text-decoration:underline;
+}
+
+#primaryWindow #pw_mainArea ul {
+	height:195px;	/* 5*39px per suggestion */	
+	list-style-type:none;	
+	overflow:hidden;
+}
+
+#primaryWindow #pw_mainArea ul.morePagesLike,
+	#primaryWindow #pw_mainArea ul.search {
+	height:160px; 	
+	list-style-type:none;
+}
+
+#primaryWindow #pw_searchBar {
+	position:absolute;
+	bottom:0px;
+	left:0px;
+	width:245px;
+	height:18px;	/* total: 25px */ 
+	padding:3px 0px 4px 15px;
+	border-style:solid;
+	border-width:2px 0px 0px 0px;
+}
+
+#primaryWindow #pw_searchBar input {
+	color:rgb(100, 120, 125);
+}
+
+/*
+ * Secondary window
+ * ================
+ */
+
+#secondaryWindow {
+	position:absolute;	/* Relative to primaryWindow*/
+	top:-2px;
+	left:260px;
+}
+
+#secondaryWindow #sw_detailedPage {
+	padding:5px 5px 10px 5px;
+	height:75px;
+}
+
+#secondaryWindow #sw_detailedPage .detailedPageTitle {
+	display:inline-block;
+	height:30px;
+	font-size:13px;
+	font-weight:bold;
+}
+
+#secondaryWindow #sw_detailedPage .detailedPageSummary {
+	height:45px;
+	padding-left:10px;
+	font-size:13px;
+}
+
+#secondaryWindow #sw_similarPages ul {
+	height:155px;
+}
+
+#secondaryWindow .ht_morePagesLikeThis {
+	padding-bottom:5px;
+}
+
+/*
+ * User study 
+ * ===========
+ */
+
+.randomIndicator {
+	position:absolute;
+	bottom:4px;
+	right:4px;
+	width:6px;
+	height:6px;
+	opacity:0.4;
+}
+
+#primaryWindow.userFeedback, #primaryWindow.userFeedback #secondaryWindow {
+	height:539px;	/* Add 255px, 51px per suggestion */
+}
+
+#primaryWindow.userFeedback #pw_mainArea ul {
+	height:450px;	
+}
+
+#primaryWindow.userFeedback #pw_mainArea ul.morePagesLike,
+	#primaryWindow.userFeedback #pw_mainArea ul.search {
+	height:415px;
+}
+
+#primaryWindow.userFeedback #sw_similarPages ul {
+	height:410px;
+}
+
+#primaryWindow.userFeedback .ht_rating {
+	padding-left:30px;
+}
+
+#primaryWindow.userFeedback .rating {
+	position:absolute;
+	right:35px;
+	display:inline-block;
+	height:17px;
+}
+
+/*
+ * Loader Window
+ * =============
+ */
+
+#progressbar.ui-progressbar {
+	position:fixed;
+	right:265px;
+	bottom:5px;
+	width:260px;
+	height:20px;
+	border-style:solid;
+	border-width:2px;
+	border-radius:5px;
+}
+
+#progressbar .ui-progressbar-value {
+	position:absolute;
+	left:0px;
+	top:0px;
+	height:100%;
+	overflow:hidden;
+}
+
+#progressbar .ht_loaderUnloaded, #progressbar .ht_loaderLoaded {
+	width:260px;
+	height:15px;
+	padding-left:5px;
+	font-family: 'Helvetica Neue', Arial, Helvetica, 'Liberation Sans', FreeSans, sans-serif;
+	font-size:14px;
+	font-weight:bold;
+	font-style:italic;
+}
+
+#progressbar .ht_loaderUnloaded {
+	position:absolute;
+	left:0px;
+	top:0px;
+	color:rgb(51, 51, 51);
+}
+
+#progressbar .ht_loaderLoaded {
+	color:rgb(255, 255, 255);	
+}
+
+
+/*
+ * Scrollbars
+ * ==========
+ */
+
+#primaryWindow .jspContainer, #secondaryWindow .jspContainer {
+	overflow: hidden;
+	position: relative;
+}
+
+#primaryWindow .jspPane, #secondaryWindow .jspPane {
+	position: absolute;
+}
+
+#primaryWindow .jspVerticalBar, #secondaryWindow .jspVerticalBar {
+	position: absolute;
+	top: 0;
+	right: 0;
+	margin: 0;
+	padding: 0;
+	width: 12px;
+	background: red;
+	border-style:solid;
+	border-left-width: 1px;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
+	border-color: rgb(225, 225, 225);
+}
+
+#primaryWindow .jspCap, #secondaryWindow .jspCap {
+	display: none;
+	float: left;
+}
+
+#primaryWindow .jspTrack, #secondaryWindow .jspTrack {
+	position: relative;
+	background-color:rgb(245, 245, 245);
+}
+
+#primaryWindow .jspDrag, #secondaryWindow .jspDrag {
+	position: relative;
+	top: 0;
+	left: 0;
+	cursor: pointer;
+	border-radius:2px;
+}
+
+#primaryWindow .jspArrow, #secondaryWindow .jspArrow {
+	height: 16px;
+	background: #50506d;
+	text-indent: -20000px;
+	display: block;
+	cursor: pointer;
+}
+
+#primaryWindow .jspArrow.jspDisabled, #secondaryWindow .jspArrow.jspDisabled {
+	cursor: default;
+	background: #80808d;
+}
+
+#primaryWindow .jspArrow:focus, #secondaryWindow .jspArrow:focus {
+	outline: none;
+}
+
+#primaryWindow .jspCorner, #secondaryWindow .jspCorner {
+	background: #eeeef4;
+	float: left;
+	height: 100%;
+}
