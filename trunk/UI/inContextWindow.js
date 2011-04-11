@@ -55,7 +55,7 @@ if ((!filterURL(document.URL)) && (document.body != null)) {
 				trace[0].eventID = eventID;
 				
 				destroyLoaderWindow();
-				createInContextWindow();
+				createInContextWindow(msg.extensionMinimized);
 			}
 		});
 	}
@@ -89,7 +89,7 @@ function destroyLoaderWindow() {
 	}
 }
 
-function createInContextWindow(){
+function createInContextWindow(extensionMinimized){
 	$('body').append('<div id="primaryWindow"></div>');
 	primaryWindow = $('#primaryWindow');
 	if (userFeedback) {
@@ -130,7 +130,7 @@ function createInContextWindow(){
 	swBottom = getCSSSizeValue(secondaryWindow, 'bottom');
 	hideSecondaryWindow();
 	
-	$('body').append('<div id="minimizedWindow"></div>');
+	$('body').append('<div id="minimizedWindow">inContext</div>');
 	minimizedWindow = $('#minimizedWindow');
 	minimizedWindow.hide();
 	
@@ -139,30 +139,15 @@ function createInContextWindow(){
 	secondaryWindow.append('<div class="randomIndicator"></div>');
 	$('.randomIndicator').hide();
 	
+	if(extensionMinimized) minimize();
+	
+	
 	/*
 	 * Listen to minimize/maximize events
 	 * ===================================
 	 */
-	$('#pw_titleBar').bind('click', function(event){
-		primaryWindow.hide();
-		minimizedWindow.show();
-		pwVisible = false;
-		reportEvent({
-			type:'minimize', 
-			relatedID:trace[trace.length-1].eventID,
-			randomSuggestions:trace[trace.length-1].randomSuggestions
-		});
-	});
-	minimizedWindow.bind('click', function(event){
-		primaryWindow.show();
-		minimizedWindow.hide();
-		pwVisible = true;
-		reportEvent({
-			type:'maximize', 
-			relatedID:trace[trace.length-1].eventID,
-			randomSuggestions:trace[trace.length-1].randomSuggestions
-		});
-	});
+	$('#pw_titleBar').bind('click', minimize);
+	minimizedWindow.bind('click', maximize);
 	
 	/*
 	 * Listen to search events.
@@ -373,10 +358,27 @@ function createInContextWindow(){
 	});
 }
 
-/*
- * UI Construction functions.
- * ==========================
- */
+function minimize() {
+	primaryWindow.hide();
+	minimizedWindow.show();
+	pwVisible = false;
+	reportEvent({
+		type:'minimize', 
+		relatedID:trace[trace.length-1].eventID,
+		randomSuggestions:trace[trace.length-1].randomSuggestions
+	});
+}
+
+function maximize() {
+	primaryWindow.show();
+	minimizedWindow.hide();
+	pwVisible = true;
+	reportEvent({
+		type:'maximize', 
+		relatedID:trace[trace.length-1].eventID,
+		randomSuggestions:trace[trace.length-1].randomSuggestions
+	});
+}
 
 function showSecondaryWindow(){
 	swVisible = true;
