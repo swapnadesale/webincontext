@@ -32,9 +32,10 @@ History.prototype = {
 		this.openTabs.nextToProcess = 0; 	
 		this.selectedTabs = new Array();
 		this.selectedTabs.nextToProcess = 0;
+		this.extensionMinimized = false;
 
 		// Default properties
-		this.maxHistoryEntries = merge(3000, opts.maxHistoryEntries);
+		this.maxHistoryEntries = merge(10000, opts.maxHistoryEntries);
 		this.nrLoadThreads = merge(5, opts.nrLoadThreads);
 		this.timeout = merge(10000, opts.timeout);
 		
@@ -73,7 +74,6 @@ History.prototype = {
 		this.percentRandomSuggestionsFeedback = merge(0.25, opts.percentRandomSuggestionsFeedback);
 		this.percentRandomSuggestionsNoFeedback = merge(0.0, opts.percentRandomSuggestionsNoFeedback);
 		this.randomSuggestionsDelay = merge(5000, opts.randomSuggestionsDelay);
-
 	},
 	
 	loadHistory: function(callback){
@@ -256,7 +256,7 @@ History.prototype = {
 			});
 			chrome.tabs.onRemoved.addListener(function(tId) {
 				t = extractTab('tId', tId);
-				if(t == null) log('Tab removed failed for id: '+ tId);
+				if(t == null) log('Tab remove failed for id: '+ tId);
 			});
 			chrome.tabs.onSelectionChanged.addListener(function(tId, selectInfo) {
 				var tOld = extractTabFromArray(that.selectedTabs, 'wId', selectInfo.windowId);
@@ -266,7 +266,7 @@ History.prototype = {
 				if (t != null) {
 					that.selectedTabs.push(t);
 					that.selectedTabs.nextToProcess = that.selectedTabs.length - 1;
-				} else log('Tab selection changed failed for id: '+ tId + '! Tab not found.');
+				} else log('Tab selection change failed for id: '+ tId + '! Tab not found.');
 			});
 			chrome.tabs.onUpdated.addListener(function(tId, changeInfo){
 				if (changeInfo.status == 'loading') {
@@ -277,7 +277,7 @@ History.prototype = {
 						t.requests = [];
 						if (changeInfo.url != null) // URL changed
 							t.lastLoadedURL = changeInfo.url;
-					} else log('Tab updated failed for id: ' + tId + '! Tab not found.');
+					} else log('Tab update failed for id: ' + tId + '! Tab not found.');
 				}
 			});
 
@@ -347,7 +347,8 @@ History.prototype = {
 							sendResponse({
 								historyLoaded: true,
 								id: id,
-								userFeedback: userFeedback
+								userFeedback: userFeedback,
+								extensionMinimized: that.extensionMinimized,
 							});
 						} catch(err) {
 							log('Error in sending history state to tab: ' + sender.tab.id + '! ' + err.message);
@@ -429,6 +430,8 @@ History.prototype = {
 					
 					case 'logRequested':
 						that.store.storeEvent(msg.event);
+						if(msg.event.type == 'minimize') that.extensionMinimized = true;
+						if(msg.event.type == 'maximize') that.extensionMinimized = false;
 						break;
 				}
 			});
