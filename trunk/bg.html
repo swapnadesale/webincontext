@@ -9,12 +9,9 @@
 	<script>
 		var hist, detailsPage;
 		function run(){
-			chrome.tabs.create({url:"SuggestionsDetails.html"}, function(tab) {
-				hist = new History({});
-				hist.loadHistory(function(){
-					detailsPage.document.write("Ready! <br><br>");
+			hist = new History({});
+			hist.loadHistory(function(){
 				});
-			});
 		}
 	</script>
 </head>

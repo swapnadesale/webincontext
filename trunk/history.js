@@ -71,7 +71,7 @@ History.prototype = {
 		
 		// User study 
 		this.percentUserFeedback = merge(0.0, opts.percentUserFeedback);
-		this.percentRandomSuggestionsFeedback = merge(0.25, opts.percentRandomSuggestionsFeedback);
+		this.percentRandomSuggestionsFeedback = merge(0.33, opts.percentRandomSuggestionsFeedback);
 		this.percentRandomSuggestionsNoFeedback = merge(0.0, opts.percentRandomSuggestionsNoFeedback);
 		this.randomSuggestionsDelay = merge(5000, opts.randomSuggestionsDelay);
 	},
@@ -83,7 +83,7 @@ History.prototype = {
 			that.sessionID++;
 			that.store.storeSessionID(that.sessionID);
 			
-			detailsPage = chrome.extension.getViews()[1];
+//			detailsPage = chrome.extension.getViews()[1];
 			
 			chrome.history.search({
 				text: "",
@@ -402,7 +402,8 @@ History.prototype = {
 								/*
 							 	* Add user study behavior.
 							 	*/
-								pg.randomSuggestions = msg.userFeedback? (Math.random() < that.percentRandomSuggestionsFeedback) : false; 
+								pg.randomSuggestions = msg.userFeedback ? (Math.random() < that.percentRandomSuggestionsFeedback) :
+									(Math.random() < that.percentRandomSuggestionsNoFeedback); 
 								pg.state = pg.randomSuggestions ? 'computingRandomSuggestions' : 'computingTfidfScores';
 								log(pg.randomSuggestions + " - " + pg.url);
 								

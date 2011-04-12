@@ -17,7 +17,6 @@ function filterURL(url){
 
 function log(logLine) {
 	// TODO: Change this to a database log.
-	detailsPage.document.write(logLine + '<br>');
 }
 
 // Functions for handling associative arrays.
